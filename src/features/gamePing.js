@@ -1,59 +1,50 @@
 import cron from 'node-cron';
 import { getBlazersGameToday, formatGameInfo } from '../utils/nbaApi.js';
 
-let scheduledPingJob = null; // Store the scheduled ping job
-let scheduledGameTime = null; // Store the game time we scheduled for
+let activePingJobs = new Map(); // Track scheduled pings by game date
 
 /**
- * Check if a game is within 15 minutes and schedule a ping for 5 minutes before
+ * Check for today's game and schedule a ping 5 minutes before tip-off
  */
-async function checkAndSchedulePing(client) {
+async function checkAndScheduleGamePing(client) {
   try {
     const game = await getBlazersGameToday();
     
     if (!game) {
-      console.log('ℹ️ No game today to schedule ping for');
+      console.log('ℹ️ No game today');
       return;
     }
 
-    // Get game time
     const gameTime = new Date(game.status);
+    const gameKey = gameTime.toDateString(); // Use date as key to avoid duplicates
+    
+    // Skip if we already scheduled a ping for this game
+    if (activePingJobs.has(gameKey)) {
+      return;
+    }
+
+    // Calculate ping time (5 minutes before game)
+    const pingTime = new Date(gameTime.getTime() - 5 * 60 * 1000);
     const now = new Date();
     
-    // Calculate time difference in minutes
-    const timeDiff = Math.floor((gameTime - now) / (1000 * 60));
-    
-    // If we're within 15 minutes and haven't scheduled yet, queue up the ping
-    if (timeDiff <= 15 && timeDiff > 0 && scheduledGameTime !== gameTime.getTime()) {
-      // Calculate when to send the ping (5 minutes before game time)
-      const pingTime = new Date(gameTime.getTime() - 5 * 60 * 1000);
+    // Only schedule if ping time is in the future
+    if (pingTime > now) {
+      const msUntilPing = pingTime.getTime() - now.getTime();
       
-      // Cancel any previously scheduled ping
-      if (scheduledPingJob) {
-        scheduledPingJob.stop();
-        console.log('🛑 Cancelled previous scheduled ping');
-      }
+      // Schedule the ping as a one-time job
+      const timeout = setTimeout(() => {
+        console.log('🎯 Executing game ping now!');
+        sendGameStartingMessages(client, game);
+        activePingJobs.delete(gameKey);
+      }, msUntilPing);
       
-      // Schedule the ping for exactly 5 minutes before game time
-      scheduledPingJob = cron.schedule('*', () => {
-        const now = new Date();
-        if (Math.abs(now.getTime() - pingTime.getTime()) < 1000) { // Within 1 second
-          console.log('🎯 Executing scheduled game ping now!');
-          sendGameStartingMessages(client, game);
-          scheduledPingJob.stop();
-          scheduledPingJob = null;
-        }
-      }, {
-        timezone: process.env.TIMEZONE || 'America/Los_Angeles'
-      });
+      activePingJobs.set(gameKey, timeout);
       
-      scheduledGameTime = gameTime.getTime();
-      
-      const timeUntilPing = Math.floor((pingTime - now) / 60000);
-      console.log(`✅ Scheduled game ping for ${pingTime.toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles' })} (in ${timeUntilPing} minutes)`);
+      const timeUntilPing = Math.floor(msUntilPing / 60000);
+      console.log(`✅ Scheduled game ping for ${pingTime.toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles' })} PT (in ${timeUntilPing} minutes)`);
     }
   } catch (error) {
-    console.error('Error checking and scheduling game ping:', error);
+    console.error('Error scheduling game ping:', error);
   }
 }
 
@@ -127,21 +118,20 @@ async function sendGameStartingMessages(client, game) {
 
 /**
  * Schedule game ping checks
- * Checks every 15 minutes to see if a game is within 15 minutes
- * If found, schedules a precise ping for exactly 5 minutes before tip-off
+ * Checks every 5 minutes for today's game and schedules a ping 5 minutes before tip-off
  */
 export function scheduleGamePings(client) {
   // Check immediately on startup
-  checkAndSchedulePing(client);
+  checkAndScheduleGamePing(client);
   
-  // Check every 15 minutes to see if we need to schedule a ping
-  // Cron format: minute hour day month weekday
-  cron.schedule('*/15 * * * *', () => {
-    console.log('⏰ Checking if game is within 15 minutes...');
-    checkAndSchedulePing(client);
+  // Check every 5 minutes to see if we need to schedule a ping
+  // This ensures we catch the game early enough to schedule the 5-minute ping
+  cron.schedule('*/5 * * * *', () => {
+    console.log('⏰ Checking for today\'s game...');
+    checkAndScheduleGamePing(client);
   }, {
     timezone: process.env.TIMEZONE || 'America/Los_Angeles'
   });
   
-  console.log('✅ Game ping scheduler initialized (checks every 15 minutes, queues precise ping 5 min before game)');
+  console.log('✅ Game ping scheduler initialized (checks every 5 minutes)');
 }
