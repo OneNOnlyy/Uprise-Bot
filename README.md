@@ -20,7 +20,7 @@ A Discord bot for Portland Trail Blazers fans that automatically creates game th
 ### 1. Clone and Install
 
 ```bash
-cd "H:\grant\IntellJ Imports\Uprise Bot"
+cd YOUR DIRECTORY\Uprise Bot"
 npm install
 ```
 
