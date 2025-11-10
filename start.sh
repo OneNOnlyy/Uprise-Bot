@@ -18,6 +18,12 @@ fi
 if [ -d ".git" ]; then
     echo "📥 Pulling latest changes..."
     
+    # Stash any local changes to avoid merge conflicts
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "📦 Stashing local changes..."
+        git stash
+    fi
+    
     # Configure git
     git config pull.ff only
     
