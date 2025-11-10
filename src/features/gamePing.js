@@ -1,18 +1,18 @@
 import cron from 'node-cron';
 import { getBlazersGameToday, formatGameInfo } from '../utils/nbaApi.js';
 
-let gamePingSent = false; // Track if we've already sent the ping today
+let scheduledPingJob = null; // Store the scheduled ping job
+let scheduledGameTime = null; // Store the game time we scheduled for
 
 /**
- * Check if a game is starting soon and ping the configured role
+ * Check if a game is within 15 minutes and schedule a ping for 5 minutes before
  */
-async function checkAndPingForGame(client) {
+async function checkAndSchedulePing(client) {
   try {
     const game = await getBlazersGameToday();
     
     if (!game) {
-      console.log('ℹ️ No game today to ping for');
-      gamePingSent = false; // Reset for next day
+      console.log('ℹ️ No game today to schedule ping for');
       return;
     }
 
@@ -23,13 +23,37 @@ async function checkAndPingForGame(client) {
     // Calculate time difference in minutes
     const timeDiff = Math.floor((gameTime - now) / (1000 * 60));
     
-    // Ping 5 minutes before game time (only once)
-    if (timeDiff <= 5 && timeDiff > 0 && !gamePingSent) {
-      await sendGameStartingMessages(client, game);
-      gamePingSent = true; // Mark as sent so we don't spam
+    // If we're within 15 minutes and haven't scheduled yet, queue up the ping
+    if (timeDiff <= 15 && timeDiff > 0 && scheduledGameTime !== gameTime.getTime()) {
+      // Calculate when to send the ping (5 minutes before game time)
+      const pingTime = new Date(gameTime.getTime() - 5 * 60 * 1000);
+      
+      // Cancel any previously scheduled ping
+      if (scheduledPingJob) {
+        scheduledPingJob.stop();
+        console.log('🛑 Cancelled previous scheduled ping');
+      }
+      
+      // Schedule the ping for exactly 5 minutes before game time
+      scheduledPingJob = cron.schedule('*', () => {
+        const now = new Date();
+        if (Math.abs(now.getTime() - pingTime.getTime()) < 1000) { // Within 1 second
+          console.log('🎯 Executing scheduled game ping now!');
+          sendGameStartingMessages(client, game);
+          scheduledPingJob.stop();
+          scheduledPingJob = null;
+        }
+      }, {
+        timezone: process.env.TIMEZONE || 'America/Los_Angeles'
+      });
+      
+      scheduledGameTime = gameTime.getTime();
+      
+      const timeUntilPing = Math.floor((pingTime - now) / 60000);
+      console.log(`✅ Scheduled game ping for ${pingTime.toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles' })} (in ${timeUntilPing} minutes)`);
     }
   } catch (error) {
-    console.error('Error checking for game ping:', error);
+    console.error('Error checking and scheduling game ping:', error);
   }
 }
 
@@ -76,7 +100,7 @@ async function sendGameStartingMessages(client, game) {
       const pingMessage = `<@&${roleId}> 🏀 **Game Starting Soon**\n\n` +
                          `Portland Trail Blazers vs ${gameInfo.opponent}\n` +
                          `${gameInfo.location} • Tip-off at ${gameTimestamp}!\n\n` +
-                         `Get ready for tip-off! :Pinwheel:`;
+                         `Get ready for tip-off! 🔥`;
       
       await gameThreadChannel.send(pingMessage);
       console.log('✅ Sent game starting ping in game thread channel');
@@ -90,7 +114,7 @@ async function sendGameStartingMessages(client, game) {
         
         const mainChatMessage = `🏀 **Game Time!**\n\n` +
                                `**${gameInfo.awayTeam} @ ${gameInfo.homeTeam}** is starting!\n\n` +
-                               `Please move all game-related discussion to ${gameThreadLink}. :Pinwheel:`;
+                               `Please move all game-related discussion to ${gameThreadLink}.`;
         
         await mainChat.send(mainChatMessage);
         console.log('✅ Sent game discussion reminder in main chat');
@@ -103,20 +127,21 @@ async function sendGameStartingMessages(client, game) {
 
 /**
  * Schedule game ping checks
- * Checks every 15 minutes to see if a game is starting soon
+ * Checks every 15 minutes to see if a game is within 15 minutes
+ * If found, schedules a precise ping for exactly 5 minutes before tip-off
  */
 export function scheduleGamePings(client) {
   // Check immediately on startup
-  checkAndPingForGame(client);
+  checkAndSchedulePing(client);
   
-  // Check every 15 minutes
+  // Check every 15 minutes to see if we need to schedule a ping
   // Cron format: minute hour day month weekday
   cron.schedule('*/15 * * * *', () => {
-    console.log('⏰ Checking if game is starting soon...');
-    checkAndPingForGame(client);
+    console.log('⏰ Checking if game is within 15 minutes...');
+    checkAndSchedulePing(client);
   }, {
     timezone: process.env.TIMEZONE || 'America/Los_Angeles'
   });
   
-  console.log('✅ Game ping scheduler initialized (checks every 15 minutes)');
+  console.log('✅ Game ping scheduler initialized (checks every 15 minutes, queues precise ping 5 min before game)');
 }
