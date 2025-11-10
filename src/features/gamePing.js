@@ -73,42 +73,54 @@ async function sendGameStartingMessages(client, game) {
     let threadMention = null;
     
     // Send ping in game thread channel
-    const gameThreadChannel = await client.channels.fetch(gameThreadChannelId);
-    if (gameThreadChannel) {
-      // Search for the game thread first
-      if (gameThreadChannel.isThreadOnly()) {
-        const threads = await gameThreadChannel.threads.fetchActive();
-        const todayThread = threads.threads.find(thread => 
-          thread.name.includes(gameInfo.awayTeam) || 
-          thread.name.includes(gameInfo.homeTeam)
-        );
-        
-        if (todayThread) {
-          threadMention = `<#${todayThread.id}>`;
+    try {
+      const gameThreadChannel = await client.channels.fetch(gameThreadChannelId);
+      if (gameThreadChannel && gameThreadChannel.send) {
+        // Search for the game thread first
+        if (gameThreadChannel.isThreadOnly && gameThreadChannel.isThreadOnly()) {
+          const threads = await gameThreadChannel.threads.fetchActive();
+          const todayThread = threads.threads.find(thread => 
+            thread.name.includes(gameInfo.awayTeam) || 
+            thread.name.includes(gameInfo.homeTeam)
+          );
+          
+          if (todayThread) {
+            threadMention = `<#${todayThread.id}>`;
+          }
         }
+        
+        const pingMessage = `<@&${roleId}> 🏀 **Game Starting Soon**\n\n` +
+                           `Portland Trail Blazers vs ${gameInfo.opponent}\n` +
+                           `${gameInfo.location} • Tip-off at ${gameTimestamp}!\n\n` +
+                           `Get ready for tip-off! 🔥`;
+        
+        await gameThreadChannel.send(pingMessage);
+        console.log('✅ Sent game starting ping in game thread channel');
+      } else {
+        console.error('Game thread channel not found or is not a valid text channel');
       }
-      
-      const pingMessage = `<@&${roleId}> 🏀 **Game Starting Soon**\n\n` +
-                         `Portland Trail Blazers vs ${gameInfo.opponent}\n` +
-                         `${gameInfo.location} • Tip-off at ${gameTimestamp}!\n\n` +
-                         `Get ready for tip-off! 🔥`;
-      
-      await gameThreadChannel.send(pingMessage);
-      console.log('✅ Sent game starting ping in game thread channel');
+    } catch (channelError) {
+      console.error('Error sending to game thread channel:', channelError.message);
     }
     
     // Send announcement in main chat to move discussion to game thread
     if (mainChatId) {
-      const mainChat = await client.channels.fetch(mainChatId);
-      if (mainChat) {
-        const gameThreadLink = threadMention || 'the game thread';
-        
-        const mainChatMessage = `🏀 **Game Time!**\n\n` +
-                               `**${gameInfo.awayTeam} @ ${gameInfo.homeTeam}** is starting!\n\n` +
-                               `Please move all game-related discussion to ${gameThreadLink}.`;
-        
-        await mainChat.send(mainChatMessage);
-        console.log('✅ Sent game discussion reminder in main chat');
+      try {
+        const mainChat = await client.channels.fetch(mainChatId);
+        if (mainChat && mainChat.send) {
+          const gameThreadLink = threadMention || 'the game thread';
+          
+          const mainChatMessage = `🏀 **Game Time!**\n\n` +
+                                 `**${gameInfo.awayTeam} @ ${gameInfo.homeTeam}** is starting!\n\n` +
+                                 `Please move all game-related discussion to ${gameThreadLink}.`;
+          
+          await mainChat.send(mainChatMessage);
+          console.log('✅ Sent game discussion reminder in main chat');
+        } else {
+          console.error('Main chat channel not found or is not a valid text channel');
+        }
+      } catch (chatError) {
+        console.error('Error sending to main chat:', chatError.message);
       }
     }
   } catch (error) {
