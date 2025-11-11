@@ -46,10 +46,18 @@ if [ -d ".git" ]; then
     # Install/update dependencies
     echo "📦 Installing dependencies..."
     npm install
+    
+    # Deploy slash commands to Discord
+    echo "⚡ Deploying slash commands..."
+    node src/deploy-commands.js
 else
     echo "⚠️ Not a git repository. Skipping update."
     echo "📦 Installing dependencies..."
     npm install
+    
+    # Deploy slash commands to Discord
+    echo "⚡ Deploying slash commands..."
+    node src/deploy-commands.js
 fi
 
 echo "🚀 Starting Uprise Bot..."
