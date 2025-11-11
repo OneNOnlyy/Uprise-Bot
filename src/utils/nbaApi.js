@@ -15,19 +15,25 @@ function getHeaders() {
 /**
  * Get upcoming Trail Blazers games
  */
-export async function getUpcomingBlazersGames(daysAhead = 14) {
+export async function getUpcomingBlazersGames(daysAhead = 14, includePast = false) {
   try {
     const today = new Date();
-    const startDate = today.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    // If includePast is true, start from yesterday to catch today's games
+    const startDate = new Date(today);
+    if (includePast) {
+      startDate.setDate(today.getDate() - 1);
+    }
+    const startDateStr = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
     
     const endDate = new Date(today);
     endDate.setDate(today.getDate() + daysAhead);
     const endDateStr = endDate.toISOString().split('T')[0];
     
-    console.log(`🔍 Fetching games from ${startDate} to ${endDateStr}...`);
+    console.log(`🔍 Fetching games from ${startDateStr} to ${endDateStr}...`);
     
     // Fetch games for the Trail Blazers
-    const url = `${BALLDONTLIE_API_BASE}/games?team_ids[]=${BLAZERS_TEAM_ID}&start_date=${startDate}&end_date=${endDateStr}&per_page=100`;
+    const url = `${BALLDONTLIE_API_BASE}/games?team_ids[]=${BLAZERS_TEAM_ID}&start_date=${startDateStr}&end_date=${endDateStr}&per_page=100`;
     
     const response = await fetch(url, {
       headers: getHeaders()

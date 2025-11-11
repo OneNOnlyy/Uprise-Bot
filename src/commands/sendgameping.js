@@ -18,16 +18,29 @@ export async function execute(interaction) {
       return;
     }
 
-    // Get upcoming games (next 14 days)
-    const games = await getUpcomingBlazersGames(14);
+    // Get games (include yesterday to catch today's games that may have started)
+    const games = await getUpcomingBlazersGames(14, true);
     
     if (!games || games.length === 0) {
-      await interaction.editReply('❌ No upcoming games found.');
+      await interaction.editReply('❌ No games found. The API may be experiencing issues or there are no scheduled games in the next 14 days.');
+      return;
+    }
+
+    // Filter to only show games that haven't finished yet
+    const now = new Date();
+    const availableGames = games.filter(game => {
+      const gameTime = new Date(game.status);
+      // Show games that are in the future or within the last 4 hours (likely still ongoing)
+      return (gameTime.getTime() > now.getTime() - (4 * 60 * 60 * 1000));
+    });
+
+    if (availableGames.length === 0) {
+      await interaction.editReply('❌ No upcoming or current games found.');
       return;
     }
 
     // Create select menu options for each game
-    const options = games.map((game, index) => {
+    const options = availableGames.map((game, index) => {
       const gameInfo = formatGameInfo(game);
       const gameDate = new Date(game.status);
       const dateStr = gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles' });
@@ -58,7 +71,7 @@ export async function execute(interaction) {
     const collected = await interaction.channel.awaitMessageComponent({ filter, time: 300000 });
 
     const selectedGameIndex = parseInt(collected.values[0]);
-    const selectedGame = games[selectedGameIndex];
+    const selectedGame = availableGames[selectedGameIndex];
     const selectedGameInfo = formatGameInfo(selectedGame);
 
     // Defer the select menu interaction
