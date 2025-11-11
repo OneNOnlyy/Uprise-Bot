@@ -2,12 +2,14 @@ import { REST, Routes } from 'discord.js';
 import dotenv from 'dotenv';
 import * as gamethreadCommand from './commands/gamethread.js';
 import * as testpingCommand from './commands/testping.js';
+import * as sendgamepingCommand from './commands/sendgameping.js';
 
 dotenv.config();
 
 const commands = [
   gamethreadCommand.data.toJSON(),
   testpingCommand.data.toJSON(),
+  sendgamepingCommand.data.toJSON(),
 ];
 
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);

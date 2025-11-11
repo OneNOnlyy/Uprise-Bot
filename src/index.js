@@ -5,6 +5,7 @@ import { scheduleGamePings } from './features/gamePing.js';
 import { scheduleThreadLocking } from './features/lockThreads.js';
 import * as gamethreadCommand from './commands/gamethread.js';
 import * as testpingCommand from './commands/testping.js';
+import * as sendgamepingCommand from './commands/sendgameping.js';
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ const client = new Client({
 client.commands = new Collection();
 client.commands.set(gamethreadCommand.data.name, gamethreadCommand);
 client.commands.set(testpingCommand.data.name, testpingCommand);
+client.commands.set(sendgamepingCommand.data.name, sendgamepingCommand);
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`✅ Uprise Bot is ready! Logged in as ${readyClient.user.tag}`);
