@@ -47,7 +47,7 @@ export async function execute(interaction) {
     const pingMessage = `@Game Ping Role 🏀 **Game Starting Soon!**\n\n` +
                        `Portland Trail Blazers vs ${opponent}\n` +
                        `${location} • Tip-off at ${gameTimestamp}!\n\n` +
-                       `Get ready for tip-off! :Pinwheel:\n\n` +
+                       `Get ready for tip-off! 🔥\n\n` +
                        `_This is a test ping from /testping command (role ping disabled for testing)_`;
     
     await interaction.channel.send(pingMessage);
@@ -55,7 +55,7 @@ export async function execute(interaction) {
     // Send test message to current channel (not main chat)
     const mainChatMessage = `🏀 **Game Time!**\n\n` +
                            `The **${awayTeam} @ ${homeTeam}** game is starting!\n\n` +
-                           `Please move all game discussion to the game thread :Pinwheel:\n\n` +
+                           `Please move all game discussion to the game thread 🔥\n\n` +
                            `_This is a test message from /testping command (what would be sent to main chat)_`;
     
     await interaction.channel.send(mainChatMessage);

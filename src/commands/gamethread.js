@@ -125,7 +125,7 @@ async function createGameThread(interaction, gameInfo) {
     // Create embed with opponent logo
     const embed = new EmbedBuilder()
       .setTitle(`${gameInfo.awayTeam} @ ${gameInfo.homeTeam}`)
-      .setDescription(`**Rip City!** 🔥 Let's go Blazers! Discuss the game here!`)
+      .setDescription(`**Rip City!** 🌹 Let's go Blazers! Discuss the game here!`)
       .addFields(
         { name: '📅 Date', value: gameInfo.gameDate, inline: true },
         { name: '🕐 Tip-off', value: gameInfo.gameTime, inline: true },
