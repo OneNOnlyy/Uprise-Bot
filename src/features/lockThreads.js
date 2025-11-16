@@ -22,8 +22,10 @@ async function checkAndLockGameThreads(client) {
     const activeThreads = await channel.threads.fetchActive();
     const now = new Date();
 
-    // Get recent games to check which threads correspond to finished games
-    const recentGames = await getUpcomingBlazersGames(14); // Get games from past 14 days
+    // Get recent games (including past games from last 7 days to catch finished games)
+    const recentGames = await getUpcomingBlazersGames(7, true); // includePast = true
+    
+    console.log(`📋 Checking ${activeThreads.threads.size} active threads for locking...`);
     
     for (const thread of activeThreads.threads.values()) {
       // Check if this is a game thread (contains team names and date)
@@ -40,12 +42,16 @@ async function checkAndLockGameThreads(client) {
         const gameTime = new Date(matchingGame.status);
         const hoursSinceGame = (now - gameTime) / (1000 * 60 * 60);
 
+        console.log(`🏀 ${thread.name}: ${hoursSinceGame.toFixed(1)} hours since game time`);
+
         // Lock thread if 24 hours have passed since game time
         if (hoursSinceGame >= 24 && !thread.locked) {
           await thread.setLocked(true, 'Auto-lock: 24 hours after game time');
           await thread.setArchived(true, 'Auto-archive: 24 hours after game time');
           console.log(`🔒 Locked and archived game thread: ${thread.name}`);
         }
+      } else {
+        console.log(`⚠️ Could not find matching game for thread: ${thread.name}`);
       }
     }
   } catch (error) {
