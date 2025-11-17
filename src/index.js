@@ -6,6 +6,7 @@ import { scheduleThreadLocking } from './features/lockThreads.js';
 import * as gamethreadCommand from './commands/gamethread.js';
 import * as testpingCommand from './commands/testping.js';
 import * as sendgamepingCommand from './commands/sendgameping.js';
+import * as configCommand from './commands/config.js';
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ client.commands = new Collection();
 client.commands.set(gamethreadCommand.data.name, gamethreadCommand);
 client.commands.set(testpingCommand.data.name, testpingCommand);
 client.commands.set(sendgamepingCommand.data.name, sendgamepingCommand);
+client.commands.set(configCommand.data.name, configCommand);
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`✅ Uprise Bot is ready! Logged in as ${readyClient.user.tag}`);
@@ -38,30 +40,40 @@ client.once(Events.ClientReady, (readyClient) => {
   scheduleThreadLocking(client);
 });
 
-// Handle slash commands
+// Handle slash commands and interactions
 client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
+  // Handle slash commands
+  if (interaction.isChatInputCommand()) {
+    const command = client.commands.get(interaction.commandName);
 
-  const command = client.commands.get(interaction.commandName);
+    if (!command) {
+      console.error(`No command matching ${interaction.commandName} was found.`);
+      return;
+    }
 
-  if (!command) {
-    console.error(`No command matching ${interaction.commandName} was found.`);
-    return;
+    try {
+      await command.execute(interaction);
+    } catch (error) {
+      console.error('Error executing command:', error);
+      const errorMessage = { 
+        content: '❌ There was an error executing this command!', 
+        ephemeral: true 
+      };
+      
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(errorMessage);
+      } else {
+        await interaction.reply(errorMessage);
+      }
+    }
   }
-
-  try {
-    await command.execute(interaction);
-  } catch (error) {
-    console.error('Error executing command:', error);
-    const errorMessage = { 
-      content: '❌ There was an error executing this command!', 
-      ephemeral: true 
-    };
-    
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp(errorMessage);
-    } else {
-      await interaction.reply(errorMessage);
+  
+  // Handle config menu interactions (select menus, buttons, modals)
+  if (interaction.customId && interaction.customId.startsWith('config_')) {
+    try {
+      await configCommand.handleConfigInteraction(interaction);
+    } catch (error) {
+      console.error('Error handling config interaction:', error);
     }
   }
 });
