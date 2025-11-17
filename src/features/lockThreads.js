@@ -26,6 +26,17 @@ async function checkAndLockGameThreads(client) {
     const recentGames = await getUpcomingBlazersGames(7, true); // includePast = true
     
     console.log(`📋 Checking ${activeThreads.threads.size} active threads for locking...`);
+    console.log(`📅 Found ${recentGames?.length || 0} recent games in API`);
+    
+    if (recentGames && recentGames.length > 0) {
+      console.log('Recent games:');
+      recentGames.forEach(game => {
+        const homeTeam = game.home_team.abbreviation;
+        const awayTeam = game.visitor_team.abbreviation;
+        const gameDate = new Date(game.status);
+        console.log(`  - ${awayTeam} @ ${homeTeam} on ${gameDate.toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles' })}`);
+      });
+    }
     
     for (const thread of activeThreads.threads.values()) {
       // Check if this is a game thread (contains team names and date)
@@ -40,15 +51,25 @@ async function checkAndLockGameThreads(client) {
 
       if (matchingGame) {
         const gameTime = new Date(matchingGame.status);
+        
+        // Check if the date is valid
+        if (isNaN(gameTime.getTime())) {
+          console.log(`⚠️ Invalid game time for thread: ${thread.name} (status: ${matchingGame.status})`);
+          continue;
+        }
+        
         const hoursSinceGame = (now - gameTime) / (1000 * 60 * 60);
 
-        console.log(`🏀 ${thread.name}: ${hoursSinceGame.toFixed(1)} hours since game time`);
+        console.log(`🏀 ${thread.name}: ${hoursSinceGame.toFixed(1)} hours since game time (${gameTime.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })})`);
 
         // Lock thread if 24 hours have passed since game time
         if (hoursSinceGame >= 24 && !thread.locked) {
           await thread.setLocked(true, 'Auto-lock: 24 hours after game time');
           await thread.setArchived(true, 'Auto-archive: 24 hours after game time');
           console.log(`🔒 Locked and archived game thread: ${thread.name}`);
+        } else if (hoursSinceGame < 24) {
+          const hoursRemaining = 24 - hoursSinceGame;
+          console.log(`⏳ Thread will be locked in ${hoursRemaining.toFixed(1)} hours`);
         }
       } else {
         console.log(`⚠️ Could not find matching game for thread: ${thread.name}`);
