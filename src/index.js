@@ -7,6 +7,9 @@ import * as gamethreadCommand from './commands/gamethread.js';
 import * as testpingCommand from './commands/testping.js';
 import * as sendgamepingCommand from './commands/sendgameping.js';
 import * as configCommand from './commands/config.js';
+import * as patsstartCommand from './commands/patsstart.js';
+import * as makepickCommand from './commands/makepick.js';
+import * as patsleaderboardCommand from './commands/patsleaderboard.js';
 
 dotenv.config();
 
@@ -24,6 +27,9 @@ client.commands.set(gamethreadCommand.data.name, gamethreadCommand);
 client.commands.set(testpingCommand.data.name, testpingCommand);
 client.commands.set(sendgamepingCommand.data.name, sendgamepingCommand);
 client.commands.set(configCommand.data.name, configCommand);
+client.commands.set(patsstartCommand.data.name, patsstartCommand);
+client.commands.set(makepickCommand.data.name, makepickCommand);
+client.commands.set(patsleaderboardCommand.data.name, patsleaderboardCommand);
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`✅ Uprise Bot is ready! Logged in as ${readyClient.user.tag}`);
@@ -74,6 +80,36 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await configCommand.handleConfigInteraction(interaction);
     } catch (error) {
       console.error('Error handling config interaction:', error);
+    }
+  }
+  
+  // Handle PATS interactions (select menus, buttons)
+  if (interaction.customId && interaction.customId.startsWith('pats_')) {
+    try {
+      // Handle game selection dropdown
+      if (interaction.customId === 'pats_game_select') {
+        await makepickCommand.handleGameSelection(interaction);
+      }
+      // Handle pick submission buttons
+      else if (interaction.customId.startsWith('pats_pick_')) {
+        await makepickCommand.handlePickSubmission(interaction);
+      }
+      // Handle back to menu button
+      else if (interaction.customId === 'pats_back_to_menu') {
+        await makepickCommand.handleBackToMenu(interaction);
+      }
+    } catch (error) {
+      console.error('Error handling PATS interaction:', error);
+      const errorMessage = { 
+        content: '❌ There was an error processing your pick!', 
+        ephemeral: true 
+      };
+      
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(errorMessage);
+      } else {
+        await interaction.reply(errorMessage);
+      }
     }
   }
 });

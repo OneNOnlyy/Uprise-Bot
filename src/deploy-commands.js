@@ -4,6 +4,9 @@ import * as gamethreadCommand from './commands/gamethread.js';
 import * as testpingCommand from './commands/testping.js';
 import * as sendgamepingCommand from './commands/sendgameping.js';
 import * as configCommand from './commands/config.js';
+import * as patsstartCommand from './commands/patsstart.js';
+import * as makepickCommand from './commands/makepick.js';
+import * as patsleaderboardCommand from './commands/patsleaderboard.js';
 
 dotenv.config();
 
@@ -12,6 +15,9 @@ const commands = [
   testpingCommand.data.toJSON(),
   sendgamepingCommand.data.toJSON(),
   configCommand.data.toJSON(),
+  patsstartCommand.data.toJSON(),
+  makepickCommand.data.toJSON(),
+  patsleaderboardCommand.data.toJSON(),
 ];
 
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
