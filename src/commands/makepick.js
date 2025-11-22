@@ -253,12 +253,14 @@ export async function handleGameSelection(interaction) {
     // Check if user already picked this game
     const userPicks = getUserPicks(session.id, interaction.user.id);
     const existingPick = userPicks.find(p => p.gameId === gameId);
+    const hasDoubleDown = userPicks.some(p => p.isDoubleDown);
     
     if (existingPick) {
       const pickedTeam = existingPick.pick === 'home' ? game.homeTeam : game.awayTeam;
+      const ddText = existingPick.isDoubleDown ? ' 💰 **DOUBLE DOWN**' : '';
       embed.addFields({
         name: '✅ Your Current Pick',
-        value: `**${pickedTeam}** (${existingPick.spread > 0 ? '+' : ''}${existingPick.spread})${isLocked ? ' - Locked' : ''}`,
+        value: `**${pickedTeam}** (${existingPick.spread > 0 ? '+' : ''}${existingPick.spread})${ddText}${isLocked ? ' - Locked' : ''}`,
         inline: false
       });
     } else if (isLocked) {
@@ -433,6 +435,81 @@ export async function handlePickSubmission(interaction) {
     } else {
       await interaction.followUp({
         content: '❌ Error saving pick.',
+        ephemeral: true
+      });
+    }
+  }
+}
+
+/**
+ * Handle double-down toggle
+ */
+export async function handleDoubleDownToggle(interaction) {
+  try {
+    const session = getActiveSession();
+    if (!session) {
+      await interaction.reply({
+        content: '❌ Session ended.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    const [, , gameId] = interaction.customId.split('_');
+    const game = session.games.find(g => g.id === gameId);
+    
+    if (!game) {
+      await interaction.reply({
+        content: '❌ Game not found.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Check if game has started
+    const gameTime = new Date(game.commenceTime);
+    if (gameTime < new Date()) {
+      await interaction.reply({
+        content: '❌ This game has already started! You cannot modify your double-down.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Get user's picks
+    const userPicks = getUserPicks(session.id, interaction.user.id);
+    const existingPick = userPicks.find(p => p.gameId === gameId);
+    
+    if (!existingPick) {
+      await interaction.reply({
+        content: '❌ You must make a pick first before adding a double-down!',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Toggle double-down
+    const newDoubleDownState = !existingPick.isDoubleDown;
+    const result = savePick(session.id, interaction.user.id, gameId, existingPick.pick, existingPick.spread, newDoubleDownState);
+    
+    if (result.error) {
+      await interaction.reply({
+        content: `❌ ${result.error}`,
+        ephemeral: true
+      });
+      return;
+    }
+
+    await interaction.deferUpdate();
+    
+    // Refresh the game view to show updated double-down status
+    await handleGameSelection(interaction, gameId);
+
+  } catch (error) {
+    console.error('Error handling double-down toggle:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Error toggling double-down.',
         ephemeral: true
       });
     }
@@ -803,6 +880,7 @@ export async function handleViewMyPicks(interaction) {
         
         let statusEmoji = isLocked ? '🔒' : '✅';
         let resultText = '';
+        const ddEmoji = pick.isDoubleDown ? ' 💰' : '';
         
         // Check if game has result
         if (game.result && game.result.status === 'Final') {
@@ -822,20 +900,20 @@ export async function handleViewMyPicks(interaction) {
           
           if (pickWon) {
             statusEmoji = '✅';
-            wins++;
-            resultText = `\n**Result:** ✅ WIN`;
+            wins += pick.isDoubleDown ? 2 : 1;
+            resultText = `\n**Result:** ✅ WIN${pick.isDoubleDown ? ' (DOUBLE DOWN x2)' : ''}`;
           } else {
             statusEmoji = '❌';
-            losses++;
-            resultText = `\n**Result:** ❌ LOSS`;
+            losses += pick.isDoubleDown ? 2 : 1;
+            resultText = `\n**Result:** ❌ LOSS${pick.isDoubleDown ? ' (DOUBLE DOWN x2)' : ''}`;
           }
           
           resultText += ` (${game.awayTeam} ${awayScore}, ${game.homeTeam} ${homeScore})`;
         }
         
         embed.addFields({
-          name: `${statusEmoji} ${game.awayTeam} @ ${game.homeTeam}`,
-          value: `**Pick:** ${pickedTeam} (${spreadText})\n**Time:** ${formattedDate} at ${formattedTime} PT${resultText}`,
+          name: `${statusEmoji} ${game.awayTeam} @ ${game.homeTeam}${ddEmoji}`,
+          value: `**Pick:** ${pickedTeam} (${spreadText})${pick.isDoubleDown ? ' **DOUBLE DOWN**' : ''}\n**Time:** ${formattedDate} at ${formattedTime} PT${resultText}`,
           inline: true
         });
       }

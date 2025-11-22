@@ -5,7 +5,7 @@ import {
   ButtonBuilder,
   ButtonStyle
 } from 'discord.js';
-import { getActiveSession, getUserPicks } from '../utils/patsData.js';
+import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats } from '../utils/patsData.js';
 
 export const data = new SlashCommandBuilder()
   .setName('pats')
@@ -37,8 +37,16 @@ export async function handleDashboardButton(interaction) {
       // Import and execute view picks handler
       const makepickCommand = await import('./makepick.js');
       await makepickCommand.handleViewMyPicks(interaction);
+    } else if (interaction.customId === 'pats_dashboard_stats') {
+      // Show user stats
+      await interaction.deferUpdate();
+      await showUserStats(interaction);
     } else if (interaction.customId === 'pats_dashboard_refresh') {
       // Defer and re-execute the dashboard
+      await interaction.deferUpdate();
+      await showDashboard(interaction);
+    } else if (interaction.customId === 'pats_stats_back') {
+      // Return to dashboard from stats
       await interaction.deferUpdate();
       await showDashboard(interaction);
     }
@@ -147,6 +155,7 @@ export async function showDashboard(interaction) {
       const pickedTeam = pick.pick === 'home' ? game.homeTeam : game.awayTeam;
       const spreadText = pick.spread > 0 ? `+${pick.spread}` : pick.spread.toString();
       const isLocked = new Date(game.commenceTime) < now;
+      const ddEmoji = pick.isDoubleDown ? ' 💰' : '';
       
       let statusEmoji = '';
       
@@ -168,10 +177,10 @@ export async function showDashboard(interaction) {
         
         if (pickWon) {
           statusEmoji = '✅';
-          wins++;
+          wins += pick.isDoubleDown ? 2 : 1;
         } else {
           statusEmoji = '❌';
-          losses++;
+          losses += pick.isDoubleDown ? 2 : 1;
         }
       } else if (isLocked) {
         statusEmoji = '🔒';
@@ -180,7 +189,7 @@ export async function showDashboard(interaction) {
         pending++;
       }
       
-      return `${index + 1}. ${statusEmoji} **${pickedTeam}** (${spreadText})`;
+      return `${index + 1}. ${statusEmoji} **${pickedTeam}** (${spreadText})${ddEmoji}`;
     }).filter(Boolean).join('\n');
 
     embed.addFields({
@@ -211,7 +220,12 @@ export async function showDashboard(interaction) {
       .setLabel('View All Picks')
       .setStyle(ButtonStyle.Secondary)
       .setEmoji('📋')
-      .setDisabled(pickedCount === 0)
+      .setDisabled(pickedCount === 0),
+    new ButtonBuilder()
+      .setCustomId('pats_dashboard_stats')
+      .setLabel('My Stats')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('📊')
   );
 
   const secondRow = new ActionRowBuilder().addComponents(
@@ -225,5 +239,106 @@ export async function showDashboard(interaction) {
   await interaction.editReply({
     embeds: [embed],
     components: [buttons, secondRow]
+  });
+}
+
+/**
+ * Show user stats page
+ */
+async function showUserStats(interaction) {
+  const stats = getUserStats(interaction.user.id);
+  const sessionStats = getCurrentSessionStats(interaction.user.id);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📊 Your PATS Statistics')
+    .setDescription(`**${interaction.user.displayName}'s** overall performance`)
+    .setColor(0x5865F2)
+    .setTimestamp();
+
+  // Overall stats
+  const totalGames = stats.totalWins + stats.totalLosses;
+  embed.addFields({
+    name: '🏆 Overall Record',
+    value: [
+      `**Record:** ${stats.totalWins}-${stats.totalLosses}`,
+      `**Win Rate:** ${stats.winPercentage.toFixed(1)}%`,
+      `**Sessions Played:** ${stats.sessions}`,
+      `**Avg Per Session:** ${totalGames > 0 ? (totalGames / stats.sessions).toFixed(1) : '0'} picks`
+    ].join('\n'),
+    inline: true
+  });
+
+  // Streaks
+  const streakText = stats.currentStreak > 0 
+    ? `${stats.currentStreak} ${stats.streakType === 'win' ? '🔥' : '❄️'}` 
+    : 'None';
+  
+  embed.addFields({
+    name: '🔥 Streaks',
+    value: [
+      `**Current:** ${streakText}`,
+      `**Best Win Streak:** ${stats.bestStreak} 🏆`,
+      stats.streakType === 'win' && stats.currentStreak >= 3 ? '**On Fire!** 🔥🔥🔥' : null
+    ].filter(Boolean).join('\n'),
+    inline: true
+  });
+
+  // Current session stats
+  if (sessionStats) {
+    const sessionRecord = `${sessionStats.wins}-${sessionStats.losses}`;
+    const sessionProgress = `${sessionStats.totalPicks}/${sessionStats.totalGames}`;
+    
+    embed.addFields({
+      name: '📅 Today\'s Session',
+      value: [
+        `**Record:** ${sessionRecord}`,
+        `**Progress:** ${sessionProgress} picks made`,
+        sessionStats.pending > 0 ? `**Pending:** ${sessionStats.pending} locked` : null,
+        sessionStats.missedPicks > 0 ? `**Missed:** ${sessionStats.missedPicks} ⚠️` : null,
+        sessionStats.doubleDownGame ? `**Double Down:** ${sessionStats.doubleDownGame.awayTeam} @ ${sessionStats.doubleDownGame.homeTeam} 💰` : null
+      ].filter(Boolean).join('\n'),
+      inline: false
+    });
+  } else {
+    embed.addFields({
+      name: '📅 Today\'s Session',
+      value: 'No active session',
+      inline: false
+    });
+  }
+
+  // Performance indicators
+  if (totalGames >= 5) {
+    let performanceText = '';
+    if (stats.winPercentage >= 60) {
+      performanceText = '⭐⭐⭐ Elite Handicapper!';
+    } else if (stats.winPercentage >= 55) {
+      performanceText = '⭐⭐ Sharp Better';
+    } else if (stats.winPercentage >= 50) {
+      performanceText = '⭐ Above Average';
+    } else if (stats.winPercentage >= 45) {
+      performanceText = '📊 Learning the Ropes';
+    } else {
+      performanceText = '🎯 Keep Grinding!';
+    }
+    
+    embed.addFields({
+      name: '🎖️ Performance Level',
+      value: performanceText,
+      inline: false
+    });
+  }
+
+  const backButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_stats_back')
+      .setLabel('Back to Dashboard')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('◀️')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [backButton]
   });
 }

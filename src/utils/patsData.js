@@ -88,7 +88,7 @@ export function getActiveSession() {
 /**
  * Save a user's pick
  */
-export function savePick(sessionId, userId, gameId, pick, spread) {
+export function savePick(sessionId, userId, gameId, pick, spread, isDoubleDown = false) {
   const data = readPATSData();
   const session = data.activeSessions.find(s => s.id === sessionId);
   
@@ -100,6 +100,12 @@ export function savePick(sessionId, userId, gameId, pick, spread) {
     session.picks[userId] = [];
   }
   
+  // Check if user already has a double-down
+  const existingDoubleDown = session.picks[userId].find(p => p.isDoubleDown);
+  if (isDoubleDown && existingDoubleDown && existingDoubleDown.gameId !== gameId) {
+    return { error: 'You already have a double-down on another game!' };
+  }
+  
   // Remove existing pick for this game if any
   session.picks[userId] = session.picks[userId].filter(p => p.gameId !== gameId);
   
@@ -108,11 +114,12 @@ export function savePick(sessionId, userId, gameId, pick, spread) {
     gameId,
     pick, // 'home' or 'away'
     spread,
+    isDoubleDown: isDoubleDown || false,
     timestamp: new Date().toISOString()
   });
   
   writePATSData(data);
-  return true;
+  return { success: true };
 }
 
 /**
@@ -208,6 +215,15 @@ export function closePATSSession(sessionId, gameResults) {
         } else {
           losses++;
         }
+        
+        // Apply double-down multiplier
+        if (pick.isDoubleDown) {
+          if (pickWon) {
+            wins++; // Count twice for double-down win
+          } else {
+            losses++; // Count twice for double-down loss
+          }
+        }
       }
     });
     
@@ -256,3 +272,141 @@ export function getLeaderboard() {
   
   return leaderboard;
 }
+
+/**
+ * Get user's overall stats
+ */
+export function getUserStats(userId) {
+  const data = readPATSData();
+  
+  if (!data.users[userId]) {
+    return {
+      totalWins: 0,
+      totalLosses: 0,
+      sessions: 0,
+      winPercentage: 0,
+      currentStreak: 0,
+      streakType: null,
+      bestStreak: 0
+    };
+  }
+  
+  const user = data.users[userId];
+  const totalGames = user.totalWins + user.totalLosses;
+  const winPercentage = totalGames > 0 ? (user.totalWins / totalGames * 100) : 0;
+  
+  // Calculate streaks from history
+  let currentStreak = 0;
+  let streakType = null;
+  let bestStreak = 0;
+  let tempStreak = 0;
+  let lastResult = null;
+  
+  // Get all sessions this user participated in, sorted by date
+  const userSessions = data.history
+    .filter(s => s.results && s.results[userId])
+    .sort((a, b) => new Date(b.closedAt) - new Date(a.closedAt));
+  
+  for (const session of userSessions) {
+    const result = session.results[userId];
+    const sessionWon = result.wins > result.losses;
+    
+    // Current streak (most recent)
+    if (currentStreak === 0) {
+      currentStreak = 1;
+      streakType = sessionWon ? 'win' : 'loss';
+      lastResult = sessionWon;
+    } else if (lastResult === sessionWon) {
+      currentStreak++;
+    } else {
+      // Streak broken
+      break;
+    }
+    
+    // Best streak calculation
+    if (sessionWon) {
+      tempStreak++;
+      bestStreak = Math.max(bestStreak, tempStreak);
+    } else {
+      tempStreak = 0;
+    }
+  }
+  
+  return {
+    totalWins: user.totalWins,
+    totalLosses: user.totalLosses,
+    sessions: user.sessions,
+    winPercentage: winPercentage,
+    currentStreak: currentStreak,
+    streakType: streakType,
+    bestStreak: bestStreak
+  };
+}
+
+/**
+ * Get user's current session stats
+ */
+export function getCurrentSessionStats(userId) {
+  const session = getActiveSession();
+  if (!session) {
+    return null;
+  }
+  
+  const picks = session.picks[userId] || [];
+  const now = new Date();
+  
+  let wins = 0;
+  let losses = 0;
+  let pending = 0;
+  let doubleDownGame = null;
+  
+  for (const pick of picks) {
+    const game = session.games.find(g => g.id === pick.gameId);
+    if (!game) continue;
+    
+    if (pick.isDoubleDown) {
+      doubleDownGame = game;
+    }
+    
+    // Check if game has result
+    if (game.result && game.result.status === 'Final') {
+      const homeScore = game.result.homeScore;
+      const awayScore = game.result.awayScore;
+      
+      const adjustedHomeScore = homeScore + game.homeSpread;
+      const adjustedAwayScore = awayScore + game.awaySpread;
+      
+      let pickWon = false;
+      if (pick.pick === 'home') {
+        pickWon = adjustedHomeScore > adjustedAwayScore;
+      } else {
+        pickWon = adjustedAwayScore > adjustedHomeScore;
+      }
+      
+      if (pickWon) {
+        wins += pick.isDoubleDown ? 2 : 1;
+      } else {
+        losses += pick.isDoubleDown ? 2 : 1;
+      }
+    } else if (new Date(game.commenceTime) < now) {
+      // Game is locked but no result yet
+      pending++;
+    }
+  }
+  
+  // Check for missed picks
+  const lockedGames = session.games.filter(g => new Date(g.commenceTime) < now);
+  const pickedGameIds = picks.map(p => p.gameId);
+  const missedCount = lockedGames.filter(g => !pickedGameIds.includes(g.id)).length;
+  
+  return {
+    wins,
+    losses,
+    pending,
+    totalPicks: picks.length,
+    totalGames: session.games.length,
+    missedPicks: missedCount,
+    doubleDownGame
+  };
+}
+

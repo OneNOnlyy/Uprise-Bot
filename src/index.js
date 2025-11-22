@@ -98,8 +98,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // Handle PATS interactions (select menus, buttons)
   if (interaction.customId && interaction.customId.startsWith('pats_')) {
     try {
-      // Handle dashboard buttons
-      if (interaction.customId.startsWith('pats_dashboard_')) {
+      // Handle dashboard buttons (including stats)
+      if (interaction.customId.startsWith('pats_dashboard_') || interaction.customId.startsWith('pats_stats_')) {
         await patsCommand.handleDashboardButton(interaction);
       }
       // Handle game selection dropdown
@@ -109,6 +109,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       // Handle pick submission buttons
       else if (interaction.customId.startsWith('pats_pick_')) {
         await makepickCommand.handlePickSubmission(interaction);
+      }
+      // Handle double-down toggle
+      else if (interaction.customId.startsWith('pats_doubledown_')) {
+        await makepickCommand.handleDoubleDownToggle(interaction);
       }
       // Handle view matchup button
       else if (interaction.customId.startsWith('pats_matchup_')) {
