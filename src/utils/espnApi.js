@@ -45,23 +45,29 @@ const TEAM_ABBR_TO_ESPN_SLUG = {
   'ATL': 'atl/atlanta-hawks',
   'BOS': 'bos/boston-celtics',
   'BKN': 'bkn/brooklyn-nets',
+  'BRK': 'bkn/brooklyn-nets',
   'CHA': 'cha/charlotte-hornets',
+  'CHO': 'cha/charlotte-hornets',
   'CHI': 'chi/chicago-bulls',
   'CLE': 'cle/cleveland-cavaliers',
   'DAL': 'dal/dallas-mavericks',
   'DEN': 'den/denver-nuggets',
   'DET': 'det/detroit-pistons',
   'GSW': 'gs/golden-state-warriors',
+  'GS': 'gs/golden-state-warriors',
   'HOU': 'hou/houston-rockets',
   'IND': 'ind/indiana-pacers',
   'LAC': 'lac/la-clippers',
   'LAL': 'lal/los-angeles-lakers',
+  'LA': 'lal/los-angeles-lakers',
   'MEM': 'mem/memphis-grizzlies',
   'MIA': 'mia/miami-heat',
   'MIL': 'mil/milwaukee-bucks',
   'MIN': 'min/minnesota-timberwolves',
   'NOP': 'no/new-orleans-pelicans',
+  'NO': 'no/new-orleans-pelicans',
   'NYK': 'ny/new-york-knicks',
+  'NY': 'ny/new-york-knicks',
   'OKC': 'okc/oklahoma-city-thunder',
   'ORL': 'orl/orlando-magic',
   'PHI': 'phi/philadelphia-76ers',
@@ -69,9 +75,12 @@ const TEAM_ABBR_TO_ESPN_SLUG = {
   'POR': 'por/portland-trail-blazers',
   'SAC': 'sac/sacramento-kings',
   'SAS': 'sa/san-antonio-spurs',
+  'SA': 'sa/san-antonio-spurs',
   'TOR': 'tor/toronto-raptors',
   'UTA': 'utah/utah-jazz',
-  'WAS': 'wsh/washington-wizards'
+  'UTAH': 'utah/utah-jazz',
+  'WAS': 'wsh/washington-wizards',
+  'WSH': 'wsh/washington-wizards'
 };
 
 /**
@@ -234,60 +243,70 @@ async function scrapeInjuriesFromRotoWire(teamName) {
     
     // RotoWire uses divs with team sections
     let foundTeamSection = false;
+    let sectionsChecked = 0;
     
-    // Find all team injury sections
-    $('.lineup.is-nba').each((i, section) => {
+    // Find all team injury sections - try multiple selectors
+    const teamSections = $('.lineup.is-nba, .lineup__main.is-nba, div[class*="lineup"][class*="nba"]');
+    console.log(`[Scraper] Found ${teamSections.length} potential team sections`);
+    
+    teamSections.each((i, section) => {
       const $section = $(section);
+      sectionsChecked++;
       
-      // Get team name from header
-      const teamHeader = $section.find('.lineup__abbr').text().trim() || 
-                        $section.find('.lineup__title').text().trim();
+      // Get team name from multiple possible locations
+      const teamHeader = $section.find('.lineup__abbr, .lineup__mteam').text().trim();
+      const teamAbbr = $section.find('.lineup__abbr').text().trim();
       
-      console.log(`[Scraper] RotoWire section ${i}: "${teamHeader}"`);
+      console.log(`[Scraper] RotoWire section ${i}: Header="${teamHeader}", Abbr="${teamAbbr}"`);
       
-      // Check if this section matches our team
+      // Try to match by team name or abbreviation
       const teamLastWord = teamName.split(' ').pop().toLowerCase();
-      if (teamHeader && (
-          teamHeader.toLowerCase().includes(teamLastWord) ||
-          teamName.toLowerCase().includes(teamHeader.toLowerCase())
-      )) {
+      const teamFirstWord = teamName.split(' ')[0].toLowerCase();
+      const headerLower = teamHeader.toLowerCase();
+      
+      const isMatch = headerLower.includes(teamLastWord) ||
+                     headerLower.includes(teamFirstWord) ||
+                     teamName.toLowerCase().includes(headerLower) ||
+                     headerLower.includes('knicks') && teamName.includes('Knicks') ||
+                     headerLower.includes('magic') && teamName.includes('Magic');
+      
+      if (isMatch) {
         foundTeamSection = true;
-        console.log(`[Scraper] Found matching team section for ${teamName}`);
+        console.log(`[Scraper] ✓ Found matching team section for ${teamName}`);
         
-        // Find all player rows in this section
-        $section.find('tbody tr, .lineup__player').each((j, row) => {
+        // Find all player rows in this section - try multiple selectors
+        const playerRows = $section.find('tbody tr, .lineup__player, div[class*="player"]');
+        console.log(`[Scraper] Found ${playerRows.length} potential player rows`);
+        
+        playerRows.each((j, row) => {
           const $row = $(row);
           
           // Try multiple selectors for player name
           const playerName = $row.find('a').first().text().trim() || 
-                            $row.find('.injury-report__player-name').text().trim() ||
+                            $row.find('.injury-report__player-name, [class*="player-name"]').text().trim() ||
                             $row.find('td').first().text().trim();
                             
           // Try multiple selectors for status
-          const status = $row.find('.injury-report__stat').text().trim() ||
-                        $row.find('td').eq(3).text().trim() ||
-                        $row.find('.lineup__pos').text().trim();
+          const status = $row.find('.injury-report__stat, [class*="stat"]').text().trim() ||
+                        $row.find('td:nth-child(4), td:last-child').text().trim();
                         
           // Try multiple selectors for description
-          const description = $row.find('.injury-report__injury').text().trim() ||
-                             $row.find('td').eq(2).text().trim();
+          const description = $row.find('.injury-report__injury, [class*="injury"]').text().trim() ||
+                             $row.find('td:nth-child(2), td:nth-child(3)').text().trim();
           
-          if (playerName && status) {
+          if (playerName && playerName.length > 2 && status && status.length > 0) {
             injuries.push({
               player: playerName,
               status: status,
               description: description || 'Injury'
             });
-            console.log(`[Scraper] RotoWire found: ${playerName} - ${status}`);
+            console.log(`[Scraper] RotoWire found: ${playerName} - ${status} (${description})`);
           }
         });
       }
     });
     
-    if (!foundTeamSection) {
-      console.log(`[Scraper] No matching team section found for ${teamName} in RotoWire`);
-    }
-    
+    console.log(`[Scraper] Checked ${sectionsChecked} sections, found team: ${foundTeamSection}`);
     console.log(`[Scraper] Final RotoWire count: ${injuries.length} injuries for ${teamName}`);
     return injuries;
     
@@ -386,6 +405,7 @@ export async function getTeamInfo(teamName) {
     let scrapedInjuries = [];
     if (injuries.length === 0) {
       console.log(`[ESPN] No API injuries found, attempting web scraping...`);
+      console.log(`[ESPN] Team abbreviation: "${team.abbreviation}"`);
       
       // Try ESPN scraping first
       scrapedInjuries = await scrapeInjuriesFromESPN(team.abbreviation, normalizedName);
