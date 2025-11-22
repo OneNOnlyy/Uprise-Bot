@@ -105,10 +105,19 @@ export async function handleGameSelection(interaction) {
 
     // Fetch matchup info (injuries, records)
     console.log(`Fetching matchup info for ${game.awayTeam} @ ${game.homeTeam}...`);
-    const matchupInfo = await getMatchupInfo(game.homeTeam, game.awayTeam);
+    let matchupInfo = null;
+    
+    try {
+      matchupInfo = await getMatchupInfo(game.homeTeam, game.awayTeam);
+      console.log(`Matchup info result:`, matchupInfo ? 'Success' : 'Null');
+    } catch (error) {
+      console.error(`Error fetching matchup info:`, error);
+      matchupInfo = { home: null, away: null };
+    }
 
     if (!matchupInfo) {
-      console.warn(`Could not fetch matchup info for ${game.awayTeam} @ ${game.homeTeam}`);
+      console.warn(`Matchup info is null, using fallback`);
+      matchupInfo = { home: null, away: null };
     }
 
     // Create detailed game embed

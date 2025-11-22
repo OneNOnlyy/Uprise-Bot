@@ -89,15 +89,24 @@ export async function getTeamInfo(teamName) {
     console.log(`[ESPN] Found team ID: ${teamId} for ${normalizedName}`);
 
     const url = `${ESPN_API_BASE}/teams/${teamId}`;
+    console.log(`[ESPN] Fetching from URL: ${url}`);
     const response = await fetch(url);
     
+    console.log(`[ESPN] Response status: ${response.status}`);
+    
     if (!response.ok) {
-      console.error(`ESPN API error for ${teamName}: ${response.status}`);
+      console.error(`[ESPN] API error for ${teamName}: ${response.status} ${response.statusText}`);
       return null;
     }
     
     const data = await response.json();
+    console.log(`[ESPN] Successfully fetched data for ${normalizedName}`);
     const team = data.team;
+    
+    if (!team) {
+      console.error(`[ESPN] No team data in response for ${normalizedName}`);
+      return null;
+    }
     
     // Extract record
     const record = team.record?.items?.find(r => r.type === 'total');
@@ -116,7 +125,7 @@ export async function getTeamInfo(teamName) {
       });
     }
     
-    return {
+    const result = {
       name: team.displayName,
       abbreviation: team.abbreviation,
       logo: team.logos?.[0]?.href || null,
@@ -125,8 +134,12 @@ export async function getTeamInfo(teamName) {
       losses: parseInt(losses),
       injuries: injuries
     };
+    
+    console.log(`[ESPN] Returning team info for ${normalizedName}:`, JSON.stringify(result, null, 2));
+    return result;
   } catch (error) {
-    console.error(`Error fetching team info for ${teamName}:`, error);
+    console.error(`[ESPN] Error fetching team info for ${teamName}:`, error.message);
+    console.error(`[ESPN] Stack:`, error.stack);
     return null;
   }
 }
@@ -136,27 +149,33 @@ export async function getTeamInfo(teamName) {
  */
 export async function getMatchupInfo(homeTeam, awayTeam) {
   try {
-    console.log(`Fetching team info for: Home=${homeTeam}, Away=${awayTeam}`);
+    console.log(`[ESPN] Fetching team info for: Home=${homeTeam}, Away=${awayTeam}`);
     
     const [homeInfo, awayInfo] = await Promise.all([
       getTeamInfo(homeTeam),
       getTeamInfo(awayTeam)
     ]);
     
+    console.log(`[ESPN] Home info result:`, homeInfo ? 'Success' : 'Null');
+    console.log(`[ESPN] Away info result:`, awayInfo ? 'Success' : 'Null');
+    
     if (!homeInfo) {
-      console.warn(`Could not fetch info for home team: ${homeTeam}`);
+      console.warn(`[ESPN] Could not fetch info for home team: ${homeTeam}`);
     }
     if (!awayInfo) {
-      console.warn(`Could not fetch info for away team: ${awayTeam}`);
+      console.warn(`[ESPN] Could not fetch info for away team: ${awayTeam}`);
     }
     
-    // Always return an object, even if team info is null
-    return {
+    const result = {
       home: homeInfo,
       away: awayInfo
     };
+    
+    console.log(`[ESPN] Returning matchup info:`, JSON.stringify(result, null, 2));
+    return result;
   } catch (error) {
-    console.error('Error fetching matchup info:', error);
+    console.error('[ESPN] Error fetching matchup info:', error.message);
+    console.error('[ESPN] Stack:', error.stack);
     // Return empty object structure instead of null
     return {
       home: null,
