@@ -106,23 +106,23 @@ async function checkAndUpdateGameResults() {
 
 /**
  * Schedule game result checking
- * Only runs during NBA game hours (4 PM - 2 AM Pacific Time)
+ * Only runs during NBA game hours (8 AM - 11 PM Pacific Time)
  * Checks every 5 minutes during this window
  */
 export function scheduleGameResultChecking() {
-  // Check every 5 minutes during game hours (4 PM - 2 AM PT)
-  // Cron: '*/5 16-23,0-2 * * *' means every 5 minutes between 4 PM and 2 AM
-  const cronSchedule = '*/5 16-23,0-2 * * *';
+  // Check every 5 minutes during game hours (8 AM - 11 PM PT)
+  // Cron: '*/5 8-23 * * *' means every 5 minutes between 8 AM and 11 PM
+  const cronSchedule = '*/5 8-23 * * *';
   
   console.log('📅 Scheduling game result checking...');
-  console.log('⏰ Will check every 5 minutes during NBA game hours (4 PM - 2 AM PT)');
+  console.log('⏰ Will check every 5 minutes during NBA hours (8 AM - 11 PM PT)');
   
   cron.schedule(cronSchedule, () => {
     const now = new Date();
     const hour = now.getHours();
     
     // Extra validation - only during reasonable game hours
-    if ((hour >= 16 && hour <= 23) || (hour >= 0 && hour <= 2)) {
+    if (hour >= 8 && hour <= 23) {
       checkAndUpdateGameResults();
     }
   }, {
