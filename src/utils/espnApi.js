@@ -144,67 +144,48 @@ async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
     
     const html = await response.text();
     console.log(`[Scraper] Received HTML length: ${html.length} chars`);
+    
+    // Check if the page contains "No injuries to report"
+    if (html.includes('No injuries to report') || html.includes('no injuries')) {
+      console.log(`[Scraper] Page indicates no injuries for ${teamName}`);
+      return [];
+    }
+    
     const $ = cheerio.load(html);
     const injuries = [];
     
-    // Debug: Log how many tables found
-    const tables = $('table').length;
-    console.log(`[Scraper] Found ${tables} table elements`);
+    // Debug: Check for various table-like structures
+    const divTables = $('div[class*="Table"]').length;
+    const actualTables = $('table').length;
+    const rows = $('tr').length;
+    console.log(`[Scraper] Found: ${actualTables} <table>, ${divTables} div.Table, ${rows} <tr> elements`);
     
-    // Try multiple selectors to handle different ESPN layouts
-    let foundRows = 0;
-    
-    // Method 1: Standard ESPN table rows
-    $('table tbody tr').each((i, row) => {
+    // Method 1: ESPN's div-based table structure (most common now)
+    $('.Table__TBODY .Table__TR, .ResponsiveTable tbody tr, tbody tr').each((i, row) => {
       const $row = $(row);
-      const cells = $row.find('td');
+      
+      // Get all cells
+      const cells = $row.find('td, .Table__TD');
       
       if (cells.length >= 3) {
-        foundRows++;
-        const playerName = $(cells[0]).find('a').text().trim() || $(cells[0]).text().trim();
+        // Column 0: Player name
+        const playerName = $(cells[0]).find('a, .AnchorLink').text().trim() || $(cells[0]).text().trim();
+        // Column 1: Injury/Comment
         const description = $(cells[1]).text().trim();
+        // Column 2: Status
         const status = $(cells[2]).text().trim();
         
-        console.log(`[Scraper] Row ${i}: Name="${playerName}", Status="${status}", Desc="${description}"`);
-        
-        if (playerName && playerName !== 'NAME' && playerName !== '' && status && status !== 'STATUS') {
+        if (playerName && playerName !== 'NAME' && playerName !== '' && 
+            status && status !== 'STATUS' && status !== 'Date') {
           injuries.push({
             player: playerName,
             status: status,
             description: description || 'Injury'
           });
+          console.log(`[Scraper] Found: ${playerName} - ${status} (${description})`);
         }
       }
     });
-    
-    console.log(`[Scraper] Processed ${foundRows} table rows, extracted ${injuries.length} injuries for ${teamName}`);
-    
-    // Method 2: If no injuries found, try alternative selectors
-    if (injuries.length === 0) {
-      console.log(`[Scraper] Trying alternative selectors...`);
-      
-      $('.Table__TR').each((i, row) => {
-        if (i === 0) return; // Skip header
-        
-        const $row = $(row);
-        const playerName = $row.find('.AnchorLink').first().text().trim();
-        const allCells = $row.find('.Table__TD');
-        
-        if (allCells.length >= 3) {
-          const description = $(allCells[1]).text().trim();
-          const status = $(allCells[2]).text().trim();
-          
-          if (playerName && status) {
-            injuries.push({
-              player: playerName,
-              status: status,
-              description: description || 'Injury'
-            });
-            console.log(`[Scraper] Alt method found: ${playerName} - ${status}`);
-          }
-        }
-      });
-    }
     
     console.log(`[Scraper] Final count: ${injuries.length} injuries for ${teamName} via ESPN scraping`);
     return injuries;
@@ -212,6 +193,89 @@ async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
   } catch (error) {
     console.error(`[Scraper] Error scraping ESPN injuries for ${teamName}:`, error.message);
     console.error(`[Scraper] Stack:`, error.stack);
+    return [];
+  }
+}
+
+/**
+ * Scrape injuries from CBS Sports (has static HTML)
+ */
+async function scrapeInjuriesFromCBS(teamName) {
+  try {
+    const url = 'https://www.cbssports.com/nba/injuries/';
+    console.log(`[Scraper] Fetching CBS Sports injuries from: ${url}`);
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    if (!response.ok) {
+      console.warn(`[Scraper] CBS Sports fetch failed: ${response.status}`);
+      return [];
+    }
+    
+    const html = await response.text();
+    console.log(`[Scraper] CBS Sports HTML length: ${html.length} chars`);
+    const $ = cheerio.load(html);
+    const injuries = [];
+    
+    // CBS Sports uses a table format organized by team
+    let foundTeam = false;
+    let currentTeam = '';
+    
+    // Find all rows, team headers separate players
+    $('tr').each((i, row) => {
+      const $row = $(row);
+      
+      // Check if this is a team header row
+      const teamHeader = $row.find('td[colspan]').text().trim();
+      if (teamHeader) {
+        currentTeam = teamHeader;
+        console.log(`[Scraper] CBS found team header: "${currentTeam}"`);
+        
+        // Check if this is our team
+        const teamLastWord = teamName.split(' ').pop().toLowerCase();
+        const teamFirstWord = teamName.split(' ')[0].toLowerCase();
+        const headerLower = currentTeam.toLowerCase();
+        
+        if (headerLower.includes(teamLastWord) || headerLower.includes(teamFirstWord) || 
+            teamName.toLowerCase().includes(headerLower)) {
+          foundTeam = true;
+          console.log(`[Scraper] ✓ Matched our team: ${teamName}`);
+        } else {
+          foundTeam = false;
+        }
+        return;
+      }
+      
+      // If we're in our team's section, parse player rows
+      if (foundTeam) {
+        const cells = $row.find('td');
+        if (cells.length >= 3) {
+          const playerName = $(cells[0]).text().trim();
+          const position = $(cells[1]).text().trim();
+          const status = $(cells[2]).text().trim();
+          const description = $(cells[3])?.text().trim() || '';
+          
+          if (playerName && status && playerName !== 'Player') {
+            injuries.push({
+              player: playerName,
+              status: status,
+              description: description || position || 'Injury'
+            });
+            console.log(`[Scraper] CBS found: ${playerName} - ${status}`);
+          }
+        }
+      }
+    });
+    
+    console.log(`[Scraper] CBS Sports final count: ${injuries.length} injuries for ${teamName}`);
+    return injuries;
+    
+  } catch (error) {
+    console.error(`[Scraper] Error scraping CBS Sports:`, error.message);
     return [];
   }
 }
@@ -410,7 +474,12 @@ export async function getTeamInfo(teamName) {
       // Try ESPN scraping first
       scrapedInjuries = await scrapeInjuriesFromESPN(team.abbreviation, normalizedName);
       
-      // If ESPN scraping fails, try RotoWire
+      // If ESPN scraping fails, try CBS Sports (has static HTML)
+      if (scrapedInjuries.length === 0) {
+        scrapedInjuries = await scrapeInjuriesFromCBS(normalizedName);
+      }
+      
+      // If CBS fails, try RotoWire as last resort
       if (scrapedInjuries.length === 0) {
         scrapedInjuries = await scrapeInjuriesFromRotoWire(normalizedName);
       }
