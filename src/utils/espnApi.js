@@ -92,54 +92,75 @@ async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
     }
     
     const html = await response.text();
+    console.log(`[Scraper] Received HTML length: ${html.length} chars`);
     const $ = cheerio.load(html);
     const injuries = [];
     
-    // ESPN uses a table format for injuries
-    $('.Table__TR').each((i, row) => {
-      if (i === 0) return; // Skip header row
-      
+    // Debug: Log how many tables found
+    const tables = $('table').length;
+    console.log(`[Scraper] Found ${tables} table elements`);
+    
+    // Try multiple selectors to handle different ESPN layouts
+    let foundRows = 0;
+    
+    // Method 1: Standard ESPN table rows
+    $('table tbody tr').each((i, row) => {
       const $row = $(row);
-      const playerName = $row.find('.AnchorLink').first().text().trim();
-      const status = $row.find('.Table__TD').eq(2).text().trim(); // Status column
-      const description = $row.find('.Table__TD').eq(1).text().trim(); // Injury/Comment column
+      const cells = $row.find('td');
       
-      if (playerName && status) {
-        injuries.push({
-          player: playerName,
-          status: status || 'Out',
-          description: description || 'Injury'
-        });
+      if (cells.length >= 3) {
+        foundRows++;
+        const playerName = $(cells[0]).find('a').text().trim() || $(cells[0]).text().trim();
+        const description = $(cells[1]).text().trim();
+        const status = $(cells[2]).text().trim();
+        
+        console.log(`[Scraper] Row ${i}: Name="${playerName}", Status="${status}", Desc="${description}"`);
+        
+        if (playerName && playerName !== 'NAME' && playerName !== '' && status && status !== 'STATUS') {
+          injuries.push({
+            player: playerName,
+            status: status,
+            description: description || 'Injury'
+          });
+        }
       }
     });
     
-    // Alternative: Try newer ESPN layout
+    console.log(`[Scraper] Processed ${foundRows} table rows, extracted ${injuries.length} injuries for ${teamName}`);
+    
+    // Method 2: If no injuries found, try alternative selectors
     if (injuries.length === 0) {
-      $('tr').each((i, row) => {
-        const $row = $(row);
-        const cells = $row.find('td');
+      console.log(`[Scraper] Trying alternative selectors...`);
+      
+      $('.Table__TR').each((i, row) => {
+        if (i === 0) return; // Skip header
         
-        if (cells.length >= 3) {
-          const playerName = $(cells[0]).text().trim();
-          const description = $(cells[1]).text().trim();
-          const status = $(cells[2]).text().trim();
+        const $row = $(row);
+        const playerName = $row.find('.AnchorLink').first().text().trim();
+        const allCells = $row.find('.Table__TD');
+        
+        if (allCells.length >= 3) {
+          const description = $(allCells[1]).text().trim();
+          const status = $(allCells[2]).text().trim();
           
-          if (playerName && playerName !== 'NAME' && status) {
+          if (playerName && status) {
             injuries.push({
               player: playerName,
               status: status,
               description: description || 'Injury'
             });
+            console.log(`[Scraper] Alt method found: ${playerName} - ${status}`);
           }
         }
       });
     }
     
-    console.log(`[Scraper] Found ${injuries.length} injuries for ${teamName} via web scraping`);
+    console.log(`[Scraper] Final count: ${injuries.length} injuries for ${teamName} via ESPN scraping`);
     return injuries;
     
   } catch (error) {
-    console.error(`[Scraper] Error scraping injuries for ${teamName}:`, error.message);
+    console.error(`[Scraper] Error scraping ESPN injuries for ${teamName}:`, error.message);
+    console.error(`[Scraper] Stack:`, error.stack);
     return [];
   }
 }
@@ -151,7 +172,7 @@ async function scrapeInjuriesFromRotoWire(teamName) {
   try {
     // RotoWire has a comprehensive NBA injuries page
     const url = 'https://www.rotowire.com/basketball/injury-report.php';
-    console.log(`[Scraper] Fetching RotoWire injuries...`);
+    console.log(`[Scraper] Fetching RotoWire injuries from: ${url}`);
     
     const response = await fetch(url, {
       headers: {
@@ -160,28 +181,54 @@ async function scrapeInjuriesFromRotoWire(teamName) {
     });
     
     if (!response.ok) {
+      console.warn(`[Scraper] RotoWire fetch failed: ${response.status}`);
       return [];
     }
     
     const html = await response.text();
+    console.log(`[Scraper] RotoWire HTML length: ${html.length} chars`);
     const $ = cheerio.load(html);
     const injuries = [];
     
-    // Find the team's section
-    let foundTeam = false;
-    $('.is-nba').each((i, section) => {
+    // RotoWire uses divs with team sections
+    let foundTeamSection = false;
+    
+    // Find all team injury sections
+    $('.lineup.is-nba').each((i, section) => {
       const $section = $(section);
-      const teamHeader = $section.find('.lineup__abbr').text().trim();
       
-      // Check if this matches our team (by abbreviation or name)
-      if (teamHeader && (teamName.includes(teamHeader) || teamHeader.includes(teamName.split(' ').pop()))) {
-        foundTeam = true;
+      // Get team name from header
+      const teamHeader = $section.find('.lineup__abbr').text().trim() || 
+                        $section.find('.lineup__title').text().trim();
+      
+      console.log(`[Scraper] RotoWire section ${i}: "${teamHeader}"`);
+      
+      // Check if this section matches our team
+      const teamLastWord = teamName.split(' ').pop().toLowerCase();
+      if (teamHeader && (
+          teamHeader.toLowerCase().includes(teamLastWord) ||
+          teamName.toLowerCase().includes(teamHeader.toLowerCase())
+      )) {
+        foundTeamSection = true;
+        console.log(`[Scraper] Found matching team section for ${teamName}`);
         
-        $section.find('tbody tr').each((j, row) => {
+        // Find all player rows in this section
+        $section.find('tbody tr, .lineup__player').each((j, row) => {
           const $row = $(row);
-          const playerName = $row.find('.injury-report__player-name a').text().trim();
-          const status = $row.find('.injury-report__stat').first().text().trim();
-          const description = $row.find('.injury-report__injury').text().trim();
+          
+          // Try multiple selectors for player name
+          const playerName = $row.find('a').first().text().trim() || 
+                            $row.find('.injury-report__player-name').text().trim() ||
+                            $row.find('td').first().text().trim();
+                            
+          // Try multiple selectors for status
+          const status = $row.find('.injury-report__stat').text().trim() ||
+                        $row.find('td').eq(3).text().trim() ||
+                        $row.find('.lineup__pos').text().trim();
+                        
+          // Try multiple selectors for description
+          const description = $row.find('.injury-report__injury').text().trim() ||
+                             $row.find('td').eq(2).text().trim();
           
           if (playerName && status) {
             injuries.push({
@@ -189,16 +236,22 @@ async function scrapeInjuriesFromRotoWire(teamName) {
               status: status,
               description: description || 'Injury'
             });
+            console.log(`[Scraper] RotoWire found: ${playerName} - ${status}`);
           }
         });
       }
     });
     
-    console.log(`[Scraper] Found ${injuries.length} injuries for ${teamName} from RotoWire`);
+    if (!foundTeamSection) {
+      console.log(`[Scraper] No matching team section found for ${teamName} in RotoWire`);
+    }
+    
+    console.log(`[Scraper] Final RotoWire count: ${injuries.length} injuries for ${teamName}`);
     return injuries;
     
   } catch (error) {
     console.error(`[Scraper] Error scraping RotoWire:`, error.message);
+    console.error(`[Scraper] Stack:`, error.stack);
     return [];
   }
 }
