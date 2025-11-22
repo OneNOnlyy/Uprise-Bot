@@ -2,47 +2,101 @@ import fetch from 'node-fetch';
 
 const ODDS_API_BASE = 'https://api.the-odds-api.com/v4';
 const SPORT = 'basketball_nba';
+const BALLDONTLIE_API = 'https://api.balldontlie.io/v1';
+
+/**
+ * Get NBA games from BallDontLie API for a specific date
+ */
+async function getNBAGamesFromBallDontLie(date) {
+  try {
+    const dateStr = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    
+    const url = `${BALLDONTLIE_API}/games?dates[]=${dateStr}`;
+    const headers = process.env.BALLDONTLIE_API_KEY 
+      ? { 'Authorization': process.env.BALLDONTLIE_API_KEY }
+      : {};
+    
+    console.log(`🔍 Fetching NBA games from BallDontLie for ${dateStr}...`);
+    
+    const response = await fetch(url, { headers });
+    
+    if (!response.ok) {
+      console.error(`BallDontLie API error: ${response.status} ${response.statusText}`);
+      return [];
+    }
+    
+    const data = await response.json();
+    console.log(`✅ Found ${data.data.length} NBA games for ${dateStr}`);
+    
+    return data.data;
+  } catch (error) {
+    console.error('Error fetching NBA games:', error);
+    return [];
+  }
+}
 
 /**
  * Get NBA games with spreads for a specific date
  */
 export async function getNBAGamesWithSpreads(date = null) {
   try {
+    // Get games from BallDontLie
+    const games = await getNBAGamesFromBallDontLie(date);
+    
+    if (games.length === 0) {
+      return [];
+    }
+    
+    // Get odds from The Odds API
     const apiKey = process.env.ODDS_API_KEY;
-    if (!apiKey) {
-      console.error('ODDS_API_KEY not set in environment variables');
-      return [];
+    let oddsData = [];
+    
+    if (apiKey) {
+      const url = `${ODDS_API_BASE}/sports/${SPORT}/odds/?apiKey=${apiKey}&regions=us&markets=spreads&oddsFormat=american&dateFormat=iso`;
+      
+      try {
+        const response = await fetch(url);
+        if (response.ok) {
+          oddsData = await response.json();
+          console.log(`✅ Found odds data for ${oddsData.length} games`);
+        }
+      } catch (error) {
+        console.warn('Could not fetch odds data, continuing without spreads:', error.message);
+      }
+    } else {
+      console.warn('ODDS_API_KEY not set, spreads will not be available');
     }
-
-    // Format date as ISO string if provided, otherwise use today
-    const dateStr = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
     
-    const url = `${ODDS_API_BASE}/sports/${SPORT}/odds/?apiKey=${apiKey}&regions=us&markets=spreads,h2h&oddsFormat=american&dateFormat=iso`;
-    
-    console.log(`🔍 Fetching NBA odds for ${dateStr}...`);
-    
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      console.error(`Odds API error: ${response.status} ${response.statusText}`);
-      return [];
-    }
-    
-    const data = await response.json();
-    
-    // Filter games for the specified date
-    const gamesOnDate = data.filter(game => {
-      const gameDate = new Date(game.commence_time).toISOString().split('T')[0];
-      return gameDate === dateStr;
-    });
-    
-    console.log(`✅ Found ${gamesOnDate.length} NBA games with odds for ${dateStr}`);
-    
-    return gamesOnDate;
+    // Combine games with odds
+    return games.map(game => ({
+      id: game.id.toString(),
+      home_team: game.home_team.full_name,
+      away_team: game.visitor_team.full_name,
+      commence_time: game.date,
+      bookmakers: findOddsForGame(game, oddsData)
+    }));
   } catch (error) {
-    console.error('Error fetching NBA odds:', error);
+    console.error('Error fetching NBA games with spreads:', error);
     return [];
   }
+}
+
+/**
+ * Find odds data for a specific game
+ */
+function findOddsForGame(game, oddsData) {
+  if (!oddsData || oddsData.length === 0) return [];
+  
+  // Try to match by team names
+  const homeTeam = game.home_team.full_name;
+  const awayTeam = game.visitor_team.full_name;
+  
+  const matchingOdds = oddsData.find(odds => 
+    (odds.home_team === homeTeam && odds.away_team === awayTeam) ||
+    (odds.home_team.includes(game.home_team.name) && odds.away_team.includes(game.visitor_team.name))
+  );
+  
+  return matchingOdds?.bookmakers || [];
 }
 
 /**

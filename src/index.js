@@ -94,6 +94,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (interaction.customId.startsWith('pats_pick_')) {
         await makepickCommand.handlePickSubmission(interaction);
       }
+      // Handle view injuries button
+      else if (interaction.customId.startsWith('pats_injuries_')) {
+        await makepickCommand.handleViewInjuries(interaction);
+      }
+      // Handle view matchup button
+      else if (interaction.customId.startsWith('pats_matchup_')) {
+        await makepickCommand.handleViewMatchup(interaction);
+      }
+      // Handle back to game button
+      else if (interaction.customId.startsWith('pats_back_to_game_')) {
+        await makepickCommand.handleBackToGame(interaction);
+      }
       // Handle back to menu button
       else if (interaction.customId === 'pats_back_to_menu') {
         await makepickCommand.handleBackToMenu(interaction);

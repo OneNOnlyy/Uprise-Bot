@@ -132,22 +132,34 @@ export async function handleGameSelection(interaction) {
     if (matchupInfo?.away) {
       const awayInfo = matchupInfo.away;
       embed.addFields({
-        name: `🔵 ${game.awayTeam} (${awayInfo.record})`,
-        value: `**Spread:** ${game.spreadDisplay.away}\n**Injuries:**\n${formatInjuries(awayInfo.injuries)}`,
+        name: `🔵 ${game.awayTeam}`,
+        value: `**Record:** ${awayInfo.record}\n**Spread:** ${game.spreadDisplay.away}`,
         inline: true
       });
       
       if (awayInfo.logo) {
         embed.setThumbnail(awayInfo.logo);
       }
+    } else {
+      embed.addFields({
+        name: `🔵 ${game.awayTeam}`,
+        value: `**Spread:** ${game.spreadDisplay.away}`,
+        inline: true
+      });
     }
 
     // Home Team Info
     if (matchupInfo?.home) {
       const homeInfo = matchupInfo.home;
       embed.addFields({
-        name: `🏠 ${game.homeTeam} (${homeInfo.record})`,
-        value: `**Spread:** ${game.spreadDisplay.home}\n**Injuries:**\n${formatInjuries(homeInfo.injuries)}`,
+        name: `🏠 ${game.homeTeam}`,
+        value: `**Record:** ${homeInfo.record}\n**Spread:** ${game.spreadDisplay.home}`,
+        inline: true
+      });
+    } else {
+      embed.addFields({
+        name: `🏠 ${game.homeTeam}`,
+        value: `**Spread:** ${game.spreadDisplay.home}`,
         inline: true
       });
     }
@@ -178,7 +190,7 @@ export async function handleGameSelection(interaction) {
     }
 
     // Create pick buttons
-    const buttons = new ActionRowBuilder().addComponents(
+    const pickButtons = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`pats_pick_${gameId}_away`)
         .setLabel(`Pick ${game.awayTeam} ${game.spreadDisplay.away}`)
@@ -188,7 +200,21 @@ export async function handleGameSelection(interaction) {
         .setCustomId(`pats_pick_${gameId}_home`)
         .setLabel(`Pick ${game.homeTeam} ${game.spreadDisplay.home}`)
         .setStyle(ButtonStyle.Success)
-        .setEmoji('🏠'),
+        .setEmoji('🏠')
+    );
+
+    // Create info buttons
+    const infoButtons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pats_injuries_${gameId}`)
+        .setLabel('View Injuries')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🏥'),
+      new ButtonBuilder()
+        .setCustomId(`pats_matchup_${gameId}`)
+        .setLabel('Full Matchup Info')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('📊'),
       new ButtonBuilder()
         .setCustomId('pats_back_to_menu')
         .setLabel('Back to Games')
@@ -198,7 +224,7 @@ export async function handleGameSelection(interaction) {
 
     await interaction.editReply({
       embeds: [embed],
-      components: [buttons]
+      components: [pickButtons, infoButtons]
     });
 
   } catch (error) {
@@ -271,4 +297,211 @@ export async function handlePickSubmission(interaction) {
 export async function handleBackToMenu(interaction) {
   // Re-execute the main command
   await execute(interaction);
+}
+
+/**
+ * Handle view injuries button
+ */
+export async function handleViewInjuries(interaction) {
+  try {
+    await interaction.deferUpdate();
+
+    const session = getActiveSession();
+    if (!session) {
+      await interaction.editReply({
+        content: '❌ Session ended.',
+        components: []
+      });
+      return;
+    }
+
+    const gameId = interaction.customId.split('_')[2];
+    const game = session.games.find(g => g.id === gameId);
+    
+    if (!game) {
+      await interaction.followUp({
+        content: '❌ Game not found.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Fetch injury info
+    const matchupInfo = await getMatchupInfo(game.homeTeam, game.awayTeam);
+
+    const embed = new EmbedBuilder()
+      .setTitle(`🏥 Injury Report: ${game.awayTeam} @ ${game.homeTeam}`)
+      .setColor(0xFF0000)
+      .setTimestamp();
+
+    // Away team injuries
+    if (matchupInfo?.away?.injuries) {
+      const awayInjuries = formatInjuries(matchupInfo.away.injuries);
+      embed.addFields({
+        name: `🔵 ${game.awayTeam} Injuries`,
+        value: awayInjuries,
+        inline: false
+      });
+    } else {
+      embed.addFields({
+        name: `🔵 ${game.awayTeam} Injuries`,
+        value: 'No injury data available',
+        inline: false
+      });
+    }
+
+    // Home team injuries
+    if (matchupInfo?.home?.injuries) {
+      const homeInjuries = formatInjuries(matchupInfo.home.injuries);
+      embed.addFields({
+        name: `🏠 ${game.homeTeam} Injuries`,
+        value: homeInjuries,
+        inline: false
+      });
+    } else {
+      embed.addFields({
+        name: `🏠 ${game.homeTeam} Injuries`,
+        value: 'No injury data available',
+        inline: false
+      });
+    }
+
+    const backButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pats_back_to_game_${gameId}`)
+        .setLabel('Back to Game')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️')
+    );
+
+    await interaction.editReply({
+      embeds: [embed],
+      components: [backButton]
+    });
+
+  } catch (error) {
+    console.error('Error viewing injuries:', error);
+    await interaction.followUp({
+      content: '❌ Error loading injury report.',
+      ephemeral: true
+    });
+  }
+}
+
+/**
+ * Handle view full matchup info button
+ */
+export async function handleViewMatchup(interaction) {
+  try {
+    await interaction.deferUpdate();
+
+    const session = getActiveSession();
+    if (!session) {
+      await interaction.editReply({
+        content: '❌ Session ended.',
+        components: []
+      });
+      return;
+    }
+
+    const gameId = interaction.customId.split('_')[2];
+    const game = session.games.find(g => g.id === gameId);
+    
+    if (!game) {
+      await interaction.followUp({
+        content: '❌ Game not found.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Fetch matchup info
+    const matchupInfo = await getMatchupInfo(game.homeTeam, game.awayTeam);
+
+    const embed = new EmbedBuilder()
+      .setTitle(`📊 Full Matchup: ${game.awayTeam} @ ${game.homeTeam}`)
+      .setColor(0x0099FF)
+      .setTimestamp();
+
+    const gameTime = new Date(game.commenceTime);
+    embed.addFields({
+      name: '🕐 Tip-Off',
+      value: gameTime.toLocaleString('en-US', {
+        timeZone: 'America/Los_Angeles',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZoneName: 'short'
+      }),
+      inline: false
+    });
+
+    // Away team full info
+    if (matchupInfo?.away) {
+      const awayInfo = matchupInfo.away;
+      embed.addFields({
+        name: `🔵 ${game.awayTeam}`,
+        value: `**Record:** ${awayInfo.record}\n**Spread:** ${game.spreadDisplay.away}\n**Injuries:**\n${formatInjuries(awayInfo.injuries)}`,
+        inline: false
+      });
+    }
+
+    // Home team full info
+    if (matchupInfo?.home) {
+      const homeInfo = matchupInfo.home;
+      embed.addFields({
+        name: `🏠 ${game.homeTeam}`,
+        value: `**Record:** ${homeInfo.record}\n**Spread:** ${game.spreadDisplay.home}\n**Injuries:**\n${formatInjuries(homeInfo.injuries)}`,
+        inline: false
+      });
+    }
+
+    // Spread explanation
+    const favoredTeam = game.favored === 'home' ? game.homeTeam : game.awayTeam;
+    const favoredSpread = game.favored === 'home' ? game.homeSpread : game.awaySpread;
+    
+    embed.addFields({
+      name: '📈 Spread Breakdown',
+      value: `**${favoredTeam}** is favored by **${Math.abs(favoredSpread)} points**`,
+      inline: false
+    });
+
+    const backButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pats_back_to_game_${gameId}`)
+        .setLabel('Back to Game')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️')
+    );
+
+    await interaction.editReply({
+      embeds: [embed],
+      components: [backButton]
+    });
+
+  } catch (error) {
+    console.error('Error viewing matchup:', error);
+    await interaction.followUp({
+      content: '❌ Error loading matchup info.',
+      ephemeral: true
+    });
+  }
+}
+
+/**
+ * Handle back to game button (from injury/matchup views)
+ */
+export async function handleBackToGame(interaction) {
+  const gameId = interaction.customId.split('_')[3];
+  
+  // Simulate game selection
+  const fakeInteraction = {
+    ...interaction,
+    values: [gameId],
+    deferUpdate: interaction.deferUpdate.bind(interaction),
+    editReply: interaction.editReply.bind(interaction)
+  };
+  
+  await handleGameSelection(fakeInteraction);
 }
