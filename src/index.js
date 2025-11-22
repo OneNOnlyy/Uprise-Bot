@@ -10,6 +10,7 @@ import * as configCommand from './commands/config.js';
 import * as patsstartCommand from './commands/patsstart.js';
 import * as makepickCommand from './commands/makepick.js';
 import * as patsleaderboardCommand from './commands/patsleaderboard.js';
+import * as patsendCommand from './commands/patsend.js';
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ client.commands.set(configCommand.data.name, configCommand);
 client.commands.set(patsstartCommand.data.name, patsstartCommand);
 client.commands.set(makepickCommand.data.name, makepickCommand);
 client.commands.set(patsleaderboardCommand.data.name, patsleaderboardCommand);
+client.commands.set(patsendCommand.data.name, patsendCommand);
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`✅ Uprise Bot is ready! Logged in as ${readyClient.user.tag}`);

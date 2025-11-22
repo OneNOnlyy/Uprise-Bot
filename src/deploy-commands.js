@@ -7,6 +7,7 @@ import * as configCommand from './commands/config.js';
 import * as patsstartCommand from './commands/patsstart.js';
 import * as makepickCommand from './commands/makepick.js';
 import * as patsleaderboardCommand from './commands/patsleaderboard.js';
+import * as patsendCommand from './commands/patsend.js';
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ const commands = [
   patsstartCommand.data.toJSON(),
   makepickCommand.data.toJSON(),
   patsleaderboardCommand.data.toJSON(),
+  patsendCommand.data.toJSON(),
 ];
 
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);

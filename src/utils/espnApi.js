@@ -17,7 +17,9 @@ const TEAM_NAME_TO_ESPN_ID = {
   'Houston Rockets': '10',
   'Indiana Pacers': '11',
   'LA Clippers': '12',
+  'Los Angeles Clippers': '12',
   'Los Angeles Lakers': '13',
+  'LA Lakers': '13',
   'Memphis Grizzlies': '29',
   'Miami Heat': '14',
   'Milwaukee Bucks': '15',
@@ -37,13 +39,46 @@ const TEAM_NAME_TO_ESPN_ID = {
 };
 
 /**
+ * Normalize team name for matching
+ */
+function normalizeTeamName(teamName) {
+  // Try exact match first
+  if (TEAM_NAME_TO_ESPN_ID[teamName]) {
+    return teamName;
+  }
+  
+  // Try variations
+  const normalized = teamName.toLowerCase();
+  
+  // Handle LA/Los Angeles variations
+  if (normalized.includes('clippers')) {
+    return 'LA Clippers';
+  }
+  if (normalized.includes('lakers')) {
+    return 'Los Angeles Lakers';
+  }
+  
+  // Try to find a fuzzy match
+  for (const [key, value] of Object.entries(TEAM_NAME_TO_ESPN_ID)) {
+    if (key.toLowerCase() === normalized || 
+        key.toLowerCase().includes(normalized) || 
+        normalized.includes(key.toLowerCase())) {
+      return key;
+    }
+  }
+  
+  return teamName;
+}
+
+/**
  * Get team information including record and injuries
  */
 export async function getTeamInfo(teamName) {
   try {
-    const teamId = TEAM_NAME_TO_ESPN_ID[teamName];
+    const normalizedName = normalizeTeamName(teamName);
+    const teamId = TEAM_NAME_TO_ESPN_ID[normalizedName];
     if (!teamId) {
-      console.error(`Unknown team name: ${teamName}`);
+      console.error(`Unknown team name: ${teamName} (normalized: ${normalizedName})`);
       return null;
     }
 
