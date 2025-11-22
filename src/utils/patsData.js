@@ -151,17 +151,25 @@ export function closePATSSession(sessionId, gameResults) {
   // Calculate wins/losses for each user
   const userResults = {};
   
-  Object.keys(session.picks).forEach(userId => {
-    const picks = session.picks[userId];
+  // First, process all participants (including those with no picks)
+  session.participants.forEach(userId => {
+    const picks = session.picks[userId] || [];
     let wins = 0;
     let losses = 0;
+    let missedPicks = 0;
     
-    picks.forEach(pick => {
-      const game = session.games.find(g => g.id === pick.gameId);
-      if (game && game.result) {
+    // Check each game in the session
+    session.games.forEach(game => {
+      const pick = picks.find(p => p.gameId === game.id);
+      
+      if (!pick) {
+        // No pick made for this game - automatic loss
+        losses++;
+        missedPicks++;
+      } else if (game.result) {
+        // Pick was made, calculate result
         const homeScore = game.result.homeScore;
         const awayScore = game.result.awayScore;
-        const spread = pick.pick === 'home' ? game.homeSpread : game.awaySpread;
         
         // Calculate if pick won against the spread
         const adjustedHomeScore = homeScore + game.homeSpread;
@@ -182,7 +190,7 @@ export function closePATSSession(sessionId, gameResults) {
       }
     });
     
-    userResults[userId] = { wins, losses };
+    userResults[userId] = { wins, losses, missedPicks };
     
     // Update user stats
     if (!data.users[userId]) {

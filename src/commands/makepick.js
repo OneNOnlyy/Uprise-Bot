@@ -31,6 +31,13 @@ export async function execute(interaction) {
     const userPicks = getUserPicks(session.id, interaction.user.id);
     const pickedGameIds = userPicks.map(p => p.gameId);
 
+    // Count available (not started) and locked games
+    const now = new Date();
+    const availableGames = session.games.filter(g => new Date(g.commenceTime) >= now);
+    const lockedGames = session.games.filter(g => new Date(g.commenceTime) < now);
+    const lockedGameIds = lockedGames.map(g => g.id);
+    const missedPicks = lockedGames.filter(g => !pickedGameIds.includes(g.id)).length;
+
     // Create main menu embed
     const embed = new EmbedBuilder()
       .setTitle('🏀 Picks Against The Spread')
@@ -38,7 +45,7 @@ export async function execute(interaction) {
       .setColor(0xE03A3E)
       .addFields({
         name: '📊 Your Progress',
-        value: `Picks Made: **${userPicks.length}/${session.games.length}**`,
+        value: `Picks Made: **${userPicks.length}/${session.games.length}**${missedPicks > 0 ? `\n⚠️ Missed Picks: **${missedPicks}** (counted as losses)` : ''}`,
         inline: false
       })
       .setFooter({ text: 'Select a game from the dropdown below' });
@@ -47,7 +54,7 @@ export async function execute(interaction) {
     const options = session.games.map((game, index) => {
       const hasPicked = pickedGameIds.includes(game.id);
       const gameTime = new Date(game.commenceTime);
-      const isPast = gameTime < new Date();
+      const isLocked = gameTime < now;
       
       // Format time properly
       const dateStr = gameTime.toLocaleDateString('en-US', { 
@@ -61,11 +68,18 @@ export async function execute(interaction) {
         minute: '2-digit'
       });
       
+      let description = `${dateStr} ${timeStr} PT`;
+      if (isLocked) {
+        description += ' 🔒 LOCKED';
+      } else if (hasPicked) {
+        description += ' ✅ Picked';
+      }
+      
       return new StringSelectMenuOptionBuilder()
         .setLabel(`${game.awayTeam} @ ${game.homeTeam}`)
-        .setDescription(`${dateStr} ${timeStr} PT ${hasPicked ? '✅ Picked' : ''}`)
+        .setDescription(description)
         .setValue(game.id)
-        .setEmoji(hasPicked ? '✅' : '🏀');
+        .setEmoji(isLocked ? '🔒' : (hasPicked ? '✅' : '🏀'));
     });
 
     const selectMenu = new StringSelectMenuBuilder()
@@ -74,10 +88,24 @@ export async function execute(interaction) {
       .addOptions(options);
 
     const row = new ActionRowBuilder().addComponents(selectMenu);
+    
+    const components = [row];
+    
+    // If all picks are made, add "View My Picks" button
+    if (userPicks.length === session.games.length) {
+      const viewPicksButton = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('pats_view_my_picks')
+          .setLabel('View My Picks')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('📋')
+      );
+      components.push(viewPicksButton);
+    }
 
     await interaction.editReply({
       embeds: [embed],
-      components: [row]
+      components: components
     });
 
   } catch (error) {
@@ -115,6 +143,11 @@ export async function handleGameSelection(interaction) {
       return;
     }
 
+    // Check if game has started (locked)
+    const gameTime = new Date(game.commenceTime);
+    const now = new Date();
+    const isLocked = gameTime < now;
+
     // Fetch matchup info (injuries, records)
     console.log(`Fetching matchup info for ${game.awayTeam} @ ${game.homeTeam}...`);
     let matchupInfo = null;
@@ -144,11 +177,15 @@ export async function handleGameSelection(interaction) {
     // Create detailed game embed
     const embed = new EmbedBuilder()
       .setTitle(`🏀 ${game.awayTeam} @ ${game.homeTeam}`)
-      .setColor(0xE03A3E)
+      .setColor(isLocked ? 0xFF0000 : 0xE03A3E)
       .setTimestamp();
 
+    // Add locked warning if game has started
+    if (isLocked) {
+      embed.setDescription('🔒 **This game has started and is locked.**\nYou cannot make or change picks for this game.');
+    }
+
     // Game time
-    const gameTime = new Date(game.commenceTime);
     const formattedDate = gameTime.toLocaleDateString('en-US', {
       timeZone: 'America/Los_Angeles',
       weekday: 'short',
@@ -163,7 +200,7 @@ export async function handleGameSelection(interaction) {
     
     embed.addFields({
       name: '🕐 Tip-Off',
-      value: `${formattedDate} at ${formattedTime} PT`,
+      value: `${formattedDate} at ${formattedTime} PT${isLocked ? ' 🔒' : ''}`,
       inline: false
     });
 
@@ -223,23 +260,31 @@ export async function handleGameSelection(interaction) {
       const pickedTeam = existingPick.pick === 'home' ? game.homeTeam : game.awayTeam;
       embed.addFields({
         name: '✅ Your Current Pick',
-        value: `**${pickedTeam}** (${existingPick.spread > 0 ? '+' : ''}${existingPick.spread})`,
+        value: `**${pickedTeam}** (${existingPick.spread > 0 ? '+' : ''}${existingPick.spread})${isLocked ? ' - Locked' : ''}`,
+        inline: false
+      });
+    } else if (isLocked) {
+      embed.addFields({
+        name: '⚠️ No Pick Made',
+        value: '**This game is locked.** This will count as an automatic loss.',
         inline: false
       });
     }
 
-    // Create pick buttons
+    // Create pick buttons (disabled if locked)
     const pickButtons = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`pats_pick_${gameId}_away`)
         .setLabel(`Pick ${game.awayTeam} ${game.spreadDisplay.away}`)
         .setStyle(ButtonStyle.Primary)
-        .setEmoji('🔵'),
+        .setEmoji('🔵')
+        .setDisabled(isLocked),
       new ButtonBuilder()
         .setCustomId(`pats_pick_${gameId}_home`)
         .setLabel(`Pick ${game.homeTeam} ${game.spreadDisplay.home}`)
         .setStyle(ButtonStyle.Success)
         .setEmoji('🏠')
+        .setDisabled(isLocked)
     );
 
     // Create info buttons (removed View Injuries, only Full Matchup Info)
@@ -314,12 +359,6 @@ export async function handlePickSubmission(interaction) {
     // Defer the update so we can edit the message
     await interaction.deferUpdate();
     
-    // Show confirmation as follow-up
-    await interaction.followUp({
-      content: `✅ **Pick Saved!**\n\nYou picked **${pickedTeam}** ${spread > 0 ? '+' : ''}${spread}\n\nGood luck! 🍀`,
-      ephemeral: true
-    });
-    
     // Get user's updated picks
     const userPicks = getUserPicks(session.id, interaction.user.id);
     const pickedGameIds = userPicks.map(p => p.gameId);
@@ -366,11 +405,25 @@ export async function handlePickSubmission(interaction) {
       .addOptions(options);
 
     const row = new ActionRowBuilder().addComponents(selectMenu);
+    
+    const components = [row];
+    
+    // If all picks are made, add "View My Picks" button
+    if (userPicks.length === session.games.length) {
+      const viewPicksButton = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('pats_view_my_picks')
+          .setLabel('View My Picks')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('📋')
+      );
+      components.push(viewPicksButton);
+    }
 
     // Update the original message to show the main menu
     await interaction.editReply({
       embeds: [embed],
-      components: [row]
+      components: components
     });
 
   } catch (error) {
@@ -410,6 +463,11 @@ export async function handleBackToMenu(interaction) {
     const userPicks = getUserPicks(session.id, interaction.user.id);
     const pickedGameIds = userPicks.map(p => p.gameId);
 
+    // Count available (not started) and locked games
+    const now = new Date();
+    const lockedGames = session.games.filter(g => new Date(g.commenceTime) < now);
+    const missedPicks = lockedGames.filter(g => !pickedGameIds.includes(g.id)).length;
+
     // Create main menu embed
     const embed = new EmbedBuilder()
       .setTitle('🏀 Picks Against The Spread')
@@ -417,7 +475,7 @@ export async function handleBackToMenu(interaction) {
       .setColor(0xE03A3E)
       .addFields({
         name: '📊 Your Progress',
-        value: `Picks Made: **${userPicks.length}/${session.games.length}**`,
+        value: `Picks Made: **${userPicks.length}/${session.games.length}**${missedPicks > 0 ? `\n⚠️ Missed Picks: **${missedPicks}** (counted as losses)` : ''}`,
         inline: false
       })
       .setFooter({ text: 'Select a game from the dropdown below' });
@@ -426,6 +484,7 @@ export async function handleBackToMenu(interaction) {
     const options = session.games.map((game, index) => {
       const hasPicked = pickedGameIds.includes(game.id);
       const gameTime = new Date(game.commenceTime);
+      const isLocked = gameTime < now;
       
       // Format time properly
       const dateStr = gameTime.toLocaleDateString('en-US', { 
@@ -439,11 +498,18 @@ export async function handleBackToMenu(interaction) {
         minute: '2-digit'
       });
       
+      let description = `${dateStr} ${timeStr} PT`;
+      if (isLocked) {
+        description += ' 🔒 LOCKED';
+      } else if (hasPicked) {
+        description += ' ✅ Picked';
+      }
+      
       return new StringSelectMenuOptionBuilder()
         .setLabel(`${game.awayTeam} @ ${game.homeTeam}`)
-        .setDescription(`${dateStr} ${timeStr} PT ${hasPicked ? '✅ Picked' : ''}`)
+        .setDescription(description)
         .setValue(game.id)
-        .setEmoji(hasPicked ? '✅' : '🏀');
+        .setEmoji(isLocked ? '🔒' : (hasPicked ? '✅' : '🏀'));
     });
 
     const selectMenu = new StringSelectMenuBuilder()
@@ -452,10 +518,24 @@ export async function handleBackToMenu(interaction) {
       .addOptions(options);
 
     const row = new ActionRowBuilder().addComponents(selectMenu);
+    
+    const components = [row];
+    
+    // If all picks are made, add "View My Picks" button
+    if (userPicks.length === session.games.length) {
+      const viewPicksButton = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('pats_view_my_picks')
+          .setLabel('View My Picks')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('📋')
+      );
+      components.push(viewPicksButton);
+    }
 
     await interaction.editReply({
       embeds: [embed],
-      components: [row]
+      components: components
     });
     
   } catch (error) {
@@ -658,6 +738,111 @@ export async function handleViewMatchup(interaction) {
     await interaction.followUp({
       content: '❌ Error loading matchup info.',
       ephemeral: true
+    });
+  }
+}
+
+/**
+ * Handle viewing all user picks
+ */
+export async function handleViewMyPicks(interaction) {
+  try {
+    await interaction.deferUpdate();
+    
+    const session = getActiveSession();
+    if (!session) {
+      await interaction.editReply({
+        content: '❌ No active PATS session found.',
+        embeds: [],
+        components: []
+      });
+      return;
+    }
+
+    const userPicks = getUserPicks(session.id, interaction.user.id);
+    
+    if (userPicks.length === 0) {
+      await interaction.editReply({
+        content: '❌ You haven\'t made any picks yet.',
+        embeds: [],
+        components: []
+      });
+      return;
+    }
+
+    // Build the picks overview embed
+    const embed = new EmbedBuilder()
+      .setColor('#1e90ff')
+      .setTitle('📋 Your Picks Overview')
+      .setDescription('Here are all your picks for today:')
+      .setTimestamp();
+
+    const now = new Date();
+    let lockedCount = 0;
+
+    // Add each pick as a field
+    for (const pick of userPicks) {
+      const game = session.games.find(g => g.id === pick.gameId);
+      if (game) {
+        const gameTime = new Date(game.commenceTime);
+        const isLocked = gameTime < now;
+        if (isLocked) lockedCount++;
+        
+        const pickedTeam = pick.pick === 'home' ? game.homeTeam : game.awayTeam;
+        const spreadText = pick.spread > 0 ? `+${pick.spread}` : pick.spread.toString();
+        
+        const fieldValue = [
+          `**Your Pick:** ${pickedTeam} (${spreadText})${isLocked ? ' 🔒' : ''}`,
+          `**Matchup:** ${game.awayTeam} @ ${game.homeTeam}`,
+          `**Time:** ${game.commenceTime}`,
+          isLocked ? '**Status:** Locked - Game has started' : '**Status:** Active - Can still change'
+        ].join('\n');
+        
+        embed.addFields({
+          name: `Game ${userPicks.indexOf(pick) + 1}`,
+          value: fieldValue,
+          inline: false
+        });
+      }
+    }
+
+    // Check for missed picks on locked games
+    const lockedGames = session.games.filter(g => new Date(g.commenceTime) < now);
+    const pickedGameIds = userPicks.map(p => p.gameId);
+    const missedPicks = lockedGames.filter(g => !pickedGameIds.includes(g.id));
+    
+    if (missedPicks.length > 0) {
+      embed.addFields({
+        name: '⚠️ Missed Picks',
+        value: `You missed **${missedPicks.length}** game(s) that have started. These count as automatic losses.`,
+        inline: false
+      });
+    }
+
+    if (lockedCount > 0) {
+      embed.setFooter({ text: `${lockedCount} pick(s) are now locked` });
+    }
+
+    // Add back button
+    const backButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_back_to_menu')
+        .setLabel('Back to Games')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('⬅️')
+    );
+
+    await interaction.editReply({
+      embeds: [embed],
+      components: [backButton]
+    });
+    
+  } catch (error) {
+    console.error('Error viewing picks:', error);
+    await interaction.editReply({
+      content: '❌ Error loading your picks.',
+      embeds: [],
+      components: []
     });
   }
 }

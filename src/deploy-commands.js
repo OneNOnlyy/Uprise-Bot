@@ -6,6 +6,7 @@ import * as sendgamepingCommand from './commands/sendgameping.js';
 import * as configCommand from './commands/config.js';
 import * as patsstartCommand from './commands/patsstart.js';
 import * as makepickCommand from './commands/makepick.js';
+import * as patsCommand from './commands/pats.js';
 import * as patsleaderboardCommand from './commands/patsleaderboard.js';
 import * as patsendCommand from './commands/patsend.js';
 
@@ -18,6 +19,7 @@ const commands = [
   configCommand.data.toJSON(),
   patsstartCommand.data.toJSON(),
   makepickCommand.data.toJSON(),
+  patsCommand.data.toJSON(),
   patsleaderboardCommand.data.toJSON(),
   patsendCommand.data.toJSON(),
 ];
