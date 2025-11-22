@@ -134,8 +134,12 @@ export async function showDashboard(interaction) {
     });
   }
 
-  // Add all picks to dashboard
+  // Add all picks to dashboard with win/loss status
   if (pickedCount > 0) {
+    let wins = 0;
+    let losses = 0;
+    let pending = 0;
+    
     const pickSummary = userPicks.map((pick, index) => {
       const game = session.games.find(g => g.id === pick.gameId);
       if (!game) return null;
@@ -144,7 +148,39 @@ export async function showDashboard(interaction) {
       const spreadText = pick.spread > 0 ? `+${pick.spread}` : pick.spread.toString();
       const isLocked = new Date(game.commenceTime) < now;
       
-      return `${index + 1}. **${pickedTeam}** (${spreadText}) ${isLocked ? '🔒' : ''}`;
+      let statusEmoji = '';
+      
+      // Check if game has result
+      if (game.result && game.result.status === 'Final') {
+        const homeScore = game.result.homeScore;
+        const awayScore = game.result.awayScore;
+        
+        // Calculate if pick won against the spread
+        const adjustedHomeScore = homeScore + game.homeSpread;
+        const adjustedAwayScore = awayScore + game.awaySpread;
+        
+        let pickWon = false;
+        if (pick.pick === 'home') {
+          pickWon = adjustedHomeScore > adjustedAwayScore;
+        } else {
+          pickWon = adjustedAwayScore > adjustedHomeScore;
+        }
+        
+        if (pickWon) {
+          statusEmoji = '✅';
+          wins++;
+        } else {
+          statusEmoji = '❌';
+          losses++;
+        }
+      } else if (isLocked) {
+        statusEmoji = '🔒';
+        pending++;
+      } else {
+        pending++;
+      }
+      
+      return `${index + 1}. ${statusEmoji} **${pickedTeam}** (${spreadText})`;
     }).filter(Boolean).join('\n');
 
     embed.addFields({
@@ -152,6 +188,15 @@ export async function showDashboard(interaction) {
       value: pickSummary || 'No picks yet',
       inline: false
     });
+    
+    // Add record if any games are complete
+    if (wins > 0 || losses > 0) {
+      embed.addFields({
+        name: '📊 Current Record',
+        value: `**${wins}-${losses}** (${wins + losses} complete, ${pending} pending)`,
+        inline: false
+      });
+    }
   }
 
   // Create action buttons

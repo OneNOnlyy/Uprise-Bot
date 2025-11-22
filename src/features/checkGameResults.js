@@ -44,8 +44,16 @@ async function checkAndUpdateGameResults() {
 
     console.log('🔍 Checking game results...');
     
-    // Fetch current game data
-    const liveGames = await fetchGameData(session.date);
+    // Fetch current game data for session date AND next day (timezone handling)
+    const sessionDate = new Date(session.date);
+    const nextDay = new Date(sessionDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    
+    const liveGamesToday = await fetchGameData(session.date);
+    const liveGamesTomorrow = await fetchGameData(nextDay.toISOString().split('T')[0]);
+    const liveGames = [...liveGamesToday, ...liveGamesTomorrow];
+    
+    console.log(`📥 Fetched ${liveGames.length} games from BallDontLie (${liveGamesToday.length} today + ${liveGamesTomorrow.length} tomorrow)`);
     
     let updatedCount = 0;
     
@@ -65,11 +73,26 @@ async function checkAndUpdateGameResults() {
       });
       
       if (!liveGame) {
+        console.log(`❓ No match found for: ${sessionGame.awayTeam} @ ${sessionGame.homeTeam}`);
+        // Debug: show what teams we're looking for vs what we have
+        if (liveGames.length > 0) {
+          const sampleGame = liveGames[0];
+          console.log(`   Sample API team format: "${sampleGame.visitor_team.full_name}" (full_name) or "${sampleGame.visitor_team.name}" (name)`);
+        }
         continue;
       }
       
-      // Check if game is final
-      if (liveGame.status === 'Final') {
+      // Debug: log the game status
+      console.log(`📊 ${sessionGame.awayTeam} @ ${sessionGame.homeTeam}`);
+      console.log(`   Status: "${liveGame.status}", Home: ${liveGame.home_team_score}, Away: ${liveGame.visitor_team_score}`);
+      
+      // Check if game is final (BallDontLie may use different status strings)
+      const isFinal = liveGame.status === 'Final' || 
+                      liveGame.status === 'final' || 
+                      liveGame.status === 'completed' ||
+                      liveGame.status === 'Completed';
+      
+      if (isFinal) {
         const homeScore = liveGame.home_team_score;
         const awayScore = liveGame.visitor_team_score;
         

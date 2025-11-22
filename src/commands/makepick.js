@@ -773,6 +773,8 @@ export async function handleViewMyPicks(interaction) {
 
     const now = new Date();
     let lockedCount = 0;
+    let wins = 0;
+    let losses = 0;
 
     // Add each pick as a cleaner field
     for (const pick of userPicks) {
@@ -799,11 +801,41 @@ export async function handleViewMyPicks(interaction) {
           minute: '2-digit'
         });
         
-        const statusEmoji = isLocked ? '🔒' : '✅';
+        let statusEmoji = isLocked ? '🔒' : '✅';
+        let resultText = '';
+        
+        // Check if game has result
+        if (game.result && game.result.status === 'Final') {
+          const homeScore = game.result.homeScore;
+          const awayScore = game.result.awayScore;
+          
+          // Calculate if pick won against the spread
+          const adjustedHomeScore = homeScore + game.homeSpread;
+          const adjustedAwayScore = awayScore + game.awaySpread;
+          
+          let pickWon = false;
+          if (pick.pick === 'home') {
+            pickWon = adjustedHomeScore > adjustedAwayScore;
+          } else {
+            pickWon = adjustedAwayScore > adjustedHomeScore;
+          }
+          
+          if (pickWon) {
+            statusEmoji = '✅';
+            wins++;
+            resultText = `\n**Result:** ✅ WIN`;
+          } else {
+            statusEmoji = '❌';
+            losses++;
+            resultText = `\n**Result:** ❌ LOSS`;
+          }
+          
+          resultText += ` (${game.awayTeam} ${awayScore}, ${game.homeTeam} ${homeScore})`;
+        }
         
         embed.addFields({
           name: `${statusEmoji} ${game.awayTeam} @ ${game.homeTeam}`,
-          value: `**Pick:** ${pickedTeam} (${spreadText})\n**Time:** ${formattedDate} at ${formattedTime} PT`,
+          value: `**Pick:** ${pickedTeam} (${spreadText})\n**Time:** ${formattedDate} at ${formattedTime} PT${resultText}`,
           inline: true
         });
       }
@@ -820,9 +852,14 @@ export async function handleViewMyPicks(interaction) {
         value: `You missed **${missedPicks.length}** game(s). These count as automatic losses.`,
         inline: false
       });
+      losses += missedPicks.length;
     }
 
-    if (lockedCount > 0) {
+    // Update footer with record
+    if (wins > 0 || losses > 0) {
+      const pending = userPicks.length - wins - losses + missedPicks.length;
+      embed.setFooter({ text: `Record: ${wins}-${losses} • ${pending} pending` });
+    } else if (lockedCount > 0) {
       embed.setFooter({ text: `${lockedCount} locked • ${userPicks.length - lockedCount} can be changed` });
     } else {
       embed.setFooter({ text: 'All picks can still be changed' });
