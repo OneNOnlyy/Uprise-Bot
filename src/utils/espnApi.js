@@ -270,12 +270,27 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
           
           if (teamInjuries.injuries && teamInjuries.injuries.length > 0) {
             for (const injury of teamInjuries.injuries) {
+              // Extract description from various possible formats
+              let description = 'Injury';
+              
+              if (typeof injury.details === 'string') {
+                description = injury.details;
+              } else if (injury.details?.type) {
+                description = injury.details.type;
+              } else if (injury.details?.detail) {
+                description = injury.details.detail;
+              } else if (injury.type) {
+                description = injury.type;
+              } else if (injury.comment) {
+                description = injury.comment;
+              }
+              
               injuries.push({
                 player: injury.longComment || injury.athlete?.displayName || 'Unknown',
                 status: injury.status || 'Out',
-                description: injury.details || injury.type || 'Injury'
+                description: description
               });
-              console.log(`[Scraper] Game Summary: ${injury.longComment || injury.athlete?.displayName} - ${injury.status}`);
+              console.log(`[Scraper] Game Summary: ${injury.longComment || injury.athlete?.displayName} - ${injury.status} (${description})`);
             }
           }
         }
@@ -710,5 +725,12 @@ export function formatInjuries(injuries) {
     return '✅ No reported injuries';
   }
   
-  return injuries.map(inj => `❌ ${inj.player} - ${inj.status} (${inj.description})`).join('\n');
+  return injuries.map(inj => {
+    // Ensure description is a string
+    let desc = inj.description;
+    if (typeof desc === 'object' && desc !== null) {
+      desc = desc.type || desc.detail || JSON.stringify(desc);
+    }
+    return `❌ ${inj.player} - ${inj.status} (${desc})`;
+  }).join('\n');
 }
