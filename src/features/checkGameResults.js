@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import fetch from 'node-fetch';
-import { getActiveSession, updateGameResult, getUserPicks } from '../utils/patsData.js';
+import { getActiveSession, updateGameResult, getUserPicks, updateLeaderboardCache } from '../utils/patsData.js';
 
 const BALLDONTLIE_API = 'https://api.balldontlie.io/v1';
 
@@ -118,6 +118,9 @@ async function checkAndUpdateGameResults() {
     
     if (updatedCount > 0) {
       console.log(`📊 Updated ${updatedCount} game result(s)`);
+      // Update the leaderboard cache when results change
+      updateLeaderboardCache();
+      console.log(`🔄 Leaderboard cache updated`);
     } else {
       console.log('⏳ No completed games yet');
     }

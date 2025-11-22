@@ -5,7 +5,7 @@ import {
   ButtonBuilder,
   ButtonStyle
 } from 'discord.js';
-import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats } from '../utils/patsData.js';
+import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard } from '../utils/patsData.js';
 
 export const data = new SlashCommandBuilder()
   .setName('pats')

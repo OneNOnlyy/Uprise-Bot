@@ -7,6 +7,11 @@ const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, '../../data');
 const PATS_FILE = path.join(DATA_DIR, 'pats.json');
 
+// Cache for session leaderboard (updated max once per minute)
+let leaderboardCache = null;
+let lastLeaderboardUpdate = 0;
+const LEADERBOARD_CACHE_DURATION = 60000; // 1 minute in milliseconds
+
 /**
  * Ensure data directory and file exist
  */
@@ -408,5 +413,114 @@ export function getCurrentSessionStats(userId) {
     missedPicks: missedCount,
     doubleDownGame
   };
+}
+
+/**
+ * Get live session leaderboard (cached for 1 minute)
+ * Shows current standings for active session with real-time win/loss tracking
+ */
+export function getLiveSessionLeaderboard(forceUpdate = false) {
+  const now = Date.now();
+  
+  // Return cached data if within cache duration
+  if (!forceUpdate && leaderboardCache && (now - lastLeaderboardUpdate) < LEADERBOARD_CACHE_DURATION) {
+    return leaderboardCache;
+  }
+  
+  const session = getActiveSession();
+  if (!session) {
+    leaderboardCache = null;
+    return null;
+  }
+  
+  const standings = [];
+  
+  // Calculate stats for all participants
+  for (const userId in session.picks) {
+    const picks = session.picks[userId];
+    let wins = 0;
+    let losses = 0;
+    let pending = 0;
+    
+    for (const pick of picks) {
+      const game = session.games.find(g => g.id === pick.gameId);
+      if (!game) continue;
+      
+      // Check if game has result
+      if (game.result && game.result.status === 'Final') {
+        const homeScore = game.result.homeScore;
+        const awayScore = game.result.awayScore;
+        
+        const adjustedHomeScore = homeScore + game.homeSpread;
+        const adjustedAwayScore = awayScore + game.awaySpread;
+        
+        let pickWon = false;
+        if (pick.pick === 'home') {
+          pickWon = adjustedHomeScore > adjustedAwayScore;
+        } else {
+          pickWon = adjustedAwayScore > adjustedHomeScore;
+        }
+        
+        if (pickWon) {
+          wins += pick.isDoubleDown ? 2 : 1;
+        } else {
+          losses += pick.isDoubleDown ? 2 : 1;
+        }
+      } else if (new Date(game.commenceTime) < new Date()) {
+        // Game is locked but no result yet
+        pending++;
+      }
+    }
+    
+    // Check for missed picks on locked games
+    const lockedGames = session.games.filter(g => new Date(g.commenceTime) < new Date());
+    const pickedGameIds = picks.map(p => p.gameId);
+    const missedCount = lockedGames.filter(g => !pickedGameIds.includes(g.id)).length;
+    losses += missedCount;
+    
+    const totalComplete = wins + losses;
+    const winPercentage = totalComplete > 0 ? (wins / totalComplete * 100) : 0;
+    
+    standings.push({
+      userId,
+      wins,
+      losses,
+      pending,
+      totalPicks: picks.length,
+      missedPicks: missedCount,
+      winPercentage,
+      totalComplete
+    });
+  }
+  
+  // Sort by win percentage (min 1 completed game), then by wins
+  standings.sort((a, b) => {
+    if (a.totalComplete === 0 && b.totalComplete === 0) {
+      return b.totalPicks - a.totalPicks; // Most picks made
+    }
+    if (a.totalComplete === 0) return 1;
+    if (b.totalComplete === 0) return -1;
+    
+    if (b.winPercentage !== a.winPercentage) {
+      return b.winPercentage - a.winPercentage;
+    }
+    return b.wins - a.wins;
+  });
+  
+  leaderboardCache = {
+    standings,
+    session,
+    lastUpdate: now
+  };
+  lastLeaderboardUpdate = now;
+  
+  return leaderboardCache;
+}
+
+/**
+ * Force update the leaderboard cache (called when game results are updated)
+ */
+export function updateLeaderboardCache() {
+  return getLiveSessionLeaderboard(true);
 }
 

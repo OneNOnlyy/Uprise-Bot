@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { getLeaderboard, getActiveSession, getUserPicks } from '../utils/patsData.js';
+import { getLeaderboard, getActiveSession, getUserPicks, getLiveSessionLeaderboard, getCurrentSessionStats } from '../utils/patsData.js';
 
 export const data = new SlashCommandBuilder()
   .setName('patsleaderboard')
@@ -11,6 +11,7 @@ export async function execute(interaction) {
 
     const leaderboard = getLeaderboard();
     const session = getActiveSession();
+    const liveLeaderboard = getLiveSessionLeaderboard();
 
     const embed = new EmbedBuilder()
       .setTitle('🏆 PATS Leaderboard')
@@ -18,16 +19,47 @@ export async function execute(interaction) {
       .setColor(0xE03A3E)
       .setTimestamp();
 
-    if (leaderboard.length === 0) {
-      embed.setDescription('No stats yet! Be the first to participate in PATS.');
-    } else {
-      // Overall stats
-      const top10 = leaderboard.slice(0, 10);
+    // Show live session leaderboard if active
+    if (liveLeaderboard && liveLeaderboard.standings.length > 0) {
+      const top10 = liveLeaderboard.standings.slice(0, 10);
       
-      const leaderboardText = await Promise.all(top10.map(async (entry, index) => {
+      const sessionLeaderboardText = await Promise.all(top10.map(async (entry, index) => {
         try {
           const user = await interaction.client.users.fetch(entry.userId);
           const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+          const record = `${entry.wins}-${entry.losses}`;
+          const winPct = entry.totalComplete > 0 ? ` (${entry.winPercentage.toFixed(1)}%)` : '';
+          const pendingText = entry.pending > 0 ? ` • ${entry.pending} pending` : '';
+          return `${medal} **${user.username}** - ${record}${winPct}${pendingText}`;
+        } catch {
+          return `${index + 1}. Unknown User - ${entry.wins}-${entry.losses}`;
+        }
+      }));
+
+      const cacheAge = Math.floor((Date.now() - liveLeaderboard.lastUpdate) / 1000);
+      embed.addFields({
+        name: '📅 Today\'s Session Leaders',
+        value: sessionLeaderboardText.join('\n') || 'No picks yet',
+        inline: false
+      });
+      
+      embed.addFields({
+        name: '🎮 Session Info',
+        value: `**Participants:** ${liveLeaderboard.standings.length}\n` +
+               `**Total Games:** ${session.games.length}\n` +
+               `**Updated:** ${cacheAge}s ago`,
+        inline: false
+      });
+    }
+
+    // Overall all-time stats
+    if (leaderboard.length > 0) {
+      const top5 = leaderboard.slice(0, 5);
+      
+      const allTimeText = await Promise.all(top5.map(async (entry, index) => {
+        try {
+          const user = await interaction.client.users.fetch(entry.userId);
+          const medal = index === 0 ? '👑' : index === 1 ? '⭐' : index === 2 ? '🌟' : `${index + 1}.`;
           return `${medal} **${user.username}** - ${entry.totalWins}-${entry.totalLosses} (${entry.winPercentage.toFixed(1)}%)`;
         } catch {
           return `${index + 1}. Unknown User - ${entry.totalWins}-${entry.totalLosses}`;
@@ -35,38 +67,41 @@ export async function execute(interaction) {
       }));
 
       embed.addFields({
-        name: '📊 All-Time Leaders',
-        value: leaderboardText.join('\n') || 'No data yet',
+        name: '🏅 All-Time Top 5',
+        value: allTimeText.join('\n') || 'No data yet',
+        inline: false
+      });
+    } else {
+      embed.addFields({
+        name: '� All-Time Leaders',
+        value: 'No stats yet! Be the first to participate in PATS.',
         inline: false
       });
     }
 
-    // Current session stats
+    // User's personal stats for current session
     if (session) {
-      const pickCounts = Object.keys(session.picks).length;
-      embed.addFields({
-        name: '🎮 Current Session',
-        value: `**${pickCounts}** participants have made picks\n**${session.games.length}** games available`,
-        inline: false
-      });
-
-      // Show user's current session picks
-      const userPicks = getUserPicks(session.id, interaction.user.id);
-      if (userPicks.length > 0) {
+      const userStats = getCurrentSessionStats(interaction.user.id);
+      if (userStats && userStats.totalPicks > 0) {
+        const record = `${userStats.wins}-${userStats.losses}`;
+        const pendingText = userStats.pending > 0 ? `\n**Pending:** ${userStats.pending}` : '';
+        const ddText = userStats.doubleDownGame ? `\n**Double Down:** ${userStats.doubleDownGame.awayTeam} @ ${userStats.doubleDownGame.homeTeam} 💰` : '';
+        
         embed.addFields({
-          name: '✅ Your Picks Today',
-          value: `${userPicks.length}/${session.games.length} games picked`,
+          name: '✅ Your Session',
+          value: `**Record:** ${record}\n` +
+                 `**Progress:** ${userStats.totalPicks}/${userStats.totalGames}${pendingText}${ddText}`,
           inline: true
         });
       }
     }
 
-    // User's personal stats
+    // User's personal all-time stats
     const userStats = leaderboard.find(entry => entry.userId === interaction.user.id);
     if (userStats) {
       const rank = leaderboard.findIndex(entry => entry.userId === interaction.user.id) + 1;
       embed.addFields({
-        name: '📈 Your Stats',
+        name: '📈 Your All-Time Stats',
         value: `**Rank:** #${rank}\n` +
                `**Record:** ${userStats.totalWins}-${userStats.totalLosses}\n` +
                `**Win %:** ${userStats.winPercentage.toFixed(1)}%\n` +
