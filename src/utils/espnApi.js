@@ -222,10 +222,14 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
         if (!competition) continue;
         
         for (const competitor of competition.competitors) {
-          if (competitor.team.abbreviation === teamAbbr || 
-              competitor.team.displayName === teamName) {
+          const compAbbr = competitor.team.abbreviation;
+          const compName = competitor.team.displayName;
+          
+          console.log(`[Scraper] Checking: ${compName} (${compAbbr}) vs ${teamName} (${teamAbbr})`);
+          
+          if (compAbbr === teamAbbr || compName === teamName) {
             gameId = event.id;
-            console.log(`[Scraper] Found game ID ${gameId} for ${teamName}`);
+            console.log(`[Scraper] ✓ Found game ID ${gameId} for ${teamName}`);
             break;
           }
         }
