@@ -129,6 +129,11 @@ async function showChannelsConfig(interaction) {
         name: '💬 Main Chat Channel', 
         value: currentConfig.MAIN_CHAT_CHANNEL_ID ? `<#${currentConfig.MAIN_CHAT_CHANNEL_ID}>` : 'Not set',
         inline: false 
+      },
+      { 
+        name: '📋 Transaction Feed Channel', 
+        value: currentConfig.TRANSACTION_CHANNEL_ID ? `<#${currentConfig.TRANSACTION_CHANNEL_ID}>` : 'Not set',
+        inline: false 
       }
     );
 
@@ -145,7 +150,12 @@ async function showChannelsConfig(interaction) {
         .setLabel('Main Chat Channel')
         .setDescription('Where announcements are posted')
         .setValue('MAIN_CHAT_CHANNEL_ID')
-        .setEmoji('💬')
+        .setEmoji('💬'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Transaction Feed Channel')
+        .setDescription('Where NBA transactions are posted')
+        .setValue('TRANSACTION_CHANNEL_ID')
+        .setEmoji('📋')
     ]);
 
   const buttons = new ActionRowBuilder().addComponents(

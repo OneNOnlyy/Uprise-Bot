@@ -3,6 +3,7 @@ export const config = {
   token: process.env.DISCORD_TOKEN,
   guildId: process.env.GUILD_ID,
   gameThreadChannelId: process.env.GAME_THREAD_CHANNEL_ID,
+  transactionChannelId: process.env.TRANSACTION_CHANNEL_ID,
   
   // NBA Configuration
   teamId: process.env.TEAM_ID || '1610612757', // Portland Trail Blazers
@@ -17,7 +18,18 @@ export const config = {
   // Feature Flags
   features: {
     gameThreads: true,
+    transactionFeed: true,
   }
 };
+
+/**
+ * Get current configuration
+ */
+export function getConfig() {
+  return {
+    ...config,
+    transactionChannelId: process.env.TRANSACTION_CHANNEL_ID
+  };
+}
 
 export default config;

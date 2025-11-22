@@ -4,6 +4,7 @@ import { scheduleGameThreads } from './features/gameThreads.js';
 import { scheduleGamePings } from './features/gamePing.js';
 import { scheduleThreadLocking } from './features/lockThreads.js';
 import { scheduleGameResultChecking } from './features/checkGameResults.js';
+import { scheduleTransactionFeed } from './features/transactionFeed.js';
 import * as gamethreadCommand from './commands/gamethread.js';
 import * as testpingCommand from './commands/testping.js';
 import * as sendgamepingCommand from './commands/sendgameping.js';
@@ -52,6 +53,9 @@ client.once(Events.ClientReady, (readyClient) => {
   
   // Start the PATS game result checker
   scheduleGameResultChecking();
+  
+  // Start the NBA transaction feed
+  scheduleTransactionFeed(client);
 });
 
 // Handle slash commands and interactions
