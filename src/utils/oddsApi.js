@@ -72,7 +72,7 @@ export async function getNBAGamesWithSpreads(date = null) {
       id: game.id.toString(),
       home_team: game.home_team.full_name,
       away_team: game.visitor_team.full_name,
-      commence_time: game.date,
+      commence_time: game.status || game.date, // Use status (actual game time) if available, fallback to date
       bookmakers: findOddsForGame(game, oddsData)
     }));
   } catch (error) {
