@@ -96,10 +96,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (interaction.customId.startsWith('pats_pick_')) {
         await makepickCommand.handlePickSubmission(interaction);
       }
-      // Handle view injuries button
-      else if (interaction.customId.startsWith('pats_injuries_')) {
-        await makepickCommand.handleViewInjuries(interaction);
-      }
       // Handle view matchup button
       else if (interaction.customId.startsWith('pats_matchup_')) {
         await makepickCommand.handleViewMatchup(interaction);

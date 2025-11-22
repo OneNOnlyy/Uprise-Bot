@@ -242,13 +242,8 @@ export async function handleGameSelection(interaction) {
         .setEmoji('🏠')
     );
 
-    // Create info buttons
+    // Create info buttons (removed View Injuries, only Full Matchup Info)
     const infoButtons = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`pats_injuries_${gameId}`)
-        .setLabel('View Injuries')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('🏥'),
       new ButtonBuilder()
         .setCustomId(`pats_matchup_${gameId}`)
         .setLabel('Full Matchup Info')
@@ -316,17 +311,82 @@ export async function handlePickSubmission(interaction) {
 
     const pickedTeam = pick === 'home' ? game.homeTeam : game.awayTeam;
     
-    await interaction.reply({
+    // Defer the update so we can edit the message
+    await interaction.deferUpdate();
+    
+    // Show confirmation as follow-up
+    await interaction.followUp({
       content: `✅ **Pick Saved!**\n\nYou picked **${pickedTeam}** ${spread > 0 ? '+' : ''}${spread}\n\nGood luck! 🍀`,
       ephemeral: true
+    });
+    
+    // Get user's updated picks
+    const userPicks = getUserPicks(session.id, interaction.user.id);
+    const pickedGameIds = userPicks.map(p => p.gameId);
+
+    // Create main menu embed
+    const embed = new EmbedBuilder()
+      .setTitle('🏀 Picks Against The Spread')
+      .setDescription('Select a game below to view details and make your pick!')
+      .setColor(0xE03A3E)
+      .addFields({
+        name: '📊 Your Progress',
+        value: `Picks Made: **${userPicks.length}/${session.games.length}**`,
+        inline: false
+      })
+      .setFooter({ text: 'Select a game from the dropdown below' });
+
+    // Create game selection menu
+    const options = session.games.map((game, index) => {
+      const hasPicked = pickedGameIds.includes(game.id);
+      const gameTime = new Date(game.commenceTime);
+      
+      // Format time properly
+      const dateStr = gameTime.toLocaleDateString('en-US', { 
+        timeZone: 'America/Los_Angeles',
+        month: 'numeric',
+        day: 'numeric'
+      });
+      const timeStr = gameTime.toLocaleTimeString('en-US', { 
+        timeZone: 'America/Los_Angeles',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+      
+      return new StringSelectMenuOptionBuilder()
+        .setLabel(`${game.awayTeam} @ ${game.homeTeam}`)
+        .setDescription(`${dateStr} ${timeStr} PT ${hasPicked ? '✅ Picked' : ''}`)
+        .setValue(game.id)
+        .setEmoji(hasPicked ? '✅' : '🏀');
+    });
+
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId('pats_game_select')
+      .setPlaceholder('Choose a game to view details...')
+      .addOptions(options);
+
+    const row = new ActionRowBuilder().addComponents(selectMenu);
+
+    // Update the original message to show the main menu
+    await interaction.editReply({
+      embeds: [embed],
+      components: [row]
     });
 
   } catch (error) {
     console.error('Error handling pick submission:', error);
-    await interaction.reply({
-      content: '❌ Error saving pick.',
-      ephemeral: true
-    });
+    
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Error saving pick.',
+        ephemeral: true
+      });
+    } else {
+      await interaction.followUp({
+        content: '❌ Error saving pick.',
+        ephemeral: true
+      });
+    }
   }
 }
 
