@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import { scheduleGameThreads } from './features/gameThreads.js';
 import { scheduleGamePings } from './features/gamePing.js';
 import { scheduleThreadLocking } from './features/lockThreads.js';
+import { scheduleGameResultChecking } from './features/checkGameResults.js';
 import * as gamethreadCommand from './commands/gamethread.js';
 import * as testpingCommand from './commands/testping.js';
 import * as sendgamepingCommand from './commands/sendgameping.js';
@@ -48,6 +49,9 @@ client.once(Events.ClientReady, (readyClient) => {
   
   // Start the thread locking scheduler
   scheduleThreadLocking(client);
+  
+  // Start the PATS game result checker
+  scheduleGameResultChecking();
 });
 
 // Handle slash commands and interactions

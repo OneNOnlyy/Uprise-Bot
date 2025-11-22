@@ -130,6 +130,27 @@ export function getUserPicks(sessionId, userId) {
 }
 
 /**
+ * Update game result
+ */
+export function updateGameResult(sessionId, gameId, result) {
+  const data = readPATSData();
+  const session = data.activeSessions.find(s => s.id === sessionId);
+  
+  if (!session) {
+    return false;
+  }
+  
+  const game = session.games.find(g => g.id === gameId);
+  if (game) {
+    game.result = result;
+    writePATSData(data);
+    return true;
+  }
+  
+  return false;
+}
+
+/**
  * Close a PATS session and calculate results
  */
 export function closePATSSession(sessionId, gameResults) {
