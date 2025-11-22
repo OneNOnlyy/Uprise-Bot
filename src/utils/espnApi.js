@@ -75,12 +75,18 @@ function normalizeTeamName(teamName) {
  */
 export async function getTeamInfo(teamName) {
   try {
+    console.log(`[ESPN] Looking up team: "${teamName}"`);
     const normalizedName = normalizeTeamName(teamName);
+    console.log(`[ESPN] Normalized to: "${normalizedName}"`);
     const teamId = TEAM_NAME_TO_ESPN_ID[normalizedName];
+    
     if (!teamId) {
-      console.error(`Unknown team name: ${teamName} (normalized: ${normalizedName})`);
+      console.error(`[ESPN] Unknown team name: "${teamName}" (normalized: "${normalizedName}")`);
+      console.error(`[ESPN] Available teams:`, Object.keys(TEAM_NAME_TO_ESPN_ID).join(', '));
       return null;
     }
+    
+    console.log(`[ESPN] Found team ID: ${teamId} for ${normalizedName}`);
 
     const url = `${ESPN_API_BASE}/teams/${teamId}`;
     const response = await fetch(url);
@@ -130,18 +136,32 @@ export async function getTeamInfo(teamName) {
  */
 export async function getMatchupInfo(homeTeam, awayTeam) {
   try {
+    console.log(`Fetching team info for: Home=${homeTeam}, Away=${awayTeam}`);
+    
     const [homeInfo, awayInfo] = await Promise.all([
       getTeamInfo(homeTeam),
       getTeamInfo(awayTeam)
     ]);
     
+    if (!homeInfo) {
+      console.warn(`Could not fetch info for home team: ${homeTeam}`);
+    }
+    if (!awayInfo) {
+      console.warn(`Could not fetch info for away team: ${awayTeam}`);
+    }
+    
+    // Always return an object, even if team info is null
     return {
       home: homeInfo,
       away: awayInfo
     };
   } catch (error) {
     console.error('Error fetching matchup info:', error);
-    return null;
+    // Return empty object structure instead of null
+    return {
+      home: null,
+      away: null
+    };
   }
 }
 

@@ -107,6 +107,10 @@ export async function handleGameSelection(interaction) {
     console.log(`Fetching matchup info for ${game.awayTeam} @ ${game.homeTeam}...`);
     const matchupInfo = await getMatchupInfo(game.homeTeam, game.awayTeam);
 
+    if (!matchupInfo) {
+      console.warn(`Could not fetch matchup info for ${game.awayTeam} @ ${game.homeTeam}`);
+    }
+
     // Create detailed game embed
     const embed = new EmbedBuilder()
       .setTitle(`🏀 ${game.awayTeam} @ ${game.homeTeam}`)
