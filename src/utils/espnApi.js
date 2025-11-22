@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import * as cheerio from 'cheerio';
 
 const ESPN_API_BASE = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
 const BALLDONTLIE_API = 'https://api.balldontlie.io/v1';
@@ -69,6 +70,137 @@ function normalizeTeamName(teamName) {
   }
   
   return teamName;
+}
+
+/**
+ * Scrape injuries from ESPN's injury report page
+ */
+async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
+  try {
+    const url = `https://www.espn.com/nba/team/injuries/_/name/${teamAbbr.toLowerCase()}`;
+    console.log(`[Scraper] Fetching injuries from: ${url}`);
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+    
+    if (!response.ok) {
+      console.warn(`[Scraper] Failed to fetch injury page: ${response.status}`);
+      return [];
+    }
+    
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    const injuries = [];
+    
+    // ESPN uses a table format for injuries
+    $('.Table__TR').each((i, row) => {
+      if (i === 0) return; // Skip header row
+      
+      const $row = $(row);
+      const playerName = $row.find('.AnchorLink').first().text().trim();
+      const status = $row.find('.Table__TD').eq(2).text().trim(); // Status column
+      const description = $row.find('.Table__TD').eq(1).text().trim(); // Injury/Comment column
+      
+      if (playerName && status) {
+        injuries.push({
+          player: playerName,
+          status: status || 'Out',
+          description: description || 'Injury'
+        });
+      }
+    });
+    
+    // Alternative: Try newer ESPN layout
+    if (injuries.length === 0) {
+      $('tr').each((i, row) => {
+        const $row = $(row);
+        const cells = $row.find('td');
+        
+        if (cells.length >= 3) {
+          const playerName = $(cells[0]).text().trim();
+          const description = $(cells[1]).text().trim();
+          const status = $(cells[2]).text().trim();
+          
+          if (playerName && playerName !== 'NAME' && status) {
+            injuries.push({
+              player: playerName,
+              status: status,
+              description: description || 'Injury'
+            });
+          }
+        }
+      });
+    }
+    
+    console.log(`[Scraper] Found ${injuries.length} injuries for ${teamName} via web scraping`);
+    return injuries;
+    
+  } catch (error) {
+    console.error(`[Scraper] Error scraping injuries for ${teamName}:`, error.message);
+    return [];
+  }
+}
+
+/**
+ * Scrape injuries from RotoWire (alternative source)
+ */
+async function scrapeInjuriesFromRotoWire(teamName) {
+  try {
+    // RotoWire has a comprehensive NBA injuries page
+    const url = 'https://www.rotowire.com/basketball/injury-report.php';
+    console.log(`[Scraper] Fetching RotoWire injuries...`);
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    if (!response.ok) {
+      return [];
+    }
+    
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    const injuries = [];
+    
+    // Find the team's section
+    let foundTeam = false;
+    $('.is-nba').each((i, section) => {
+      const $section = $(section);
+      const teamHeader = $section.find('.lineup__abbr').text().trim();
+      
+      // Check if this matches our team (by abbreviation or name)
+      if (teamHeader && (teamName.includes(teamHeader) || teamHeader.includes(teamName.split(' ').pop()))) {
+        foundTeam = true;
+        
+        $section.find('tbody tr').each((j, row) => {
+          const $row = $(row);
+          const playerName = $row.find('.injury-report__player-name a').text().trim();
+          const status = $row.find('.injury-report__stat').first().text().trim();
+          const description = $row.find('.injury-report__injury').text().trim();
+          
+          if (playerName && status) {
+            injuries.push({
+              player: playerName,
+              status: status,
+              description: description || 'Injury'
+            });
+          }
+        });
+      }
+    });
+    
+    console.log(`[Scraper] Found ${injuries.length} injuries for ${teamName} from RotoWire`);
+    return injuries;
+    
+  } catch (error) {
+    console.error(`[Scraper] Error scraping RotoWire:`, error.message);
+    return [];
+  }
 }
 
 /**
@@ -154,6 +286,25 @@ export async function getTeamInfo(teamName) {
     }
     
     console.log(`[ESPN] Total injuries found for ${normalizedName}: ${injuries.length}`);
+    
+    // If still no injuries, try web scraping
+    let scrapedInjuries = [];
+    if (injuries.length === 0) {
+      console.log(`[ESPN] No API injuries found, attempting web scraping...`);
+      
+      // Try ESPN scraping first
+      scrapedInjuries = await scrapeInjuriesFromESPN(team.abbreviation, normalizedName);
+      
+      // If ESPN scraping fails, try RotoWire
+      if (scrapedInjuries.length === 0) {
+        scrapedInjuries = await scrapeInjuriesFromRotoWire(normalizedName);
+      }
+      
+      if (scrapedInjuries.length > 0) {
+        injuries.push(...scrapedInjuries);
+        console.log(`[ESPN] Added ${scrapedInjuries.length} injuries via web scraping`);
+      }
+    }
     
     const result = {
       name: team.displayName,
