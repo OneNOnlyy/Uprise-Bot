@@ -203,7 +203,9 @@ async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
 async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
   try {
     // First get today's scoreboard to find game IDs
-    const url = `${ESPN_API_BASE}/scoreboard`;
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0].replace(/-/g, '');
+    const url = `${ESPN_API_BASE}/scoreboard?dates=${dateStr}`;
     console.log(`[Scraper] Fetching scoreboard to find game ID for ${teamName}...`);
     
     const response = await fetch(url);
@@ -214,6 +216,8 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
     
     const data = await response.json();
     let gameId = null;
+    
+    console.log(`[Scraper] Found ${data.events?.length || 0} games in scoreboard`);
     
     // Find the game with this team
     if (data.events) {
