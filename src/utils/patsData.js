@@ -236,8 +236,43 @@ export function closePATSSession(sessionId, gameResults) {
     
     // Update user stats
     if (!data.users[userId]) {
-      data.users[userId] = { totalWins: 0, totalLosses: 0, sessions: 0 };
+      data.users[userId] = { 
+        totalWins: 0, 
+        totalLosses: 0, 
+        sessions: 0,
+        doubleDownsUsed: 0,
+        doubleDownWins: 0,
+        doubleDownLosses: 0
+      };
     }
+    
+    // Track double-down usage
+    const userDoubleDown = picks.find(p => p.isDoubleDown);
+    if (userDoubleDown) {
+      data.users[userId].doubleDownsUsed += 1;
+      
+      const ddGame = session.games.find(g => g.id === userDoubleDown.gameId);
+      if (ddGame && ddGame.result) {
+        const homeScore = ddGame.result.homeScore;
+        const awayScore = ddGame.result.awayScore;
+        const adjustedHomeScore = homeScore + ddGame.homeSpread;
+        const adjustedAwayScore = awayScore + ddGame.awaySpread;
+        
+        let pickWon = false;
+        if (userDoubleDown.pick === 'home') {
+          pickWon = adjustedHomeScore > adjustedAwayScore;
+        } else {
+          pickWon = adjustedAwayScore > adjustedHomeScore;
+        }
+        
+        if (pickWon) {
+          data.users[userId].doubleDownWins += 1;
+        } else {
+          data.users[userId].doubleDownLosses += 1;
+        }
+      }
+    }
+    
     data.users[userId].totalWins += wins;
     data.users[userId].totalLosses += losses;
     data.users[userId].sessions += 1;
@@ -292,13 +327,21 @@ export function getUserStats(userId) {
       winPercentage: 0,
       currentStreak: 0,
       streakType: null,
-      bestStreak: 0
+      bestStreak: 0,
+      doubleDownsUsed: 0,
+      doubleDownWins: 0,
+      doubleDownLosses: 0,
+      doubleDownWinRate: 0
     };
   }
   
   const user = data.users[userId];
   const totalGames = user.totalWins + user.totalLosses;
   const winPercentage = totalGames > 0 ? (user.totalWins / totalGames * 100) : 0;
+  
+  // Calculate double-down win rate
+  const ddTotal = (user.doubleDownWins || 0) + (user.doubleDownLosses || 0);
+  const ddWinRate = ddTotal > 0 ? ((user.doubleDownWins || 0) / ddTotal * 100) : 0;
   
   // Calculate streaks from history
   let currentStreak = 0;
@@ -344,7 +387,11 @@ export function getUserStats(userId) {
     winPercentage: winPercentage,
     currentStreak: currentStreak,
     streakType: streakType,
-    bestStreak: bestStreak
+    bestStreak: bestStreak,
+    doubleDownsUsed: user.doubleDownsUsed || 0,
+    doubleDownWins: user.doubleDownWins || 0,
+    doubleDownLosses: user.doubleDownLosses || 0,
+    doubleDownWinRate: ddWinRate
   };
 }
 

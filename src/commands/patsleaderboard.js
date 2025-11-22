@@ -97,15 +97,19 @@ export async function execute(interaction) {
     }
 
     // User's personal all-time stats
-    const userStats = leaderboard.find(entry => entry.userId === interaction.user.id);
-    if (userStats) {
+    const userStatsData = leaderboard.find(entry => entry.userId === interaction.user.id);
+    if (userStatsData) {
       const rank = leaderboard.findIndex(entry => entry.userId === interaction.user.id) + 1;
+      const ddStats = (userStatsData.doubleDownsUsed || 0) > 0 
+        ? `\n**Double Downs:** ${userStatsData.doubleDownWins || 0}-${userStatsData.doubleDownLosses || 0} 💰`
+        : '';
+      
       embed.addFields({
         name: '📈 Your All-Time Stats',
         value: `**Rank:** #${rank}\n` +
-               `**Record:** ${userStats.totalWins}-${userStats.totalLosses}\n` +
-               `**Win %:** ${userStats.winPercentage.toFixed(1)}%\n` +
-               `**Sessions:** ${userStats.sessions}`,
+               `**Record:** ${userStatsData.totalWins}-${userStatsData.totalLosses}\n` +
+               `**Win %:** ${userStatsData.winPercentage.toFixed(1)}%\n` +
+               `**Sessions:** ${userStatsData.sessions}${ddStats}`,
         inline: true
       });
     }

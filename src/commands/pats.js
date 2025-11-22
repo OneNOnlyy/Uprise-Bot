@@ -283,6 +283,21 @@ async function showUserStats(interaction) {
     inline: true
   });
 
+  // Double-Down Stats
+  if (stats.doubleDownsUsed > 0) {
+    const ddRecord = `${stats.doubleDownWins}-${stats.doubleDownLosses}`;
+    embed.addFields({
+      name: '💰 Double Down Stats',
+      value: [
+        `**Used:** ${stats.doubleDownsUsed} times`,
+        `**Record:** ${ddRecord}`,
+        `**Win Rate:** ${stats.doubleDownWinRate.toFixed(1)}%`,
+        stats.doubleDownWinRate >= 60 ? '🔥 Hot Hand!' : stats.doubleDownWinRate >= 50 ? '✅ Profitable' : '📉 Risky'
+      ].join('\n'),
+      inline: false
+    });
+  }
+
   // Current session stats
   if (sessionStats) {
     const sessionRecord = `${sessionStats.wins}-${sessionStats.losses}`;
