@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 
 const ESPN_API_BASE = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
+const BALLDONTLIE_API = 'https://api.balldontlie.io/v1';
 
 // Map team names to ESPN IDs
 const TEAM_NAME_TO_ESPN_ID = {
@@ -113,9 +114,12 @@ export async function getTeamInfo(teamName) {
     const wins = record?.stats?.find(s => s.name === 'wins')?.value || 0;
     const losses = record?.stats?.find(s => s.name === 'losses')?.value || 0;
     
-    // Extract injuries
+    // Extract injuries - try multiple locations
     const injuries = [];
+    
+    // Check team.injuries
     if (team.injuries && team.injuries.length > 0) {
+      console.log(`[ESPN] Found ${team.injuries.length} injuries in team.injuries`);
       team.injuries.forEach(injury => {
         injuries.push({
           player: injury.athlete?.displayName || 'Unknown',
@@ -124,6 +128,32 @@ export async function getTeamInfo(teamName) {
         });
       });
     }
+    
+    // Try fetching from separate injuries endpoint
+    if (injuries.length === 0) {
+      try {
+        const injuryUrl = `${ESPN_API_BASE}/teams/${teamId}/injuries`;
+        console.log(`[ESPN] Trying injuries endpoint: ${injuryUrl}`);
+        const injuryResponse = await fetch(injuryUrl);
+        if (injuryResponse.ok) {
+          const injuryData = await injuryResponse.json();
+          if (injuryData.injuries && injuryData.injuries.length > 0) {
+            console.log(`[ESPN] Found ${injuryData.injuries.length} injuries from injuries endpoint`);
+            injuryData.injuries.forEach(injury => {
+              injuries.push({
+                player: injury.athlete?.displayName || 'Unknown',
+                status: injury.status || 'Out',
+                description: injury.details?.type || injury.type || 'Injury'
+              });
+            });
+          }
+        }
+      } catch (injuryError) {
+        console.warn(`[ESPN] Could not fetch injuries from separate endpoint:`, injuryError.message);
+      }
+    }
+    
+    console.log(`[ESPN] Total injuries found for ${normalizedName}: ${injuries.length}`);
     
     const result = {
       name: team.displayName,
@@ -145,6 +175,52 @@ export async function getTeamInfo(teamName) {
 }
 
 /**
+ * Get injuries from ESPN scoreboard (more reliable)
+ */
+async function getInjuriesFromScoreboard(teamAbbr) {
+  try {
+    const url = `${ESPN_API_BASE}/scoreboard`;
+    console.log(`[ESPN] Fetching scoreboard for injury data`);
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      return [];
+    }
+    
+    const data = await response.json();
+    const injuries = [];
+    
+    // Find games with this team
+    if (data.events) {
+      for (const event of data.events) {
+        const competition = event.competitions?.[0];
+        if (!competition) continue;
+        
+        for (const competitor of competition.competitors) {
+          if (competitor.team.abbreviation === teamAbbr) {
+            // Check for injuries in this competitor
+            if (competitor.injuries && competitor.injuries.length > 0) {
+              competitor.injuries.forEach(injury => {
+                injuries.push({
+                  player: injury.athlete?.displayName || injury.athlete?.fullName || 'Unknown',
+                  status: injury.status || 'Out',
+                  description: injury.details?.type || injury.type || 'Injury'
+                });
+              });
+            }
+          }
+        }
+      }
+    }
+    
+    return injuries;
+  } catch (error) {
+    console.warn(`[ESPN] Could not get injuries from scoreboard:`, error.message);
+    return [];
+  }
+}
+
+/**
  * Get matchup information for two teams
  */
 export async function getMatchupInfo(homeTeam, awayTeam) {
@@ -155,6 +231,23 @@ export async function getMatchupInfo(homeTeam, awayTeam) {
       getTeamInfo(homeTeam),
       getTeamInfo(awayTeam)
     ]);
+    
+    // Try to supplement with scoreboard injuries if empty
+    if (homeInfo && homeInfo.injuries.length === 0) {
+      const scoreboardInjuries = await getInjuriesFromScoreboard(homeInfo.abbreviation);
+      if (scoreboardInjuries.length > 0) {
+        console.log(`[ESPN] Added ${scoreboardInjuries.length} injuries from scoreboard for ${homeTeam}`);
+        homeInfo.injuries = scoreboardInjuries;
+      }
+    }
+    
+    if (awayInfo && awayInfo.injuries.length === 0) {
+      const scoreboardInjuries = await getInjuriesFromScoreboard(awayInfo.abbreviation);
+      if (scoreboardInjuries.length > 0) {
+        console.log(`[ESPN] Added ${scoreboardInjuries.length} injuries from scoreboard for ${awayTeam}`);
+        awayInfo.injuries = scoreboardInjuries;
+      }
+    }
     
     console.log(`[ESPN] Home info result:`, homeInfo ? 'Success' : 'Null');
     console.log(`[ESPN] Away info result:`, awayInfo ? 'Success' : 'Null');
