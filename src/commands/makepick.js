@@ -120,6 +120,15 @@ export async function handleGameSelection(interaction) {
       matchupInfo = { home: null, away: null };
     }
 
+    // Ensure game has spreadDisplay
+    if (!game.spreadDisplay) {
+      console.warn(`Game missing spreadDisplay, creating default`);
+      game.spreadDisplay = {
+        home: game.homeSpread ? (game.homeSpread > 0 ? `+${game.homeSpread}` : game.homeSpread.toString()) : 'N/A',
+        away: game.awaySpread ? (game.awaySpread > 0 ? `+${game.awaySpread}` : game.awaySpread.toString()) : 'N/A'
+      };
+    }
+
     // Create detailed game embed
     const embed = new EmbedBuilder()
       .setTitle(`🏀 ${game.awayTeam} @ ${game.homeTeam}`)

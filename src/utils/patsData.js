@@ -56,8 +56,13 @@ export function createPATSSession(date, games, participants) {
       homeTeam: game.homeTeam,
       awayTeam: game.awayTeam,
       commenceTime: game.commenceTime,
-      homeSpread: game.homeSpread,
-      awaySpread: game.awaySpread,
+      homeSpread: game.homeSpread || 0,
+      awaySpread: game.awaySpread || 0,
+      favored: game.favored || null,
+      spreadDisplay: game.spreadDisplay || {
+        home: game.homeSpread ? (game.homeSpread > 0 ? `+${game.homeSpread}` : game.homeSpread.toString()) : 'N/A',
+        away: game.awaySpread ? (game.awaySpread > 0 ? `+${game.awaySpread}` : game.awaySpread.toString()) : 'N/A'
+      },
       result: null // Will be filled after game
     })),
     participants: participants,
