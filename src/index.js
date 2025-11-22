@@ -114,6 +114,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (interaction.customId === 'pats_back_to_menu') {
         await makepickCommand.handleBackToMenu(interaction);
       }
+      // Handle back to overview (dashboard) button
+      else if (interaction.customId === 'pats_back_to_overview') {
+        await makepickCommand.handleBackToOverview(interaction);
+      }
       // Handle view my picks button
       else if (interaction.customId === 'pats_view_my_picks') {
         await makepickCommand.handleViewMyPicks(interaction);

@@ -91,17 +91,15 @@ export async function execute(interaction) {
     
     const components = [row];
     
-    // If all picks are made, add "View My Picks" button
-    if (userPicks.length === session.games.length) {
-      const viewPicksButton = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('pats_view_my_picks')
-          .setLabel('View My Picks')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('📋')
-      );
-      components.push(viewPicksButton);
-    }
+    // Add "Back to Overview" button
+    const backButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_back_to_overview')
+        .setLabel('Back to Overview')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️')
+    );
+    components.push(backButton);
 
     await interaction.editReply({
       embeds: [embed],
@@ -408,17 +406,15 @@ export async function handlePickSubmission(interaction) {
     
     const components = [row];
     
-    // If all picks are made, add "View My Picks" button
-    if (userPicks.length === session.games.length) {
-      const viewPicksButton = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('pats_view_my_picks')
-          .setLabel('View My Picks')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('📋')
-      );
-      components.push(viewPicksButton);
-    }
+    // Add "Back to Overview" button
+    const backButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_back_to_overview')
+        .setLabel('Back to Overview')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️')
+    );
+    components.push(backButton);
 
     // Update the original message to show the main menu
     await interaction.editReply({
@@ -521,17 +517,15 @@ export async function handleBackToMenu(interaction) {
     
     const components = [row];
     
-    // If all picks are made, add "View My Picks" button
-    if (userPicks.length === session.games.length) {
-      const viewPicksButton = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('pats_view_my_picks')
-          .setLabel('View My Picks')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('📋')
-      );
-      components.push(viewPicksButton);
-    }
+    // Add "Back to Overview" button
+    const backButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_back_to_overview')
+        .setLabel('Back to Overview')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️')
+    );
+    components.push(backButton);
 
     await interaction.editReply({
       embeds: [embed],
@@ -774,13 +768,13 @@ export async function handleViewMyPicks(interaction) {
     const embed = new EmbedBuilder()
       .setColor('#1e90ff')
       .setTitle('📋 Your Picks Overview')
-      .setDescription('Here are all your picks for today:')
+      .setDescription('Review all your picks for today\'s games.')
       .setTimestamp();
 
     const now = new Date();
     let lockedCount = 0;
 
-    // Add each pick as a field
+    // Add each pick as a cleaner field
     for (const pick of userPicks) {
       const game = session.games.find(g => g.id === pick.gameId);
       if (game) {
@@ -790,18 +784,14 @@ export async function handleViewMyPicks(interaction) {
         
         const pickedTeam = pick.pick === 'home' ? game.homeTeam : game.awayTeam;
         const spreadText = pick.spread > 0 ? `+${pick.spread}` : pick.spread.toString();
+        const otherTeam = pick.pick === 'home' ? game.awayTeam : game.homeTeam;
         
-        const fieldValue = [
-          `**Your Pick:** ${pickedTeam} (${spreadText})${isLocked ? ' 🔒' : ''}`,
-          `**Matchup:** ${game.awayTeam} @ ${game.homeTeam}`,
-          `**Time:** ${game.commenceTime}`,
-          isLocked ? '**Status:** Locked - Game has started' : '**Status:** Active - Can still change'
-        ].join('\n');
+        const statusEmoji = isLocked ? '🔒' : '✅';
         
         embed.addFields({
-          name: `Game ${userPicks.indexOf(pick) + 1}`,
-          value: fieldValue,
-          inline: false
+          name: `${statusEmoji} ${game.awayTeam} @ ${game.homeTeam}`,
+          value: `**Pick:** ${pickedTeam} (${spreadText})\n**Time:** ${game.commenceTime}`,
+          inline: true
         });
       }
     }
@@ -814,22 +804,24 @@ export async function handleViewMyPicks(interaction) {
     if (missedPicks.length > 0) {
       embed.addFields({
         name: '⚠️ Missed Picks',
-        value: `You missed **${missedPicks.length}** game(s) that have started. These count as automatic losses.`,
+        value: `You missed **${missedPicks.length}** game(s). These count as automatic losses.`,
         inline: false
       });
     }
 
     if (lockedCount > 0) {
-      embed.setFooter({ text: `${lockedCount} pick(s) are now locked` });
+      embed.setFooter({ text: `${lockedCount} locked • ${userPicks.length - lockedCount} can be changed` });
+    } else {
+      embed.setFooter({ text: 'All picks can still be changed' });
     }
 
-    // Add back button
+    // Add back button - goes to overview (dashboard)
     const backButton = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId('pats_back_to_menu')
-        .setLabel('Back to Games')
+        .setCustomId('pats_back_to_overview')
+        .setLabel('Back to Overview')
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji('⬅️')
+        .setEmoji('◀️')
     );
 
     await interaction.editReply({
@@ -875,6 +867,126 @@ export async function handleBackToGame(interaction) {
     console.error('Error handling back to game:', error);
     await interaction.editReply({
       content: '❌ Error returning to game.',
+      components: []
+    });
+  }
+}
+
+/**
+ * Handle makepick from dashboard - shows the game selection menu
+ */
+export async function handleMakepickFromDashboard(interaction) {
+  try {
+    const session = getActiveSession();
+    if (!session) {
+      await interaction.editReply({
+        content: '❌ No active PATS session.',
+        embeds: [],
+        components: []
+      });
+      return;
+    }
+
+    // Get user's existing picks
+    const userPicks = getUserPicks(session.id, interaction.user.id);
+    const pickedGameIds = userPicks.map(p => p.gameId);
+
+    // Count available (not started) and locked games
+    const now = new Date();
+    const lockedGames = session.games.filter(g => new Date(g.commenceTime) < now);
+    const missedPicks = lockedGames.filter(g => !pickedGameIds.includes(g.id)).length;
+
+    // Create main menu embed
+    const embed = new EmbedBuilder()
+      .setTitle('🏀 Picks Against The Spread')
+      .setDescription('Select a game below to view details and make your pick!')
+      .setColor(0xE03A3E)
+      .addFields({
+        name: '📊 Your Progress',
+        value: `Picks Made: **${userPicks.length}/${session.games.length}**${missedPicks > 0 ? `\n⚠️ Missed Picks: **${missedPicks}** (counted as losses)` : ''}`,
+        inline: false
+      })
+      .setFooter({ text: 'Select a game from the dropdown below' });
+
+    // Create game selection menu
+    const options = session.games.map((game, index) => {
+      const hasPicked = pickedGameIds.includes(game.id);
+      const gameTime = new Date(game.commenceTime);
+      const isLocked = gameTime < now;
+      
+      // Format time properly
+      const dateStr = gameTime.toLocaleDateString('en-US', { 
+        timeZone: 'America/Los_Angeles',
+        month: 'numeric',
+        day: 'numeric'
+      });
+      const timeStr = gameTime.toLocaleTimeString('en-US', { 
+        timeZone: 'America/Los_Angeles',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+      
+      let description = `${dateStr} ${timeStr} PT`;
+      if (isLocked) {
+        description += ' 🔒 LOCKED';
+      } else if (hasPicked) {
+        description += ' ✅ Picked';
+      }
+      
+      return new StringSelectMenuOptionBuilder()
+        .setLabel(`${game.awayTeam} @ ${game.homeTeam}`)
+        .setDescription(description)
+        .setValue(game.id)
+        .setEmoji(isLocked ? '🔒' : (hasPicked ? '✅' : '🏀'));
+    });
+
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId('pats_game_select')
+      .setPlaceholder('Choose a game to view details...')
+      .addOptions(options);
+
+    const row = new ActionRowBuilder().addComponents(selectMenu);
+    
+    const components = [row];
+    
+    // Add "Back to Overview" button
+    const backButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_back_to_overview')
+        .setLabel('Back to Overview')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️')
+    );
+    components.push(backButton);
+
+    await interaction.editReply({
+      embeds: [embed],
+      components: components
+    });
+    
+  } catch (error) {
+    console.error('Error showing makepick from dashboard:', error);
+    await interaction.editReply({
+      content: '❌ An error occurred.',
+      embeds: [],
+      components: []
+    });
+  }
+}
+
+/**
+ * Handle back to overview (dashboard) button
+ */
+export async function handleBackToOverview(interaction) {
+  try {
+    await interaction.deferUpdate();
+    const patsCommand = await import('./pats.js');
+    await patsCommand.showDashboard(interaction);
+  } catch (error) {
+    console.error('Error returning to overview:', error);
+    await interaction.editReply({
+      content: '❌ Error returning to overview.',
+      embeds: [],
       components: []
     });
   }
