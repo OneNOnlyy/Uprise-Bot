@@ -207,7 +207,10 @@ async function scrapeInjuriesFromCBS(teamName) {
     
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br'
       }
     });
     
@@ -218,22 +221,42 @@ async function scrapeInjuriesFromCBS(teamName) {
     
     const html = await response.text();
     console.log(`[Scraper] CBS Sports HTML length: ${html.length} chars`);
+    
+    // Debug: Check what's actually in the HTML
+    const hasTable = html.includes('<table');
+    const hasTR = html.includes('<tr');
+    const hasTD = html.includes('<td');
+    const hasInjury = html.toLowerCase().includes('injury') || html.toLowerCase().includes('out');
+    console.log(`[Scraper] CBS HTML contains: table=${hasTable}, tr=${hasTR}, td=${hasTD}, injury-text=${hasInjury}`);
+    
+    // Sample first 500 chars to see structure
+    console.log(`[Scraper] CBS HTML sample:`, html.substring(0, 500).replace(/\s+/g, ' '));
+    
     const $ = cheerio.load(html);
     const injuries = [];
+    
+    // Try multiple approaches
+    const tables = $('table').length;
+    const rows = $('tr').length;
+    const divs = $('div').length;
+    console.log(`[Scraper] Parsed: ${tables} tables, ${rows} rows, ${divs} divs`);
     
     // CBS Sports uses a table format organized by team
     let foundTeam = false;
     let currentTeam = '';
+    let rowsChecked = 0;
     
     // Find all rows, team headers separate players
-    $('tr').each((i, row) => {
+    $('tr, .TableBase-bodyTr').each((i, row) => {
+      rowsChecked++;
       const $row = $(row);
       
       // Check if this is a team header row
-      const teamHeader = $row.find('td[colspan]').text().trim();
-      if (teamHeader) {
+      const teamHeader = $row.find('td[colspan], .TableBase-headTh, .TeamName, span').first().text().trim();
+      
+      if (teamHeader && teamHeader.length > 3) {
         currentTeam = teamHeader;
-        console.log(`[Scraper] CBS found team header: "${currentTeam}"`);
+        console.log(`[Scraper] CBS row ${i}: Team header "${currentTeam}"`);
         
         // Check if this is our team
         const teamLastWord = teamName.split(' ').pop().toLowerCase();
@@ -252,14 +275,14 @@ async function scrapeInjuriesFromCBS(teamName) {
       
       // If we're in our team's section, parse player rows
       if (foundTeam) {
-        const cells = $row.find('td');
+        const cells = $row.find('td, .TableBase-bodyTd');
         if (cells.length >= 3) {
           const playerName = $(cells[0]).text().trim();
           const position = $(cells[1]).text().trim();
           const status = $(cells[2]).text().trim();
           const description = $(cells[3])?.text().trim() || '';
           
-          if (playerName && status && playerName !== 'Player') {
+          if (playerName && status && playerName !== 'Player' && playerName.length > 1) {
             injuries.push({
               player: playerName,
               status: status,
@@ -271,11 +294,13 @@ async function scrapeInjuriesFromCBS(teamName) {
       }
     });
     
+    console.log(`[Scraper] CBS checked ${rowsChecked} rows, found team=${foundTeam}`);
     console.log(`[Scraper] CBS Sports final count: ${injuries.length} injuries for ${teamName}`);
     return injuries;
     
   } catch (error) {
     console.error(`[Scraper] Error scraping CBS Sports:`, error.message);
+    console.error(`[Scraper] Stack:`, error.stack);
     return [];
   }
 }
