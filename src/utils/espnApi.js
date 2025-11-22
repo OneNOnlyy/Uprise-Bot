@@ -40,6 +40,40 @@ const TEAM_NAME_TO_ESPN_ID = {
   'Washington Wizards': '27'
 };
 
+// Map team abbreviations to ESPN URL slugs
+const TEAM_ABBR_TO_ESPN_SLUG = {
+  'ATL': 'atl/atlanta-hawks',
+  'BOS': 'bos/boston-celtics',
+  'BKN': 'bkn/brooklyn-nets',
+  'CHA': 'cha/charlotte-hornets',
+  'CHI': 'chi/chicago-bulls',
+  'CLE': 'cle/cleveland-cavaliers',
+  'DAL': 'dal/dallas-mavericks',
+  'DEN': 'den/denver-nuggets',
+  'DET': 'det/detroit-pistons',
+  'GSW': 'gs/golden-state-warriors',
+  'HOU': 'hou/houston-rockets',
+  'IND': 'ind/indiana-pacers',
+  'LAC': 'lac/la-clippers',
+  'LAL': 'lal/los-angeles-lakers',
+  'MEM': 'mem/memphis-grizzlies',
+  'MIA': 'mia/miami-heat',
+  'MIL': 'mil/milwaukee-bucks',
+  'MIN': 'min/minnesota-timberwolves',
+  'NOP': 'no/new-orleans-pelicans',
+  'NYK': 'ny/new-york-knicks',
+  'OKC': 'okc/oklahoma-city-thunder',
+  'ORL': 'orl/orlando-magic',
+  'PHI': 'phi/philadelphia-76ers',
+  'PHX': 'phx/phoenix-suns',
+  'POR': 'por/portland-trail-blazers',
+  'SAC': 'sac/sacramento-kings',
+  'SAS': 'sa/san-antonio-spurs',
+  'TOR': 'tor/toronto-raptors',
+  'UTA': 'utah/utah-jazz',
+  'WAS': 'wsh/washington-wizards'
+};
+
 /**
  * Normalize team name for matching
  */
@@ -77,7 +111,15 @@ function normalizeTeamName(teamName) {
  */
 async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
   try {
-    const url = `https://www.espn.com/nba/team/injuries/_/name/${teamAbbr.toLowerCase()}`;
+    // Get the proper ESPN URL slug
+    const urlSlug = TEAM_ABBR_TO_ESPN_SLUG[teamAbbr];
+    
+    if (!urlSlug) {
+      console.warn(`[Scraper] No ESPN URL slug found for abbreviation: ${teamAbbr}`);
+      return [];
+    }
+    
+    const url = `https://www.espn.com/nba/team/injuries/_/name/${urlSlug}`;
     console.log(`[Scraper] Fetching injuries from: ${url}`);
     
     const response = await fetch(url, {
