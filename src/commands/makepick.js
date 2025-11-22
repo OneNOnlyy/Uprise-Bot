@@ -786,11 +786,24 @@ export async function handleViewMyPicks(interaction) {
         const spreadText = pick.spread > 0 ? `+${pick.spread}` : pick.spread.toString();
         const otherTeam = pick.pick === 'home' ? game.awayTeam : game.homeTeam;
         
+        // Format time properly
+        const formattedDate = gameTime.toLocaleDateString('en-US', {
+          timeZone: 'America/Los_Angeles',
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric'
+        });
+        const formattedTime = gameTime.toLocaleTimeString('en-US', {
+          timeZone: 'America/Los_Angeles',
+          hour: 'numeric',
+          minute: '2-digit'
+        });
+        
         const statusEmoji = isLocked ? '🔒' : '✅';
         
         embed.addFields({
           name: `${statusEmoji} ${game.awayTeam} @ ${game.homeTeam}`,
-          value: `**Pick:** ${pickedTeam} (${spreadText})\n**Time:** ${game.commenceTime}`,
+          value: `**Pick:** ${pickedTeam} (${spreadText})\n**Time:** ${formattedDate} at ${formattedTime} PT`,
           inline: true
         });
       }
