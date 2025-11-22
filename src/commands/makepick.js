@@ -49,9 +49,21 @@ export async function execute(interaction) {
       const gameTime = new Date(game.commenceTime);
       const isPast = gameTime < new Date();
       
+      // Format time properly
+      const dateStr = gameTime.toLocaleDateString('en-US', { 
+        timeZone: 'America/Los_Angeles',
+        month: 'numeric',
+        day: 'numeric'
+      });
+      const timeStr = gameTime.toLocaleTimeString('en-US', { 
+        timeZone: 'America/Los_Angeles',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+      
       return new StringSelectMenuOptionBuilder()
         .setLabel(`${game.awayTeam} @ ${game.homeTeam}`)
-        .setDescription(`${gameTime.toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit' })} PT ${hasPicked ? '✅ Picked' : ''}`)
+        .setDescription(`${dateStr} ${timeStr} PT ${hasPicked ? '✅ Picked' : ''}`)
         .setValue(game.id)
         .setEmoji(hasPicked ? '✅' : '🏀');
     });
@@ -137,16 +149,21 @@ export async function handleGameSelection(interaction) {
 
     // Game time
     const gameTime = new Date(game.commenceTime);
+    const formattedDate = gameTime.toLocaleDateString('en-US', {
+      timeZone: 'America/Los_Angeles',
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+    const formattedTime = gameTime.toLocaleTimeString('en-US', {
+      timeZone: 'America/Los_Angeles',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+    
     embed.addFields({
       name: '🕐 Tip-Off',
-      value: gameTime.toLocaleString('en-US', {
-        timeZone: 'America/Los_Angeles',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        timeZoneName: 'short'
-      }),
+      value: `${formattedDate} at ${formattedTime} PT`,
       inline: false
     });
 
@@ -317,8 +334,77 @@ export async function handlePickSubmission(interaction) {
  * Handle back to menu button
  */
 export async function handleBackToMenu(interaction) {
-  // Re-execute the main command
-  await execute(interaction);
+  try {
+    await interaction.deferUpdate();
+    
+    const session = getActiveSession();
+    if (!session) {
+      await interaction.editReply({
+        content: '❌ No active PATS session.',
+        components: []
+      });
+      return;
+    }
+
+    // Get user's existing picks
+    const userPicks = getUserPicks(session.id, interaction.user.id);
+    const pickedGameIds = userPicks.map(p => p.gameId);
+
+    // Create main menu embed
+    const embed = new EmbedBuilder()
+      .setTitle('🏀 Picks Against The Spread')
+      .setDescription('Select a game below to view details and make your pick!')
+      .setColor(0xE03A3E)
+      .addFields({
+        name: '📊 Your Progress',
+        value: `Picks Made: **${userPicks.length}/${session.games.length}**`,
+        inline: false
+      })
+      .setFooter({ text: 'Select a game from the dropdown below' });
+
+    // Create game selection menu
+    const options = session.games.map((game, index) => {
+      const hasPicked = pickedGameIds.includes(game.id);
+      const gameTime = new Date(game.commenceTime);
+      
+      // Format time properly
+      const dateStr = gameTime.toLocaleDateString('en-US', { 
+        timeZone: 'America/Los_Angeles',
+        month: 'numeric',
+        day: 'numeric'
+      });
+      const timeStr = gameTime.toLocaleTimeString('en-US', { 
+        timeZone: 'America/Los_Angeles',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+      
+      return new StringSelectMenuOptionBuilder()
+        .setLabel(`${game.awayTeam} @ ${game.homeTeam}`)
+        .setDescription(`${dateStr} ${timeStr} PT ${hasPicked ? '✅ Picked' : ''}`)
+        .setValue(game.id)
+        .setEmoji(hasPicked ? '✅' : '🏀');
+    });
+
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId('pats_game_select')
+      .setPlaceholder('Choose a game to view details...')
+      .addOptions(options);
+
+    const row = new ActionRowBuilder().addComponents(selectMenu);
+
+    await interaction.editReply({
+      embeds: [embed],
+      components: [row]
+    });
+    
+  } catch (error) {
+    console.error('Error handling back to menu:', error);
+    await interaction.editReply({
+      content: '❌ Error returning to menu.',
+      components: []
+    });
+  }
 }
 
 /**
@@ -446,16 +532,21 @@ export async function handleViewMatchup(interaction) {
       .setTimestamp();
 
     const gameTime = new Date(game.commenceTime);
+    const formattedDate = gameTime.toLocaleDateString('en-US', {
+      timeZone: 'America/Los_Angeles',
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+    const formattedTime = gameTime.toLocaleTimeString('en-US', {
+      timeZone: 'America/Los_Angeles',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+    
     embed.addFields({
       name: '🕐 Tip-Off',
-      value: gameTime.toLocaleString('en-US', {
-        timeZone: 'America/Los_Angeles',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        timeZoneName: 'short'
-      }),
+      value: `${formattedDate} at ${formattedTime} PT`,
       inline: false
     });
 
@@ -515,15 +606,31 @@ export async function handleViewMatchup(interaction) {
  * Handle back to game button (from injury/matchup views)
  */
 export async function handleBackToGame(interaction) {
-  const gameId = interaction.customId.split('_')[3];
-  
-  // Simulate game selection
-  const fakeInteraction = {
-    ...interaction,
-    values: [gameId],
-    deferUpdate: interaction.deferUpdate.bind(interaction),
-    editReply: interaction.editReply.bind(interaction)
-  };
-  
-  await handleGameSelection(fakeInteraction);
+  try {
+    // Extract gameId from customId: pats_back_to_game_{gameId}
+    const parts = interaction.customId.split('_');
+    const gameId = parts.slice(4).join('_'); // Handle gameIds with underscores
+    
+    // Create a modified interaction object that looks like a select menu interaction
+    const modifiedInteraction = {
+      ...interaction,
+      values: [gameId],
+      customId: 'pats_game_select',
+      deferUpdate: async () => {
+        if (!interaction.deferred && !interaction.replied) {
+          return await interaction.deferUpdate();
+        }
+      },
+      editReply: interaction.editReply.bind(interaction)
+    };
+    
+    await handleGameSelection(modifiedInteraction);
+    
+  } catch (error) {
+    console.error('Error handling back to game:', error);
+    await interaction.editReply({
+      content: '❌ Error returning to game.',
+      components: []
+    });
+  }
 }
