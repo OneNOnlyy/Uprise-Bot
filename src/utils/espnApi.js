@@ -198,54 +198,87 @@ async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
 }
 
 /**
- * Fetch injuries from NBA Stats API (official NBA.com data)
+ * Fetch injuries from ESPN game summary endpoint (MOST RELIABLE!)
  */
-async function fetchInjuriesFromNBAStats(teamName, teamAbbr) {
+async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
   try {
-    // Try NBA Stats unofficial API which has injury data
-    const url = 'https://www.nba.com/stats/service/players/injuries';
-    console.log(`[Scraper] Fetching NBA.com injury data from: ${url}`);
+    // First get today's scoreboard to find game IDs
+    const url = `${ESPN_API_BASE}/scoreboard`;
+    console.log(`[Scraper] Fetching scoreboard to find game ID for ${teamName}...`);
     
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Referer': 'https://www.nba.com/'
-      }
-    });
-    
+    const response = await fetch(url);
     if (!response.ok) {
-      console.warn(`[Scraper] NBA.com fetch failed: ${response.status}`);
+      console.warn(`[Scraper] Scoreboard fetch failed: ${response.status}`);
       return [];
     }
     
     const data = await response.json();
+    let gameId = null;
+    
+    // Find the game with this team
+    if (data.events) {
+      for (const event of data.events) {
+        const competition = event.competitions?.[0];
+        if (!competition) continue;
+        
+        for (const competitor of competition.competitors) {
+          if (competitor.team.abbreviation === teamAbbr || 
+              competitor.team.displayName === teamName) {
+            gameId = event.id;
+            console.log(`[Scraper] Found game ID ${gameId} for ${teamName}`);
+            break;
+          }
+        }
+        
+        if (gameId) break;
+      }
+    }
+    
+    if (!gameId) {
+      console.warn(`[Scraper] No game found for ${teamName} in today's scoreboard`);
+      return [];
+    }
+    
+    // Now fetch the game summary which has injuries
+    const summaryUrl = `${ESPN_API_BASE}/summary?event=${gameId}`;
+    console.log(`[Scraper] Fetching game summary: ${summaryUrl}`);
+    
+    const summaryResponse = await fetch(summaryUrl);
+    if (!summaryResponse.ok) {
+      console.warn(`[Scraper] Summary fetch failed: ${summaryResponse.status}`);
+      return [];
+    }
+    
+    const summaryData = await summaryResponse.json();
     const injuries = [];
     
-    console.log(`[Scraper] NBA.com: Received ${data?.length || 0} injury records`);
-    
-    // The response is an array of injury objects
-    if (Array.isArray(data)) {
-      for (const injury of data) {
-        // Match by team abbreviation
-        const injuryTeam = injury.TEAM_ABBREVIATION || injury.TeamAbbreviation || injury.team;
-        
-        if (injuryTeam === teamAbbr || injuryTeam === teamAbbr.toUpperCase()) {
-          injuries.push({
-            player: injury.PLAYER_NAME || injury.PlayerName || injury.player || 'Unknown',
-            status: injury.CURRENT_STATUS || injury.Status || injury.status || 'Out',
-            description: injury.COMMENT || injury.Comment || injury.comment || 'Injury'
-          });
-          console.log(`[Scraper] NBA.com: Found ${injury.PLAYER_NAME || injury.PlayerName} - ${injury.CURRENT_STATUS || injury.Status}`);
+    // Extract injuries for our team
+    if (summaryData.injuries && Array.isArray(summaryData.injuries)) {
+      for (const teamInjuries of summaryData.injuries) {
+        if (teamInjuries.team.abbreviation === teamAbbr || 
+            teamInjuries.team.displayName === teamName) {
+          
+          console.log(`[Scraper] Found ${teamInjuries.injuries?.length || 0} injuries for ${teamName}`);
+          
+          if (teamInjuries.injuries && teamInjuries.injuries.length > 0) {
+            for (const injury of teamInjuries.injuries) {
+              injuries.push({
+                player: injury.longComment || injury.athlete?.displayName || 'Unknown',
+                status: injury.status || 'Out',
+                description: injury.details || injury.type || 'Injury'
+              });
+              console.log(`[Scraper] Game Summary: ${injury.longComment || injury.athlete?.displayName} - ${injury.status}`);
+            }
+          }
         }
       }
     }
     
-    console.log(`[Scraper] NBA.com injuries: ${injuries.length} for ${teamName}`);
+    console.log(`[Scraper] Game summary injuries: ${injuries.length} for ${teamName}`);
     return injuries;
     
   } catch (error) {
-    console.error(`[Scraper] Error fetching NBA.com injuries:`, error.message);
+    console.error(`[Scraper] Error fetching game summary injuries:`, error.message);
     return [];
   }
 }
@@ -515,10 +548,10 @@ export async function getTeamInfo(teamName) {
       console.log(`[ESPN] No API injuries found, attempting alternative sources...`);
       console.log(`[ESPN] Team abbreviation: "${team.abbreviation}"`);
       
-      // Try NBA.com official stats API first
-      scrapedInjuries = await fetchInjuriesFromNBAStats(normalizedName, team.abbreviation);
+      // Try ESPN Game Summary first (most reliable - proven working!)
+      scrapedInjuries = await fetchInjuriesFromGameSummary(normalizedName, team.abbreviation);
       
-      // If NBA.com fails, try scoreboard
+      // If game summary fails, try scoreboard
       if (scrapedInjuries.length === 0) {
         scrapedInjuries = await fetchInjuriesFromBallDontLie(normalizedName);
       }
