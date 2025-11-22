@@ -198,6 +198,59 @@ async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
 }
 
 /**
+ * Fetch injuries from NBA Stats API (official NBA.com data)
+ */
+async function fetchInjuriesFromNBAStats(teamName, teamAbbr) {
+  try {
+    // Try NBA Stats unofficial API which has injury data
+    const url = 'https://www.nba.com/stats/service/players/injuries';
+    console.log(`[Scraper] Fetching NBA.com injury data from: ${url}`);
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Referer': 'https://www.nba.com/'
+      }
+    });
+    
+    if (!response.ok) {
+      console.warn(`[Scraper] NBA.com fetch failed: ${response.status}`);
+      return [];
+    }
+    
+    const data = await response.json();
+    const injuries = [];
+    
+    console.log(`[Scraper] NBA.com: Received ${data?.length || 0} injury records`);
+    
+    // The response is an array of injury objects
+    if (Array.isArray(data)) {
+      for (const injury of data) {
+        // Match by team abbreviation
+        const injuryTeam = injury.TEAM_ABBREVIATION || injury.TeamAbbreviation || injury.team;
+        
+        if (injuryTeam === teamAbbr || injuryTeam === teamAbbr.toUpperCase()) {
+          injuries.push({
+            player: injury.PLAYER_NAME || injury.PlayerName || injury.player || 'Unknown',
+            status: injury.CURRENT_STATUS || injury.Status || injury.status || 'Out',
+            description: injury.COMMENT || injury.Comment || injury.comment || 'Injury'
+          });
+          console.log(`[Scraper] NBA.com: Found ${injury.PLAYER_NAME || injury.PlayerName} - ${injury.CURRENT_STATUS || injury.Status}`);
+        }
+      }
+    }
+    
+    console.log(`[Scraper] NBA.com injuries: ${injuries.length} for ${teamName}`);
+    return injuries;
+    
+  } catch (error) {
+    console.error(`[Scraper] Error fetching NBA.com injuries:`, error.message);
+    return [];
+  }
+}
+
+/**
  * Fetch injuries from BallDontLie API (free, no key required)
  */
 async function fetchInjuriesFromBallDontLie(teamName) {
@@ -218,28 +271,45 @@ async function fetchInjuriesFromBallDontLie(teamName) {
     const data = await response.json();
     const injuries = [];
     
+    console.log(`[Scraper] Scoreboard: Found ${data.events?.length || 0} events`);
+    
     // Find games with our team
     if (data.events) {
       for (const event of data.events) {
         const homeTeam = event.competitions?.[0]?.competitors?.find(c => c.homeAway === 'home');
         const awayTeam = event.competitions?.[0]?.competitors?.find(c => c.homeAway === 'away');
         
+        const homeTeamName = homeTeam?.team?.displayName || homeTeam?.team?.name;
+        const awayTeamName = awayTeam?.team?.displayName || awayTeam?.team?.name;
+        
+        console.log(`[Scraper] Game: ${awayTeamName} @ ${homeTeamName}`);
+        
         // Check if this game has our team
         let targetTeam = null;
-        if (homeTeam?.team?.displayName === teamName || homeTeam?.team?.name === teamName) {
+        if (homeTeamName === teamName) {
           targetTeam = homeTeam;
-        } else if (awayTeam?.team?.displayName === teamName || awayTeam?.team?.name === teamName) {
+          console.log(`[Scraper] Matched home team: ${teamName}`);
+        } else if (awayTeamName === teamName) {
           targetTeam = awayTeam;
+          console.log(`[Scraper] Matched away team: ${teamName}`);
         }
         
-        if (targetTeam && targetTeam.injuries) {
-          console.log(`[Scraper] Found injuries in scoreboard for ${teamName}`);
-          for (const injury of targetTeam.injuries) {
-            injuries.push({
-              player: injury.athlete?.displayName || injury.athlete?.name || 'Unknown',
-              status: injury.status || 'Out',
-              description: injury.details?.type || injury.type || 'Injury'
-            });
+        if (targetTeam) {
+          console.log(`[Scraper] Team has injuries property: ${!!targetTeam.injuries}`);
+          console.log(`[Scraper] Injuries count: ${targetTeam.injuries?.length || 0}`);
+          
+          if (targetTeam.injuries && targetTeam.injuries.length > 0) {
+            console.log(`[Scraper] Found injuries in scoreboard for ${teamName}`);
+            for (const injury of targetTeam.injuries) {
+              injuries.push({
+                player: injury.athlete?.displayName || injury.athlete?.name || 'Unknown',
+                status: injury.status || 'Out',
+                description: injury.details?.type || injury.type || 'Injury'
+              });
+            }
+          } else {
+            // Check if injury data might be elsewhere in the structure
+            console.log(`[Scraper] Target team keys:`, Object.keys(targetTeam).join(', '));
           }
         }
       }
@@ -439,14 +509,19 @@ export async function getTeamInfo(teamName) {
     
     console.log(`[ESPN] Total injuries found for ${normalizedName}: ${injuries.length}`);
     
-    // If still no injuries, try web scraping
+    // If still no injuries, try alternative sources
     let scrapedInjuries = [];
     if (injuries.length === 0) {
       console.log(`[ESPN] No API injuries found, attempting alternative sources...`);
       console.log(`[ESPN] Team abbreviation: "${team.abbreviation}"`);
       
-      // Try scoreboard injuries first (most reliable)
-      scrapedInjuries = await fetchInjuriesFromBallDontLie(normalizedName);
+      // Try NBA.com official stats API first
+      scrapedInjuries = await fetchInjuriesFromNBAStats(normalizedName, team.abbreviation);
+      
+      // If NBA.com fails, try scoreboard
+      if (scrapedInjuries.length === 0) {
+        scrapedInjuries = await fetchInjuriesFromBallDontLie(normalizedName);
+      }
       
       // If scoreboard fails, try ESPN page scraping
       if (scrapedInjuries.length === 0) {
