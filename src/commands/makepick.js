@@ -326,7 +326,7 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
       });
     }
 
-    // Create pick buttons (disabled if locked)
+    // ROW 1: Pick buttons (Away - Home)
     const pickButtons = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`pats_pick_${gameId}_away`)
@@ -342,17 +342,44 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
         .setDisabled(isLocked)
     );
 
-    // Create double-down button (disabled if locked or already used on another game)
-    const ddButtons = new ActionRowBuilder().addComponents(
+    // ROW 2: Full Matchup Info - Return to Dashboard (or Double Down if not used)
+    const infoRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`pats_set_doubledown_${gameId}`)
-        .setLabel(existingPick?.isDoubleDown ? 'Double Down Active' : 'Use Double Down')
-        .setStyle(existingPick?.isDoubleDown ? ButtonStyle.Success : ButtonStyle.Danger)
-        .setEmoji('💰')
-        .setDisabled(isLocked || (hasDoubleDown && !existingPick?.isDoubleDown))
+        .setCustomId(`pats_matchup_${gameId}`)
+        .setLabel('Full Matchup Info')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('�')
     );
+    
+    // Add Double Down button if available/active, otherwise Return to Dashboard
+    if (existingPick?.isDoubleDown) {
+      infoRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`pats_set_doubledown_${gameId}`)
+          .setLabel('Double Down Active')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('💰')
+          .setDisabled(true)
+      );
+    } else if (!hasDoubleDown && !isLocked) {
+      infoRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`pats_set_doubledown_${gameId}`)
+          .setLabel('Use Double Down')
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('💰')
+      );
+    } else {
+      infoRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId('pats_back_to_dashboard')
+          .setLabel('Return to Dashboard')
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('🏠')
+      );
+    }
 
-    // Create info buttons with navigation
+    // ROW 3: Navigation (Previous Game - Next Game)
     const currentGameIndex = session.games.findIndex(g => g.id === gameId);
     const isFirstGame = currentGameIndex === 0;
     const isLastGame = currentGameIndex === session.games.length - 1;
@@ -361,17 +388,7 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
     
     const navigationButtons = new ActionRowBuilder();
     
-    if (isFirstGame) {
-      // First game: show "Return to Dashboard" as back button
-      navigationButtons.addComponents(
-        new ButtonBuilder()
-          .setCustomId('pats_back_to_dashboard')
-          .setLabel('Return to Dashboard')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('🏠')
-      );
-    } else {
-      // Not first game: show previous button
+    if (!isFirstGame) {
       navigationButtons.addComponents(
         new ButtonBuilder()
           .setCustomId(`pats_nav_game_${session.games[currentGameIndex - 1].id}`)
@@ -381,26 +398,7 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
       );
     }
     
-    // Add matchup info button (always present)
-    navigationButtons.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`pats_matchup_${gameId}`)
-        .setLabel('Full Matchup Info')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('📊')
-    );
-    
-    if (isLastGame) {
-      // Last game: show "Return to Dashboard" as completion button
-      navigationButtons.addComponents(
-        new ButtonBuilder()
-          .setCustomId('pats_back_to_dashboard')
-          .setLabel('Return to Dashboard')
-          .setStyle(ButtonStyle.Success)
-          .setEmoji('✅')
-      );
-    } else {
-      // Not last game: show next button
+    if (!isLastGame) {
       navigationButtons.addComponents(
         new ButtonBuilder()
           .setCustomId(`pats_nav_game_${session.games[currentGameIndex + 1].id}`)
@@ -412,7 +410,7 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
 
     await interaction.editReply({
       embeds: [embed],
-      components: [pickButtons, ddButtons, navigationButtons]
+      components: [pickButtons, infoRow, navigationButtons]
     });
 
   } catch (error) {
