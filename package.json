@@ -9,14 +9,20 @@
     "dev": "node --watch src/index.js",
     "deploy-commands": "node src/deploy-commands.js"
   },
-  "keywords": ["discord", "bot", "trail-blazers", "nba"],
+  "keywords": [
+    "discord",
+    "bot",
+    "trail-blazers",
+    "nba"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
     "discord.js": "^14.14.1",
-    "node-fetch": "^3.3.2",
-    "node-cron": "^3.0.3",
     "dotenv": "^16.3.1",
-    "cheerio": "^1.0.0-rc.12"
+    "node-cron": "^3.0.3",
+    "node-fetch": "^3.3.2",
+    "puppeteer": "^24.31.0"
   }
 }
