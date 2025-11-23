@@ -281,9 +281,9 @@ export async function showDashboard(interaction) {
       let scoreText = '';
       if (game.result) {
         if (game.result.status === 'Final') {
-          scoreText = ` - ${game.awayTeam} ${game.result.awayScore}, ${game.homeTeam} ${game.result.homeScore}`;
+          scoreText = ` - ${game.awayTeam} ${game.result.awayScore} @ ${game.homeTeam} ${game.result.homeScore}`;
         } else if (game.result.isLive) {
-          scoreText = ` - ${game.awayTeam} ${game.result.awayScore}, ${game.homeTeam} ${game.result.homeScore} (${game.result.status})`;
+          scoreText = ` - ${game.awayTeam} ${game.result.awayScore} @ ${game.homeTeam} ${game.result.homeScore} (${game.result.status})`;
         }
       }
       

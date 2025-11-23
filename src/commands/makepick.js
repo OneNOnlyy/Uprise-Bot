@@ -1239,7 +1239,7 @@ export async function handleViewMyPicks(interaction) {
             resultText = `\n**Result:** ❌ LOSS${pick.isDoubleDown ? ' (DOUBLE DOWN x2)' : ''}`;
           }
           
-          resultText += ` (${game.awayTeam} ${awayScore}, ${game.homeTeam} ${homeScore})`;
+          resultText += ` (${game.awayTeam} ${awayScore} @ ${game.homeTeam} ${homeScore})`;
         }
         
         embed.addFields({
