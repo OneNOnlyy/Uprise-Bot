@@ -98,8 +98,39 @@ export async function execute(interaction) {
         const spreadText = spread > 0 ? `+${spread}` : spread;
         const ddEmoji = pick.isDoubleDown ? ' 💰' : '';
         
+        // Check if game has final result
+        let resultEmoji = '';
+        if (game.result && game.result.status === 'Final') {
+          const homeScore = game.result.homeScore;
+          const awayScore = game.result.awayScore;
+          
+          // Calculate adjusted scores
+          const { homeSpread: adjHomeSpread, awaySpread: adjAwaySpread } = fixZeroSpreads(game);
+          const adjustedHomeScore = homeScore + adjHomeSpread;
+          const adjustedAwayScore = awayScore + adjAwaySpread;
+          
+          // Determine result based on which side user picked
+          let userAdjustedScore, opponentScore;
+          if (pick.pick === 'home') {
+            userAdjustedScore = adjustedHomeScore;
+            opponentScore = awayScore;
+          } else {
+            userAdjustedScore = adjustedAwayScore;
+            opponentScore = homeScore;
+          }
+          
+          // Set result emoji
+          if (userAdjustedScore === opponentScore) {
+            resultEmoji = ' 🟰'; // Push
+          } else if (userAdjustedScore > opponentScore) {
+            resultEmoji = ' ✅'; // Win
+          } else {
+            resultEmoji = ' ❌'; // Loss
+          }
+        }
+        
         if (isLocked) {
-          description += ` 🔒 ${pickedTeam} (${spreadText})${ddEmoji}`;
+          description += ` 🔒 ${pickedTeam} (${spreadText})${ddEmoji}${resultEmoji}`;
         } else {
           description += ` 📌 ${pickedTeam} (${spreadText})${ddEmoji}`;
         }
@@ -807,8 +838,39 @@ export async function handleBackToMenu(interaction) {
         const spreadText = spread > 0 ? `+${spread}` : spread;
         const ddEmoji = pick.isDoubleDown ? ' 💰' : '';
         
+        // Check if game has final result
+        let resultEmoji = '';
+        if (game.result && game.result.status === 'Final') {
+          const homeScore = game.result.homeScore;
+          const awayScore = game.result.awayScore;
+          
+          // Calculate adjusted scores
+          const { homeSpread: adjHomeSpread, awaySpread: adjAwaySpread } = fixZeroSpreads(game);
+          const adjustedHomeScore = homeScore + adjHomeSpread;
+          const adjustedAwayScore = awayScore + adjAwaySpread;
+          
+          // Determine result based on which side user picked
+          let userAdjustedScore, opponentScore;
+          if (pick.pick === 'home') {
+            userAdjustedScore = adjustedHomeScore;
+            opponentScore = awayScore;
+          } else {
+            userAdjustedScore = adjustedAwayScore;
+            opponentScore = homeScore;
+          }
+          
+          // Set result emoji
+          if (userAdjustedScore === opponentScore) {
+            resultEmoji = ' 🟰'; // Push
+          } else if (userAdjustedScore > opponentScore) {
+            resultEmoji = ' ✅'; // Win
+          } else {
+            resultEmoji = ' ❌'; // Loss
+          }
+        }
+        
         if (isLocked) {
-          description += ` 🔒 ${pickedTeam} (${spreadText})${ddEmoji}`;
+          description += ` 🔒 ${pickedTeam} (${spreadText})${ddEmoji}${resultEmoji}`;
         } else {
           description += ` 📌 ${pickedTeam} (${spreadText})${ddEmoji}`;
         }
@@ -1325,10 +1387,41 @@ export async function handleMakepickFromDashboard(interaction) {
         const pickedTeam = pick.pick === 'home' ? game.homeTeam : game.awayTeam;
         const spread = pick.pick === 'home' ? fixedSpreads.homeSpread : fixedSpreads.awaySpread;
         const spreadText = spread > 0 ? `+${spread}` : spread;
-        const ddEmoji = pick.isDoubleDown ? ' �' : '';
+        const ddEmoji = pick.isDoubleDown ? ' 💰' : '';
+        
+        // Check if game has final result
+        let resultEmoji = '';
+        if (game.result && game.result.status === 'Final') {
+          const homeScore = game.result.homeScore;
+          const awayScore = game.result.awayScore;
+          
+          // Calculate adjusted scores
+          const { homeSpread: adjHomeSpread, awaySpread: adjAwaySpread } = fixZeroSpreads(game);
+          const adjustedHomeScore = homeScore + adjHomeSpread;
+          const adjustedAwayScore = awayScore + adjAwaySpread;
+          
+          // Determine result based on which side user picked
+          let userAdjustedScore, opponentScore;
+          if (pick.pick === 'home') {
+            userAdjustedScore = adjustedHomeScore;
+            opponentScore = awayScore;
+          } else {
+            userAdjustedScore = adjustedAwayScore;
+            opponentScore = homeScore;
+          }
+          
+          // Set result emoji
+          if (userAdjustedScore === opponentScore) {
+            resultEmoji = ' 🟰'; // Push
+          } else if (userAdjustedScore > opponentScore) {
+            resultEmoji = ' ✅'; // Win
+          } else {
+            resultEmoji = ' ❌'; // Loss
+          }
+        }
         
         if (isLocked) {
-          description += ` 🔒 ${pickedTeam} (${spreadText})${ddEmoji}`;
+          description += ` 🔒 ${pickedTeam} (${spreadText})${ddEmoji}${resultEmoji}`;
         } else {
           description += ` 📌 ${pickedTeam} (${spreadText})${ddEmoji}`;
         }
