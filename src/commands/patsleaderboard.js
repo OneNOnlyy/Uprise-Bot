@@ -39,7 +39,7 @@ export async function execute(interaction) {
       // Cache age and other session info still tracked in background
       const cacheAge = Math.floor((Date.now() - liveLeaderboard.lastUpdate) / 1000);
       const participantCount = liveLeaderboard.standings.length;
-      const totalGames = session.games.length;
+      const totalGames = session ? session.games.length : 0;
       // These values are tracked but not displayed to keep the leaderboard cleaner
       
       embed.addFields({

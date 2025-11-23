@@ -69,15 +69,41 @@ export async function showDashboard(interaction) {
   const session = getActiveSession();
   
   if (!session) {
+    // Get user's overall stats to display
+    const stats = getUserStats(interaction.user.id);
+    
     const embed = new EmbedBuilder()
       .setTitle('🏀 Picks Against The Spread')
       .setDescription('**No active PATS session today.**\n\nWait for an admin to start a new session with `/patsstart`.')
       .setColor(0x808080)
       .setTimestamp();
 
+    // Show overall stats if user has any
+    if (stats.sessions > 0) {
+      const totalGames = stats.totalWins + stats.totalLosses;
+      embed.addFields({
+        name: '📊 Your Overall Stats',
+        value: [
+          `**Record:** ${stats.totalWins}-${stats.totalLosses}`,
+          `**Win Rate:** ${stats.winPercentage.toFixed(1)}%`,
+          `**Sessions Played:** ${stats.sessions}`
+        ].join('\n'),
+        inline: false
+      });
+    }
+
+    // Add button to view detailed stats
+    const buttons = stats.sessions > 0 ? new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_dashboard_stats')
+        .setLabel('View Full Statistics')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('📊')
+    ) : null;
+
     await interaction.editReply({
       embeds: [embed],
-      components: []
+      components: buttons ? [buttons] : []
     });
     return;
   }
