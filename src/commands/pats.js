@@ -78,8 +78,10 @@ export async function showDashboard(interaction) {
       .setColor(0x808080)
       .setTimestamp();
 
-    // Show overall stats if user has any
-    if (stats.sessions > 0) {
+    // Show overall stats if user has any (total games > 0 OR sessions > 0)
+    const hasStats = stats.sessions > 0 || (stats.totalWins + stats.totalLosses) > 0;
+    
+    if (hasStats) {
       const totalGames = stats.totalWins + stats.totalLosses;
       embed.addFields({
         name: '📊 Your Overall Stats',
@@ -90,11 +92,8 @@ export async function showDashboard(interaction) {
         ].join('\n'),
         inline: false
       });
-    }
-
-    // Add button to view detailed stats - always show if user has played before
-    const components = [];
-    if (stats.sessions > 0) {
+      
+      // Add button to view detailed stats
       const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId('pats_dashboard_stats')
@@ -102,13 +101,18 @@ export async function showDashboard(interaction) {
           .setStyle(ButtonStyle.Primary)
           .setEmoji('📊')
       );
-      components.push(buttons);
-    }
 
-    await interaction.editReply({
-      embeds: [embed],
-      components: components
-    });
+      await interaction.editReply({
+        embeds: [embed],
+        components: [buttons]
+      });
+    } else {
+      // No stats at all - just show the message
+      await interaction.editReply({
+        embeds: [embed],
+        components: []
+      });
+    }
     return;
   }
 
