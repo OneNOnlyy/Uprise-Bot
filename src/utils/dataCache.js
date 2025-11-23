@@ -5,7 +5,7 @@
  */
 
 import { getNBAGamesWithSpreads } from './oddsApi.js';
-import { getMatchupInfo } from './espnApi.js';
+import { getMatchupInfo, getTeamInfo } from './espnApi.js';
 
 // Cache storage
 const cache = {
@@ -13,12 +13,15 @@ const cache = {
   gamesLastUpdated: null,
   matchupInfo: new Map(), // gameId -> matchupInfo
   matchupLastUpdated: new Map(), // gameId -> timestamp
+  teamInfo: new Map(), // teamName -> teamInfo (ESPN scrapes)
+  teamLastUpdated: new Map(), // teamName -> timestamp
   isRefreshing: false
 };
 
 // Cache settings
 const CACHE_DURATION = 60 * 1000; // 1 minute
 const MATCHUP_CACHE_DURATION = 60 * 1000; // 1 minute for matchup info
+const TEAM_CACHE_DURATION = 60 * 1000; // 1 minute for team info (ESPN scrapes)
 
 /**
  * Initialize the cache and start periodic refresh
@@ -155,7 +158,48 @@ export function clearCache() {
   cache.gamesLastUpdated = null;
   cache.matchupInfo.clear();
   cache.matchupLastUpdated.clear();
+  cache.teamInfo.clear();
+  cache.teamLastUpdated.clear();
   console.log('[Cache] ✅ Cache cleared');
+}
+
+/**
+ * Get cached team info (ESPN scrape data)
+ * Falls back to live fetch if not cached or stale
+ */
+export async function getCachedTeamInfo(teamName) {
+  // Check if we have cached data
+  const cachedData = cache.teamInfo.get(teamName);
+  const lastUpdated = cache.teamLastUpdated.get(teamName) || 0;
+  const cacheAge = Date.now() - lastUpdated;
+  
+  // If cache is fresh (less than 1 minute old), return it
+  if (cachedData && cacheAge < TEAM_CACHE_DURATION) {
+    console.log(`[Cache] Using cached team info for ${teamName} (${Math.floor(cacheAge / 1000)}s old)`);
+    return cachedData;
+  }
+  
+  // Cache is stale or missing, fetch new data
+  console.log(`[Cache] Fetching fresh team info for ${teamName} (ESPN scrape)...`);
+  try {
+    const teamInfo = await getTeamInfo(teamName);
+    
+    // Cache the result
+    cache.teamInfo.set(teamName, teamInfo);
+    cache.teamLastUpdated.set(teamName, Date.now());
+    
+    return teamInfo;
+  } catch (error) {
+    console.error(`[Cache] Error fetching team info for ${teamName}:`, error.message);
+    
+    // If we have stale cached data, return it as fallback
+    if (cachedData) {
+      console.log(`[Cache] Using stale team cache as fallback (${Math.floor(cacheAge / 1000)}s old)`);
+      return cachedData;
+    }
+    
+    throw error;
+  }
 }
 
 /**
@@ -170,6 +214,7 @@ export function getCacheStats() {
     gamesCount: cache.games?.length || 0,
     gamesAge: gamesAge ? `${gamesAge}s` : 'never',
     matchupsCached: cache.matchupInfo.size,
+    teamsCached: cache.teamInfo.size,
     isRefreshing: cache.isRefreshing
   };
 }

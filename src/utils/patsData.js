@@ -819,3 +819,109 @@ export function getUserSessionHistory(userId, limit = 10) {
     games: session.games
   }));
 }
+
+/**
+ * Add a new player to the system
+ */
+export function addPlayer(userId, username, initialStats = {}) {
+  const data = readPATSData();
+  
+  if (data.users[userId]) {
+    throw new Error('Player already exists in the system');
+  }
+  
+  data.users[userId] = {
+    username: username,
+    totalWins: initialStats.totalWins || 0,
+    totalLosses: initialStats.totalLosses || 0,
+    totalPushes: initialStats.totalPushes || 0,
+    sessions: initialStats.sessions || 0,
+    doubleDownsUsed: initialStats.doubleDownsUsed || 0,
+    doubleDownWins: initialStats.doubleDownWins || 0,
+    doubleDownLosses: initialStats.doubleDownLosses || 0,
+    doubleDownPushes: initialStats.doubleDownPushes || 0,
+    addedAt: new Date().toISOString(),
+    addedBy: 'admin'
+  };
+  
+  writePATSData(data);
+  console.log(`[PATS] Added player: ${username} (${userId})`);
+  return data.users[userId];
+}
+
+/**
+ * Update player record/stats
+ */
+export function updatePlayerRecord(userId, updates) {
+  const data = readPATSData();
+  
+  if (!data.users[userId]) {
+    throw new Error('Player not found in the system');
+  }
+  
+  // Only allow updating specific fields
+  const allowedFields = [
+    'totalWins', 'totalLosses', 'totalPushes', 'sessions',
+    'doubleDownsUsed', 'doubleDownWins', 'doubleDownLosses', 'doubleDownPushes',
+    'username'
+  ];
+  
+  for (const [key, value] of Object.entries(updates)) {
+    if (allowedFields.includes(key)) {
+      data.users[userId][key] = value;
+    } else {
+      console.warn(`[PATS] Attempted to update invalid field: ${key}`);
+    }
+  }
+  
+  data.users[userId].lastUpdated = new Date().toISOString();
+  writePATSData(data);
+  console.log(`[PATS] Updated player record: ${userId}`);
+  return data.users[userId];
+}
+
+/**
+ * Get player stats
+ */
+export function getPlayerStats(userId) {
+  const data = readPATSData();
+  
+  if (!data.users[userId]) {
+    return null;
+  }
+  
+  return {
+    ...data.users[userId],
+    userId: userId
+  };
+}
+
+/**
+ * Get all players
+ */
+export function getAllPlayers() {
+  const data = readPATSData();
+  
+  return Object.entries(data.users).map(([userId, stats]) => ({
+    userId,
+    ...stats
+  }));
+}
+
+/**
+ * Delete player from system
+ */
+export function deletePlayer(userId) {
+  const data = readPATSData();
+  
+  if (!data.users[userId]) {
+    throw new Error('Player not found in the system');
+  }
+  
+  const username = data.users[userId].username || userId;
+  delete data.users[userId];
+  writePATSData(data);
+  console.log(`[PATS] Deleted player: ${username} (${userId})`);
+  return true;
+}
+
