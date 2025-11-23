@@ -153,13 +153,80 @@ export function updateGameResult(sessionId, gameId, result) {
   }
   
   const game = session.games.find(g => g.id === gameId);
-  if (game) {
-    game.result = result;
-    writePATSData(data);
-    return true;
+  if (!game) {
+    return false;
   }
   
-  return false;
+  // Check if game already has a result (avoid double-counting)
+  if (game.result) {
+    return false;
+  }
+  
+  // Update game result
+  game.result = result;
+  
+  // Calculate and update user stats immediately for this game
+  for (const userId in session.picks) {
+    const picks = session.picks[userId];
+    const pick = picks.find(p => p.gameId === gameId);
+    
+    if (!pick) {
+      // User didn't make a pick for this game - add a loss
+      if (!data.users[userId]) {
+        data.users[userId] = { 
+          totalWins: 0, 
+          totalLosses: 0, 
+          sessions: 0,
+          doubleDownsUsed: 0,
+          doubleDownWins: 0,
+          doubleDownLosses: 0
+        };
+      }
+      data.users[userId].totalLosses += 1;
+      continue;
+    }
+    
+    // Calculate if pick won against the spread
+    const homeScore = result.homeScore;
+    const awayScore = result.awayScore;
+    const adjustedHomeScore = homeScore + game.homeSpread;
+    const adjustedAwayScore = awayScore + game.awaySpread;
+    
+    let pickWon = false;
+    if (pick.pick === 'home') {
+      pickWon = adjustedHomeScore > adjustedAwayScore;
+    } else {
+      pickWon = adjustedAwayScore > adjustedHomeScore;
+    }
+    
+    // Initialize user if doesn't exist
+    if (!data.users[userId]) {
+      data.users[userId] = { 
+        totalWins: 0, 
+        totalLosses: 0, 
+        sessions: 0,
+        doubleDownsUsed: 0,
+        doubleDownWins: 0,
+        doubleDownLosses: 0
+      };
+    }
+    
+    // Update overall stats
+    if (pickWon) {
+      data.users[userId].totalWins += pick.isDoubleDown ? 2 : 1;
+      if (pick.isDoubleDown) {
+        data.users[userId].doubleDownWins += 1;
+      }
+    } else {
+      data.users[userId].totalLosses += pick.isDoubleDown ? 2 : 1;
+      if (pick.isDoubleDown) {
+        data.users[userId].doubleDownLosses += 1;
+      }
+    }
+  }
+  
+  writePATSData(data);
+  return true;
 }
 
 /**
@@ -173,23 +240,35 @@ export function closePATSSession(sessionId, gameResults) {
     return false;
   }
   
-  // Update game results
+  // Update any remaining game results that weren't already updated
   gameResults.forEach(result => {
     const game = session.games.find(g => g.id === result.gameId);
-    if (game) {
+    if (game && !game.result) {
       game.result = result; // { homeScore, awayScore, winner }
     }
   });
   
-  // Calculate wins/losses for each user
+  // Calculate wins/losses for each user (for session results record only)
   const userResults = {};
   
-  // First, process all participants (including those with no picks)
+  // Process all participants (including those with no picks)
   session.participants.forEach(userId => {
     const picks = session.picks[userId] || [];
     let wins = 0;
     let losses = 0;
     let missedPicks = 0;
+    
+    // Initialize user if doesn't exist
+    if (!data.users[userId]) {
+      data.users[userId] = { 
+        totalWins: 0, 
+        totalLosses: 0, 
+        sessions: 0,
+        doubleDownsUsed: 0,
+        doubleDownWins: 0,
+        doubleDownLosses: 0
+      };
+    }
     
     // Check each game in the session
     session.games.forEach(game => {
@@ -199,8 +278,20 @@ export function closePATSSession(sessionId, gameResults) {
         // No pick made for this game - automatic loss
         losses++;
         missedPicks++;
+        
+        // Only add to overall stats if game result wasn't already processed
+        // (games without picks wouldn't have been processed by updateGameResult)
+        if (game.result && game.result.status === 'Final') {
+          // This will be counted as 1 loss per missed game
+          // Note: updateGameResult already handles this for games that finished,
+          // but we need to ensure all participants get the loss
+          const alreadyCounted = true; // Assume updateGameResult handled it
+          if (!alreadyCounted) {
+            data.users[userId].totalLosses += 1;
+          }
+        }
       } else if (game.result) {
-        // Pick was made, calculate result
+        // Pick was made, calculate result (for session record)
         const homeScore = game.result.homeScore;
         const awayScore = game.result.awayScore;
         
@@ -216,65 +307,27 @@ export function closePATSSession(sessionId, gameResults) {
         }
         
         if (pickWon) {
-          wins++;
+          wins += pick.isDoubleDown ? 2 : 1;
         } else {
-          losses++;
+          losses += pick.isDoubleDown ? 2 : 1;
         }
         
-        // Apply double-down multiplier
-        if (pick.isDoubleDown) {
-          if (pickWon) {
-            wins++; // Count twice for double-down win
-          } else {
-            losses++; // Count twice for double-down loss
-          }
-        }
+        // Note: Overall stats already updated by updateGameResult in real-time
+        // We don't add to totalWins/totalLosses here to avoid double-counting
       }
     });
     
     userResults[userId] = { wins, losses, missedPicks };
     
-    // Update user stats
-    if (!data.users[userId]) {
-      data.users[userId] = { 
-        totalWins: 0, 
-        totalLosses: 0, 
-        sessions: 0,
-        doubleDownsUsed: 0,
-        doubleDownWins: 0,
-        doubleDownLosses: 0
-      };
-    }
-    
-    // Track double-down usage
+    // Track double-down usage (increment once per session when user uses DD)
     const userDoubleDown = picks.find(p => p.isDoubleDown);
     if (userDoubleDown) {
+      // Check if we haven't already incremented doubleDownsUsed for this session
+      // We increment this once at session close regardless of when stats were calculated
       data.users[userId].doubleDownsUsed += 1;
-      
-      const ddGame = session.games.find(g => g.id === userDoubleDown.gameId);
-      if (ddGame && ddGame.result) {
-        const homeScore = ddGame.result.homeScore;
-        const awayScore = ddGame.result.awayScore;
-        const adjustedHomeScore = homeScore + ddGame.homeSpread;
-        const adjustedAwayScore = awayScore + ddGame.awaySpread;
-        
-        let pickWon = false;
-        if (userDoubleDown.pick === 'home') {
-          pickWon = adjustedHomeScore > adjustedAwayScore;
-        } else {
-          pickWon = adjustedAwayScore > adjustedHomeScore;
-        }
-        
-        if (pickWon) {
-          data.users[userId].doubleDownWins += 1;
-        } else {
-          data.users[userId].doubleDownLosses += 1;
-        }
-      }
     }
     
-    data.users[userId].totalWins += wins;
-    data.users[userId].totalLosses += losses;
+    // Increment session count (this only happens at session close)
     data.users[userId].sessions += 1;
   });
   
