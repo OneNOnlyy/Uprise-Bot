@@ -83,6 +83,13 @@ const TEAM_ABBR_TO_ESPN_SLUG = {
   'WSH': 'wsh/washington-wizards'
 };
 
+// Map inconsistent abbreviations - ESPN uses different abbreviations in different APIs
+const ABBR_ALIASES = {
+  'WSH': 'WAS', // Team info API returns WSH, but scoreboard uses WAS
+  'BRK': 'BKN',
+  'CHO': 'CHA'
+};
+
 /**
  * Normalize team name for matching
  */
@@ -202,6 +209,10 @@ async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
  */
 async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
   try {
+    // Normalize abbreviation - ESPN uses different abbreviations in different APIs
+    const normalizedAbbr = ABBR_ALIASES[teamAbbr] || teamAbbr;
+    console.log(`[Scraper] Team abbreviation: "${teamAbbr}" → normalized: "${normalizedAbbr}"`);
+    
     // First get today's scoreboard to find game IDs - check both today and tomorrow
     const today = new Date();
     const tomorrow = new Date(today);
@@ -237,9 +248,9 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
             const compAbbr = competitor.team.abbreviation;
             const compName = competitor.team.displayName;
             
-            console.log(`[Scraper]   Comparing: "${compAbbr}" === "${teamAbbr}" || "${compName}" === "${teamName}"`);
+            console.log(`[Scraper]   Comparing: "${compAbbr}" === "${normalizedAbbr}" || "${compName}" === "${teamName}"`);
             
-            if (compAbbr === teamAbbr || compName === teamName) {
+            if (compAbbr === normalizedAbbr || compName === teamName) {
               gameId = event.id;
               console.log(`[Scraper] ✓ Found game ID ${gameId} for ${teamName} on ${todayStr}`);
               break;
@@ -273,9 +284,9 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
             const compAbbr = competitor.team.abbreviation;
             const compName = competitor.team.displayName;
             
-            console.log(`[Scraper]   Comparing: "${compAbbr}" === "${teamAbbr}" || "${compName}" === "${teamName}"`);
+            console.log(`[Scraper]   Comparing: "${compAbbr}" === "${normalizedAbbr}" || "${compName}" === "${teamName}"`);
             
-            if (compAbbr === teamAbbr || compName === teamName) {
+            if (compAbbr === normalizedAbbr || compName === teamName) {
               gameId = event.id;
               console.log(`[Scraper] ✓ Found game ID ${gameId} for ${teamName} on ${tomorrowStr}`);
               break;
