@@ -278,7 +278,16 @@ export async function showDashboard(interaction) {
         pending++;
       }
       
-      return `${index + 1}. ${statusEmoji} **${pickedTeam}** (${spreadText})${ddEmoji}`;
+      let scoreText = '';
+      if (game.result) {
+        if (game.result.status === 'Final') {
+          scoreText = ` - ${game.awayTeam} ${game.result.awayScore}, ${game.homeTeam} ${game.result.homeScore}`;
+        } else if (game.result.isLive) {
+          scoreText = ` - ${game.awayTeam} ${game.result.awayScore}, ${game.homeTeam} ${game.result.homeScore} (${game.result.status})`;
+        }
+      }
+      
+      return `${index + 1}. ${statusEmoji} **${pickedTeam}** (${spreadText})${ddEmoji}${scoreText}`;
     }).filter(Boolean).join('\n');
 
     embed.addFields({

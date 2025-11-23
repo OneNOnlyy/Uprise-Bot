@@ -157,12 +157,12 @@ export function updateGameResult(sessionId, gameId, result) {
     return false;
   }
   
-  // Check if game already has a result (avoid double-counting)
-  if (game.result) {
+  // Check if game already has a final result (avoid overwriting final results)
+  if (game.result && game.result.status === 'Final') {
     return false;
   }
   
-  // Update game result
+  // Allow updating live scores or setting final results
   game.result = result;
   
   // Calculate and update user stats immediately for this game

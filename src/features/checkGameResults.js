@@ -111,8 +111,27 @@ async function checkAndUpdateGameResults() {
           updatedCount++;
         }
       } else if (liveGame.status && liveGame.status !== 'Scheduled') {
-        // Game is in progress
-        console.log(`🏀 Game in progress: ${sessionGame.awayTeam} @ ${sessionGame.homeTeam} - ${liveGame.status}`);
+        // Game is in progress - store live scores
+        const homeScore = liveGame.home_team_score;
+        const awayScore = liveGame.visitor_team_score;
+        
+        if (homeScore !== null && awayScore !== null) {
+          console.log(`🏀 Game in progress: ${sessionGame.awayTeam} ${awayScore} @ ${sessionGame.homeTeam} ${homeScore} - ${liveGame.status}`);
+          
+          // Update live score in session (don't overwrite final results)
+          if (!sessionGame.result || sessionGame.result.status !== 'Final') {
+            const liveResult = {
+              homeScore,
+              awayScore,
+              status: liveGame.status,
+              isLive: true
+            };
+            
+            updateGameResult(session.id, sessionGame.id, liveResult);
+          }
+        } else {
+          console.log(`🏀 Game in progress: ${sessionGame.awayTeam} @ ${sessionGame.homeTeam} - ${liveGame.status} (scores not available yet)`);
+        }
       }
     }
     
