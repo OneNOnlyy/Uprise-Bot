@@ -331,14 +331,14 @@ export function closePATSSession(sessionId, gameResults) {
         const awayScore = game.result.awayScore;
         
         // Calculate if pick won against the spread
-        const adjustedHomeScore = homeScore + game.homeSpread;
-        const adjustedAwayScore = awayScore + game.awaySpread;
+        const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
+        const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
         
         let pickWon = false;
         if (pick.pick === 'home') {
-          pickWon = adjustedHomeScore > adjustedAwayScore;
+          pickWon = (homeScore + homeSpread) > awayScore;
         } else {
-          pickWon = adjustedAwayScore > adjustedHomeScore;
+          pickWon = (awayScore + awaySpread) > homeScore;
         }
         
         if (pickWon) {
@@ -513,14 +513,14 @@ export function getCurrentSessionStats(userId) {
       const homeScore = game.result.homeScore;
       const awayScore = game.result.awayScore;
       
-      const adjustedHomeScore = homeScore + game.homeSpread;
-      const adjustedAwayScore = awayScore + game.awaySpread;
+      const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
+      const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
       
       let pickWon = false;
       if (pick.pick === 'home') {
-        pickWon = adjustedHomeScore > adjustedAwayScore;
+        pickWon = (homeScore + homeSpread) > awayScore;
       } else {
-        pickWon = adjustedAwayScore > adjustedHomeScore;
+        pickWon = (awayScore + awaySpread) > homeScore;
       }
       
       if (pickWon) {
@@ -586,14 +586,14 @@ export function getLiveSessionLeaderboard(forceUpdate = false) {
         const homeScore = game.result.homeScore;
         const awayScore = game.result.awayScore;
         
-        const adjustedHomeScore = homeScore + game.homeSpread;
-        const adjustedAwayScore = awayScore + game.awaySpread;
+        const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
+        const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
         
         let pickWon = false;
         if (pick.pick === 'home') {
-          pickWon = adjustedHomeScore > adjustedAwayScore;
+          pickWon = (homeScore + homeSpread) > awayScore;
         } else {
-          pickWon = adjustedAwayScore > adjustedHomeScore;
+          pickWon = (awayScore + awaySpread) > homeScore;
         }
         
         if (pickWon) {

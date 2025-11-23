@@ -165,14 +165,17 @@ export async function showDashboard(interaction) {
         const awayScore = game.result.awayScore;
         
         // Calculate if pick won against the spread
-        const adjustedHomeScore = homeScore + game.homeSpread;
-        const adjustedAwayScore = awayScore + game.awaySpread;
+        // Correct logic: compare team's score + their spread vs opponent's score
+        const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
+        const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
         
         let pickWon = false;
         if (pick.pick === 'home') {
-          pickWon = adjustedHomeScore > adjustedAwayScore;
+          // Home covers if: homeScore + homeSpread > awayScore
+          pickWon = (homeScore + homeSpread) > awayScore;
         } else {
-          pickWon = adjustedAwayScore > adjustedHomeScore;
+          // Away covers if: awayScore + awaySpread > homeScore
+          pickWon = (awayScore + awaySpread) > homeScore;
         }
         
         if (pickWon) {
