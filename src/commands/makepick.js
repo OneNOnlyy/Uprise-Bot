@@ -277,7 +277,7 @@ export async function handleGameSelection(interaction) {
         .setCustomId(`pats_pick_${gameId}_away`)
         .setLabel(`Pick ${game.awayTeam} ${game.spreadDisplay.away}`)
         .setStyle(ButtonStyle.Primary)
-        .setEmoji('�')
+        .setEmoji('✈️')
         .setDisabled(isLocked),
       new ButtonBuilder()
         .setCustomId(`pats_pick_${gameId}_home`)
