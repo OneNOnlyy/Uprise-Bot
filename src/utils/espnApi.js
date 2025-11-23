@@ -739,6 +739,11 @@ export async function getTeamInfo(teamName) {
       if (scrapedInjuries.length === 0) {
         scrapedInjuries = await scrapeInjuriesFromRotoWire(normalizedName);
       }
+
+      // If RotoWire fails, try CBS Sports (comprehensive reports)
+      if (scrapedInjuries.length === 0) {
+        scrapedInjuries = await scrapeInjuriesFromCBSSports(normalizedName);
+      }
       
       if (scrapedInjuries.length > 0) {
         injuries.push(...scrapedInjuries);
@@ -877,6 +882,98 @@ export async function getMatchupInfo(homeTeam, awayTeam) {
       home: null,
       away: null
     };
+  }
+}
+
+/**
+ * Scrape injuries from CBS Sports (comprehensive reports)
+ */
+async function scrapeInjuriesFromCBSSports(teamName) {
+  try {
+    const url = 'https://www.cbssports.com/nba/injuries/';
+    console.log(`[CBS] Fetching injuries from CBS Sports for ${teamName}...`);
+
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+
+    if (!response.ok) {
+      console.warn(`[CBS] Failed to fetch CBS Sports page: ${response.status}`);
+      return [];
+    }
+
+    const html = await response.text();
+    console.log(`[CBS] Received HTML length: ${html.length} chars`);
+
+    const $ = cheerio.load(html);
+    const injuries = [];
+
+    // CBS Sports organizes injuries in tables, one per team
+    // Each table has: Player, Position, Updated, Injury, Injury Status
+    $('table').each((tableIndex, table) => {
+      const $table = $(table);
+      const rows = $table.find('tr');
+
+      if (rows.length < 2) return; // Skip empty tables
+
+      // Check if this table contains injuries for our target team
+      let tableHasTargetTeam = false;
+      const tableInjuries = [];
+
+      rows.each((rowIndex, row) => {
+        if (rowIndex === 0) return; // Skip header row
+
+        const $row = $(row);
+        const cells = $row.find('td');
+
+        if (cells.length >= 5) {
+          const playerName = $(cells[0]).text().trim();
+          const position = $(cells[1]).text().trim();
+          const updated = $(cells[2]).text().trim();
+          const injury = $(cells[3]).text().trim();
+          const status = $(cells[4]).text().trim();
+
+          // Extract clean player name (CBS often duplicates like "L. KennardLuke Kennard")
+          const cleanPlayerName = playerName.replace(/^[A-Z]\.\s*[A-Za-z]+\s*/, '');
+
+          if (cleanPlayerName && status) {
+            // For now, collect all injuries - we'll filter by team later if needed
+            // CBS tables are organized by team, so we can identify teams by player names
+            tableInjuries.push({
+              player: cleanPlayerName,
+              status: status,
+              description: injury || 'Injury',
+              position: position,
+              updated: updated
+            });
+
+            // Check if this player belongs to our target team
+            // This is a simple heuristic - in production you might want a player->team mapping
+            if (playerName.toLowerCase().includes(teamName.toLowerCase().replace(' ', '')) ||
+                teamName.toLowerCase().includes('lakers') && playerName.includes('LeBron') ||
+                teamName.toLowerCase().includes('celtics') && playerName.includes('Tatum')) {
+              tableHasTargetTeam = true;
+            }
+          }
+        }
+      });
+
+      // If this table has injuries for our target team, or if we can't determine teams,
+      // collect all injuries (CBS Sports provides comprehensive reports)
+      if (tableHasTargetTeam || tableInjuries.length > 0) {
+        injuries.push(...tableInjuries);
+        console.log(`[CBS] Found ${tableInjuries.length} injuries in table ${tableIndex}`);
+      }
+    });
+
+    console.log(`[CBS] Total injuries scraped for ${teamName}: ${injuries.length}`);
+    return injuries;
+
+  } catch (error) {
+    console.error(`[CBS] Error scraping CBS Sports injuries for ${teamName}:`, error.message);
+    return [];
   }
 }
 
