@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits, Events, Collection } from 'discord.js';
 import dotenv from 'dotenv';
+import { initializeCache } from './utils/dataCache.js';
 import { scheduleGameThreads } from './features/gameThreads.js';
 import { scheduleGamePings } from './features/gamePing.js';
 import { scheduleThreadLocking } from './features/lockThreads.js';
@@ -43,6 +44,9 @@ client.once(Events.ClientReady, (readyClient) => {
   console.log(`✅ Uprise Bot is ready! Logged in as ${readyClient.user.tag}`);
   console.log(`🏀 Monitoring Portland Trail Blazers games...`);
   console.log(`⚡ Slash commands loaded: ${client.commands.size}`);
+  
+  // Initialize data cache system
+  initializeCache();
   
   // Start the game thread scheduler
   scheduleGameThreads(client);

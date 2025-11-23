@@ -8,6 +8,7 @@ import {
   ButtonStyle
 } from 'discord.js';
 import { getActiveSession, savePick, getUserPicks } from '../utils/patsData.js';
+import { getCachedMatchupInfo } from '../utils/dataCache.js';
 import { getMatchupInfo, formatInjuries } from '../utils/espnApi.js';
 
 export const data = new SlashCommandBuilder()
@@ -159,15 +160,15 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
     const now = new Date();
     const isLocked = gameTime < now;
 
-    // Fetch matchup info (injuries, records)
-    console.log(`Fetching matchup info for ${game.awayTeam} @ ${game.homeTeam}...`);
+    // Fetch matchup info (injuries, records) - use cache for faster loading
+    console.log(`[Cache] Loading matchup info for ${game.awayTeam} @ ${game.homeTeam}...`);
     let matchupInfo = null;
     
     try {
-      matchupInfo = await getMatchupInfo(game.homeTeam, game.awayTeam);
-      console.log(`Matchup info result:`, matchupInfo ? 'Success' : 'Null');
+      matchupInfo = await getCachedMatchupInfo(game.homeTeam, game.awayTeam, game.id);
+      console.log(`[Cache] Matchup info loaded:`, matchupInfo ? 'Success' : 'Null');
     } catch (error) {
-      console.error(`Error fetching matchup info:`, error);
+      console.error(`[Cache] Error fetching matchup info:`, error);
       matchupInfo = { home: null, away: null };
     }
 
@@ -770,8 +771,8 @@ export async function handleViewInjuries(interaction) {
       return;
     }
 
-    // Fetch injury info
-    const matchupInfo = await getMatchupInfo(game.homeTeam, game.awayTeam);
+    // Fetch injury info - use cache
+    const matchupInfo = await getCachedMatchupInfo(game.homeTeam, game.awayTeam, game.id);
 
     const embed = new EmbedBuilder()
       .setTitle(`🏥 Injury Report:  ${game.awayTeam} @ ${game.homeTeam}`)
@@ -859,8 +860,8 @@ export async function handleViewMatchup(interaction) {
       return;
     }
 
-    // Fetch matchup info
-    const matchupInfo = await getMatchupInfo(game.homeTeam, game.awayTeam);
+    // Fetch matchup info - use cache
+    const matchupInfo = await getCachedMatchupInfo(game.homeTeam, game.awayTeam, game.id);
 
     const embed = new EmbedBuilder()
       .setTitle(`📊 Full Matchup:  ${game.awayTeam} @ ${game.homeTeam}`)

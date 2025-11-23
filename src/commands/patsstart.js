@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { getFormattedGamesForDate } from '../utils/oddsApi.js';
 import { createPATSSession, getActiveSession } from '../utils/patsData.js';
+import { getCachedGames, prefetchMatchupInfo } from '../utils/dataCache.js';
 
 export const data = new SlashCommandBuilder()
   .setName('patsstart')
@@ -33,9 +34,20 @@ export async function execute(interaction) {
     const targetDate = dateParam ? new Date(dateParam) : new Date();
     const dateStr = targetDate.toISOString().split('T')[0];
     
-    // Get games for the date
+    // Get games for the date - use cached data for better performance
     console.log(`📊 Fetching games for PATS session on ${dateStr}...`);
-    const games = await getFormattedGamesForDate(dateStr);
+    let games;
+    
+    // If requesting today's games, use cache
+    const today = new Date().toISOString().split('T')[0];
+    if (dateStr === today) {
+      console.log('[PATS] Using cached games for today');
+      games = await getCachedGames();
+    } else {
+      // For other dates, fetch directly
+      console.log('[PATS] Fetching games for specific date:', dateStr);
+      games = await getFormattedGamesForDate(dateStr);
+    }
     
     if (!games || games.length === 0) {
       await interaction.editReply({
@@ -52,6 +64,12 @@ export async function execute(interaction) {
     const session = createPATSSession(dateStr, games, participants);
     
     console.log(`✅ Created PATS session ${session.id} with ${games.length} games`);
+    
+    // Prefetch matchup info for all games to warm up the cache
+    // This runs in the background and doesn't block the announcement
+    prefetchMatchupInfo(games).catch(err => {
+      console.error('[PATS] Error prefetching matchup info:', err);
+    });
 
     // Create announcement embed
     const embed = new EmbedBuilder()
