@@ -36,18 +36,15 @@ export async function execute(interaction) {
         }
       }));
 
+      // Cache age and other session info still tracked in background
       const cacheAge = Math.floor((Date.now() - liveLeaderboard.lastUpdate) / 1000);
+      const participantCount = liveLeaderboard.standings.length;
+      const totalGames = session.games.length;
+      // These values are tracked but not displayed to keep the leaderboard cleaner
+      
       embed.addFields({
         name: '📅 Today\'s Session Leaders',
         value: sessionLeaderboardText.join('\n') || 'No picks yet',
-        inline: false
-      });
-      
-      embed.addFields({
-        name: '🎮 Session Info',
-        value: `**Participants:** ${liveLeaderboard.standings.length}\n` +
-               `**Total Games:** ${session.games.length}\n` +
-               `**Updated:** ${cacheAge}s ago`,
         inline: false
       });
     }
