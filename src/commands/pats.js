@@ -312,11 +312,13 @@ export async function showDashboard(interaction) {
   const secondRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('pats_dashboard_view_everyone_picks')
-      .setLabel('View Everyone\'s Picks')
+      .setLabel('Everyone\'s Picks')
+      .setEmoji('👥')
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId('pats_dashboard_refresh')
       .setLabel('Refresh')
+      .setEmoji('🔄')
       .setStyle(ButtonStyle.Secondary)
   );
 
@@ -523,9 +525,9 @@ async function showSessionHistory(interaction) {
 }
 
 /**
- * Show everyone's picks for all games in the session
+ * Show everyone's picks for all games in the session (paginated by game)
  */
-async function showEveryonesPicks(interaction) {
+async function showEveryonesPicks(interaction, gameIndex = 0) {
   const session = getActiveSession();
   
   if (!session) {
@@ -549,94 +551,130 @@ async function showEveryonesPicks(interaction) {
     return;
   }
 
-  // Group picks by game
-  const picksByGame = {};
-  for (const game of session.games) {
-    picksByGame[game.id] = {
-      game: game,
-      picks: []
-    };
+  // Validate game index
+  if (gameIndex < 0 || gameIndex >= session.games.length) {
+    gameIndex = 0;
   }
 
-  // Organize picks by game
+  const game = session.games[gameIndex];
+  
+  // Apply zero spread fix
+  const { homeSpread, awaySpread } = fixZeroSpreads(game);
+
+  // Collect picks for this specific game
+  const gamePicks = [];
   for (const [userId, userPicksArray] of Object.entries(sessionData.picks)) {
-    for (const pick of userPicksArray) {
-      if (picksByGame[pick.gameId]) {
-        picksByGame[pick.gameId].picks.push({
-          userId: userId,
-          pick: pick
-        });
-      }
+    const pickForGame = userPicksArray.find(p => p.gameId === game.id);
+    if (pickForGame) {
+      gamePicks.push({
+        userId: userId,
+        pick: pickForGame
+      });
     }
   }
 
-  // Build embeds - Discord allows 10 fields per embed, so we'll group games
+  // Build embed for this game
   const embed = new EmbedBuilder()
     .setTitle('👥 Everyone\'s Picks')
-    .setDescription(`View all player picks for today's ${session.games.length} games.`)
+    .setDescription(`**${game.awayTeam}** @ **${game.homeTeam}**\nGame ${gameIndex + 1} of ${session.games.length}`)
     .setColor(0x5865F2)
     .setTimestamp();
 
-  let fieldCount = 0;
-  const maxFields = 25; // Discord limit
-
-  for (const gameId in picksByGame) {
-    if (fieldCount >= maxFields) {
-      embed.setFooter({ text: 'Some games not shown due to Discord limits' });
-      break;
-    }
-
-    const { game, picks } = picksByGame[gameId];
-    
-    if (picks.length === 0) {
-      continue; // Skip games with no picks
-    }
-
+  if (gamePicks.length === 0) {
+    embed.addFields({
+      name: 'No Picks Yet',
+      value: 'No one has made a pick for this game.',
+      inline: false
+    });
+  } else {
     // Count picks for each team
     let homePicks = 0;
     let awayPicks = 0;
-    const pickDetails = [];
+    const homePickDetails = [];
+    const awayPickDetails = [];
 
-    for (const { userId, pick } of picks) {
+    for (const { userId, pick } of gamePicks) {
+      const ddTag = pick.isDoubleDown ? ' 💰' : '';
+      const userMention = `<@${userId}>`;
+      
       if (pick.pick === 'home') {
         homePicks++;
+        const spread = homeSpread > 0 ? `+${homeSpread}` : homeSpread;
+        homePickDetails.push(`${userMention} (${spread})${ddTag}`);
       } else {
         awayPicks++;
+        const spread = awaySpread > 0 ? `+${awaySpread}` : awaySpread;
+        awayPickDetails.push(`${userMention} (${spread})${ddTag}`);
       }
-      
-      const teamPicked = pick.pick === 'home' ? game.homeTeam : game.awayTeam;
-      const spread = pick.spread > 0 ? `+${pick.spread}` : pick.spread;
-      const ddTag = pick.isDoubleDown ? ' 💰' : '';
-      
-      pickDetails.push(`<@${userId}>: **${teamPicked}** (${spread})${ddTag}`);
     }
 
-    const gameTitle = `${game.awayTeam} @ ${game.homeTeam}`;
-    const pickSummary = `**${awayPicks}** picked ${game.awayTeam} | **${homePicks}** picked ${game.homeTeam}`;
-    
+    // Add away team picks
     embed.addFields({
-      name: gameTitle,
-      value: `${pickSummary}\n${pickDetails.join('\n')}`,
+      name: `✈️ ${game.awayTeam} (${awaySpread > 0 ? '+' : ''}${awaySpread})`,
+      value: awayPicks > 0 ? `**${awayPicks} ${awayPicks === 1 ? 'pick' : 'picks'}**\n${awayPickDetails.join('\n')}` : 'No picks',
       inline: false
     });
 
-    fieldCount++;
+    // Add home team picks
+    embed.addFields({
+      name: `🏠 ${game.homeTeam} (${homeSpread > 0 ? '+' : ''}${homeSpread})`,
+      value: homePicks > 0 ? `**${homePicks} ${homePicks === 1 ? 'pick' : 'picks'}**\n${homePickDetails.join('\n')}` : 'No picks',
+      inline: false
+    });
+
+    // Add summary
+    const totalPlayers = Object.keys(sessionData.picks).length;
+    embed.addFields({
+      name: 'Session Summary',
+      value: `**${totalPlayers}** ${totalPlayers === 1 ? 'player' : 'players'} in session\n**${gamePicks.length}** ${gamePicks.length === 1 ? 'pick' : 'picks'} for this game`,
+      inline: false
+    });
   }
 
-  // Add summary at the top
-  const totalPlayers = Object.keys(sessionData.picks).length;
-  embed.setDescription(`View all player picks for today's ${session.games.length} games.\n**${totalPlayers} players** have made picks.`);
+  // Navigation buttons
+  const navigationButtons = new ActionRowBuilder();
+  
+  const isFirstGame = gameIndex === 0;
+  const isLastGame = gameIndex === session.games.length - 1;
 
-  const backButton = new ActionRowBuilder().addComponents(
+  if (!isFirstGame) {
+    navigationButtons.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pats_everyone_picks_nav_${gameIndex - 1}`)
+        .setLabel('Previous Game')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️')
+    );
+  }
+
+  navigationButtons.addComponents(
     new ButtonBuilder()
       .setCustomId('pats_dashboard_refresh')
       .setLabel('Back to Dashboard')
       .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🏠')
   );
+
+  if (!isLastGame) {
+    navigationButtons.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pats_everyone_picks_nav_${gameIndex + 1}`)
+        .setLabel('Next Game')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('▶️')
+    );
+  }
 
   await interaction.editReply({
     embeds: [embed],
-    components: [backButton]
+    components: [navigationButtons]
   });
+}
+
+// Export the handler for navigation
+export async function handleEveryonePicksNavigation(interaction) {
+  await interaction.deferUpdate();
+  const gameIndex = parseInt(interaction.customId.split('_').pop());
+  await showEveryonesPicks(interaction, gameIndex);
 }
 

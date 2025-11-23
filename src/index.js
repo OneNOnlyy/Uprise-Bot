@@ -119,6 +119,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
           interaction.customId.startsWith('pats_history_')) {
         await patsCommand.handleDashboardButton(interaction);
       }
+      // Handle everyone's picks navigation
+      else if (interaction.customId.startsWith('pats_everyone_picks_nav_')) {
+        await patsCommand.handleEveryonePicksNavigation(interaction);
+      }
       // Handle game selection dropdown
       else if (interaction.customId === 'pats_game_select') {
         await makepickCommand.handleGameSelection(interaction);

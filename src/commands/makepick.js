@@ -394,7 +394,7 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
       new ButtonBuilder()
         .setCustomId('pats_back_to_dashboard')
         .setLabel('Return to Dashboard')
-        .setStyle(ButtonStyle.Secondary)
+        .setStyle(isLastGame ? ButtonStyle.Success : ButtonStyle.Secondary)
         .setEmoji('🏠')
     );
     
