@@ -226,27 +226,29 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
     console.log(`[Scraper] Found ${data.events?.length || 0} games on ${todayStr}`);
     
     // Find the game with this team
-    if (data.events) {
-      for (const event of data.events) {
-        const competition = event.competitions?.[0];
-        if (!competition) continue;
-        
-        for (const competitor of competition.competitors) {
-          const compAbbr = competitor.team.abbreviation;
-          const compName = competitor.team.displayName;
+      if (data.events) {
+        for (const event of data.events) {
+          const competition = event.competitions?.[0];
+          if (!competition) continue;
           
-          if (compAbbr === teamAbbr || compName === teamName) {
-            gameId = event.id;
-            console.log(`[Scraper] ✓ Found game ID ${gameId} for ${teamName} on ${todayStr}`);
-            break;
+          console.log(`[Scraper] Event ${event.id}: ${competition.competitors?.map(c => `${c.team.displayName} (${c.team.abbreviation})`).join(' vs ')}`);
+          
+          for (const competitor of competition.competitors) {
+            const compAbbr = competitor.team.abbreviation;
+            const compName = competitor.team.displayName;
+            
+            console.log(`[Scraper]   Comparing: "${compAbbr}" === "${teamAbbr}" || "${compName}" === "${teamName}"`);
+            
+            if (compAbbr === teamAbbr || compName === teamName) {
+              gameId = event.id;
+              console.log(`[Scraper] ✓ Found game ID ${gameId} for ${teamName} on ${todayStr}`);
+              break;
+            }
           }
+          
+          if (gameId) break;
         }
-        
-        if (gameId) break;
-      }
-    }
-    
-    // If not found, try tomorrow
+      }    // If not found, try tomorrow
     if (!gameId) {
       console.log(`[Scraper] Game not found on ${todayStr}, trying ${tomorrowStr}...`);
       url = `${ESPN_API_BASE}/scoreboard?dates=${tomorrowStr}`;
@@ -265,9 +267,13 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
           const competition = event.competitions?.[0];
           if (!competition) continue;
           
+          console.log(`[Scraper] Event ${event.id}: ${competition.competitors?.map(c => `${c.team.displayName} (${c.team.abbreviation})`).join(' vs ')}`);
+          
           for (const competitor of competition.competitors) {
             const compAbbr = competitor.team.abbreviation;
             const compName = competitor.team.displayName;
+            
+            console.log(`[Scraper]   Comparing: "${compAbbr}" === "${teamAbbr}" || "${compName}" === "${teamName}"`);
             
             if (compAbbr === teamAbbr || compName === teamName) {
               gameId = event.id;
