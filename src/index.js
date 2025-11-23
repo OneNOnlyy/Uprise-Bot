@@ -14,6 +14,7 @@ import * as makepickCommand from './commands/makepick.js';
 import * as patsCommand from './commands/pats.js';
 import * as patsleaderboardCommand from './commands/patsleaderboard.js';
 import * as patsendCommand from './commands/patsend.js';
+import * as patshistoryCommand from './commands/patshistory.js';
 
 dotenv.config();
 
@@ -36,6 +37,7 @@ client.commands.set(makepickCommand.data.name, makepickCommand);
 client.commands.set(patsCommand.data.name, patsCommand);
 client.commands.set(patsleaderboardCommand.data.name, patsleaderboardCommand);
 client.commands.set(patsendCommand.data.name, patsendCommand);
+client.commands.set(patshistoryCommand.data.name, patshistoryCommand);
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`✅ Uprise Bot is ready! Logged in as ${readyClient.user.tag}`);
@@ -145,6 +147,35 @@ client.on(Events.InteractionCreate, async (interaction) => {
       console.error('Error handling PATS interaction:', error);
       const errorMessage = { 
         content: '❌ There was an error processing your pick!', 
+        ephemeral: true 
+      };
+      
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(errorMessage);
+      } else {
+        await interaction.reply(errorMessage);
+      }
+    }
+  }
+  
+  // Handle PATS history interactions (admin)
+  if (interaction.customId && interaction.customId.startsWith('history_')) {
+    try {
+      if (interaction.customId === 'history_overview') {
+        await patshistoryCommand.handleHistoryButton(interaction);
+      } else if (interaction.customId.startsWith('history_session_')) {
+        await patshistoryCommand.handleHistoryButton(interaction);
+      } else if (interaction.customId.startsWith('history_user_')) {
+        await patshistoryCommand.handleHistoryButton(interaction);
+      } else if (interaction.customId === 'history_session_select') {
+        await patshistoryCommand.handleSessionSelect(interaction);
+      } else if (interaction.customId === 'history_user_select') {
+        await patshistoryCommand.handleUserSelect(interaction);
+      }
+    } catch (error) {
+      console.error('Error handling history interaction:', error);
+      const errorMessage = { 
+        content: '❌ There was an error processing your request!', 
         ephemeral: true 
       };
       
