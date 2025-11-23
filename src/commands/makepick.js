@@ -117,9 +117,12 @@ export async function execute(interaction) {
 /**
  * Handle game selection and show detailed view
  */
-export async function handleGameSelection(interaction) {
+export async function handleGameSelection(interaction, gameIdOverride = null) {
   try {
-    await interaction.deferUpdate();
+    // Only defer if not already deferred
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferUpdate();
+    }
 
     const session = getActiveSession();
     if (!session) {
@@ -130,7 +133,7 @@ export async function handleGameSelection(interaction) {
       return;
     }
 
-    const gameId = interaction.values[0];
+    const gameId = gameIdOverride || interaction.values[0];
     const game = session.games.find(g => g.id === gameId);
     
     if (!game) {
@@ -580,12 +583,7 @@ export async function handleSetDoubleDown(interaction) {
         return;
       }
       
-      await interaction.followUp({
-        content: '✅ Double-down removed from this game.',
-        ephemeral: true
-      });
-      
-      // Refresh the game view
+      // Refresh the game view to show updated button state
       await handleGameSelection(interaction, gameId);
       return;
     }
@@ -611,21 +609,14 @@ export async function handleSetDoubleDown(interaction) {
         return;
       }
       
-      await interaction.followUp({
-        content: '💰 **Double-down activated!** Your pick for this game will count 2x.',
-        ephemeral: true
-      });
-      
-      // Refresh the game view
+      // Refresh the game view to show updated button state
       await handleGameSelection(interaction, gameId);
       return;
     }
     
-    // No pick made yet - just show message
-    await interaction.followUp({
-      content: '💰 **Double-down is ready!** Make your pick now and it will automatically count 2x.',
-      ephemeral: true
-    });
+    // No pick made yet - just refresh view with DD ready indicator
+    // The button will show as ready to use once they make a pick
+    await handleGameSelection(interaction, gameId);
 
   } catch (error) {
     console.error('Error setting double-down:', error);
