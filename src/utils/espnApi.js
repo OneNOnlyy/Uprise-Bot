@@ -676,7 +676,7 @@ export async function getTeamInfo(teamName) {
     const losses = record?.stats?.find(s => s.name === 'losses')?.value || 0;
     
     // Extract injuries - try multiple locations
-    const injuries = [];
+    let injuries = [];
     
     // Check team.injuries
     if (team.injuries && team.injuries.length > 0) {
@@ -716,10 +716,24 @@ export async function getTeamInfo(teamName) {
     
     console.log(`[ESPN] Total injuries found for ${normalizedName}: ${injuries.length}`);
     
-    // If still no injuries, try alternative sources
+    // Always try CBS Sports for comprehensive injury reports (supplement existing data)
+    console.log(`[ESPN] Attempting to supplement with CBS Sports comprehensive data...`);
+    try {
+      const cbsInjuries = await scrapeInjuriesFromCBSSports(normalizedName);
+      if (cbsInjuries.length > injuries.length) {
+        console.log(`[ESPN] CBS Sports has ${cbsInjuries.length} injuries vs current ${injuries.length} - using CBS data`);
+        injuries = cbsInjuries; // Replace with comprehensive CBS data
+      } else if (cbsInjuries.length > 0) {
+        console.log(`[ESPN] CBS Sports has ${cbsInjuries.length} injuries, keeping current ${injuries.length} from ESPN`);
+      }
+    } catch (cbsError) {
+      console.warn(`[ESPN] CBS Sports scraping failed:`, cbsError.message);
+    }
+    
+    // If still no injuries after all attempts, try alternative sources as fallback
     let scrapedInjuries = [];
     if (injuries.length === 0) {
-      console.log(`[ESPN] No API injuries found, attempting alternative sources...`);
+      console.log(`[ESPN] No injuries found, attempting alternative sources...`);
       console.log(`[ESPN] Team abbreviation: "${team.abbreviation}"`);
       
       // Try ESPN Game Summary first (most reliable - proven working!)
@@ -738,11 +752,6 @@ export async function getTeamInfo(teamName) {
       // If ESPN scraping fails, try RotoWire as last resort
       if (scrapedInjuries.length === 0) {
         scrapedInjuries = await scrapeInjuriesFromRotoWire(normalizedName);
-      }
-
-      // If RotoWire fails, try CBS Sports (comprehensive reports)
-      if (scrapedInjuries.length === 0) {
-        scrapedInjuries = await scrapeInjuriesFromCBSSports(normalizedName);
       }
       
       if (scrapedInjuries.length > 0) {
