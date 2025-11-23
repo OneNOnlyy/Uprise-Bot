@@ -189,14 +189,40 @@ export function updateGameResult(sessionId, gameId, result) {
     // Calculate if pick won against the spread
     const homeScore = result.homeScore;
     const awayScore = result.awayScore;
-    const adjustedHomeScore = homeScore + game.homeSpread;
-    const adjustedAwayScore = awayScore + game.awaySpread;
+    
+    // Spread betting: If a team has a -9 spread, they must win by MORE than 9 points
+    // The spread is added to the team's score, so if away has -9, we add -9 to away score
+    // Example: Away wins 113-100 (13 point win), away spread is -9
+    //   adjustedAwayScore = 113 + (-9) = 104
+    //   adjustedHomeScore = 100 + (+9) = 109
+    //   104 > 109 = FALSE, so away pick loses (didn't cover the -9 spread)
+    // Wait, that's wrong! Spreads should be opposite. Let me recalculate...
+    
+    // CORRECT: If away is -9, they need to win by MORE than 9
+    // awayScore - homeScore > 9
+    // awayScore > homeScore + 9
+    // awayScore - 9 > homeScore
+    // So: (awayScore + awaySpread) > homeScore when awaySpread = -9
+    
+    const margin = awayScore - homeScore; // Positive if away won
+    
+    console.log(`[PATS] Game ${gameId}: ${game.awayTeam} ${awayScore} @ ${game.homeTeam} ${homeScore}`);
+    console.log(`[PATS] Margin: ${margin > 0 ? 'Away +' + margin : 'Home +' + Math.abs(margin)}`);
+    console.log(`[PATS] Spreads: Away ${game.awaySpread}, Home ${game.homeSpread}`);
     
     let pickWon = false;
     if (pick.pick === 'home') {
-      pickWon = adjustedHomeScore > adjustedAwayScore;
+      // User picked home. Home covers if: homeScore + homeSpread > awayScore
+      // Or equivalently: margin < -homeSpread (home wins by more than their spread)
+      const homeCovered = (homeScore + game.homeSpread) > awayScore;
+      pickWon = homeCovered;
+      console.log(`[PATS] User picked HOME: ${homeScore} + ${game.homeSpread} = ${homeScore + game.homeSpread} vs ${awayScore} => ${pickWon ? 'WIN' : 'LOSS'}`);
     } else {
-      pickWon = adjustedAwayScore > adjustedHomeScore;
+      // User picked away. Away covers if: awayScore + awaySpread > homeScore
+      // Or equivalently: margin > -awaySpread (away wins by more than their spread)
+      const awayCovered = (awayScore + game.awaySpread) > homeScore;
+      pickWon = awayCovered;
+      console.log(`[PATS] User picked AWAY: ${awayScore} + ${game.awaySpread} = ${awayScore + game.awaySpread} vs ${homeScore} => ${pickWon ? 'WIN' : 'LOSS'}`);
     }
     
     // Initialize user if doesn't exist
