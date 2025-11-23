@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import fetch from 'node-fetch';
-import { getActiveSession, updateGameResult, getUserPicks, updateLeaderboardCache } from '../utils/patsData.js';
+import { getActiveSession, updateGameResult, getUserPicks, updateLeaderboardCache, closePATSSession } from '../utils/patsData.js';
 
 const BALLDONTLIE_API = 'https://api.balldontlie.io/v1';
 
@@ -121,6 +121,40 @@ async function checkAndUpdateGameResults() {
       // Update the leaderboard cache when results change
       updateLeaderboardCache();
       console.log(`🔄 Leaderboard cache updated`);
+      
+      // Re-fetch session to get updated game results
+      const updatedSession = getActiveSession();
+      
+      if (updatedSession) {
+        // Check if all games are now complete
+        const allGamesComplete = updatedSession.games.every(game => game.result && game.result.status === 'Final');
+        
+        if (allGamesComplete) {
+          console.log('🎉 All games complete! Automatically closing PATS session...');
+          
+          // Prepare game results for session closure
+          const gameResults = updatedSession.games.map(game => ({
+            gameId: game.id,
+            homeScore: game.result.homeScore,
+            awayScore: game.result.awayScore,
+            winner: game.result.winner,
+            status: game.result.status
+          }));
+          
+          // Close the session
+          const closed = closePATSSession(updatedSession.id, gameResults);
+          
+          if (closed) {
+            console.log('✅ PATS session automatically closed successfully!');
+            console.log(`📋 Final results: ${updatedSession.games.length} games completed`);
+          } else {
+            console.error('❌ Failed to close PATS session');
+          }
+        } else {
+          const gamesWithResults = updatedSession.games.filter(g => g.result).length;
+          console.log(`⏳ Session still active: ${gamesWithResults}/${updatedSession.games.length} games complete`);
+        }
+      }
     } else {
       console.log('⏳ No completed games yet');
     }
