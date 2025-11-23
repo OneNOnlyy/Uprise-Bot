@@ -91,11 +91,10 @@ export async function showDashboard(interaction) {
     
     if (hasStats) {
       const totalGames = stats.totalWins + stats.totalLosses;
-      const pushText = stats.totalPushes > 0 ? `-${stats.totalPushes}` : '';
       embed.addFields({
         name: '📊 Your Overall Stats',
         value: [
-          `**Record:** ${stats.totalWins}-${stats.totalLosses}${pushText}`,
+          `**Record:** ${stats.totalWins}-${stats.totalLosses}-${stats.totalPushes}`,
           `**Win Rate:** ${stats.winPercentage.toFixed(1)}%`,
           `**Sessions Played:** ${stats.sessions}`
         ].join('\n'),
@@ -256,10 +255,9 @@ export async function showDashboard(interaction) {
     
     // Add record if any games are complete
     if (wins > 0 || losses > 0 || pushes > 0) {
-      const pushText = pushes > 0 ? `-${pushes}` : '';
       embed.addFields({
         name: '📊 Current Record',
-        value: `**${wins}-${losses}${pushText}** (${wins + losses + pushes} complete, ${pending} pending)`,
+        value: `**${wins}-${losses}-${pushes}** (${wins + losses + pushes} complete, ${pending} pending)`,
         inline: false
       });
     }
@@ -314,11 +312,10 @@ async function showUserStats(interaction) {
 
   // Overall stats
   const totalGames = stats.totalWins + stats.totalLosses;
-  const pushText = stats.totalPushes > 0 ? `-${stats.totalPushes}` : '';
   embed.addFields({
     name: '🏆 Overall Record',
     value: [
-      `**Record:** ${stats.totalWins}-${stats.totalLosses}${pushText}`,
+      `**Record:** ${stats.totalWins}-${stats.totalLosses}-${stats.totalPushes}`,
       `**Win Rate:** ${stats.winPercentage.toFixed(1)}%`,
       `**Sessions Played:** ${stats.sessions}`,
       `**Avg Per Session:** ${totalGames > 0 ? (totalGames / stats.sessions).toFixed(1) : '0'} picks`
@@ -343,8 +340,7 @@ async function showUserStats(interaction) {
 
   // Double-Down Stats (Overall - only show if used at least once in history)
   if (stats.doubleDownsUsed > 0) {
-    const ddPushText = stats.doubleDownPushes > 0 ? `-${stats.doubleDownPushes}` : '';
-    const ddRecord = `${stats.doubleDownWins}-${stats.doubleDownLosses}${ddPushText}`;
+    const ddRecord = `${stats.doubleDownWins}-${stats.doubleDownLosses}-${stats.doubleDownPushes || 0}`;
     embed.addFields({
       name: '💰 Double Down Stats (All-Time)',
       value: [
@@ -359,8 +355,7 @@ async function showUserStats(interaction) {
 
   // Current session stats
   if (sessionStats) {
-    const sessionPushText = sessionStats.pushes > 0 ? `-${sessionStats.pushes}` : '';
-    const sessionRecord = `${sessionStats.wins}-${sessionStats.losses}${sessionPushText}`;
+    const sessionRecord = `${sessionStats.wins}-${sessionStats.losses}-${sessionStats.pushes}`;
     const sessionProgress = `${sessionStats.totalPicks}/${sessionStats.totalGames}`;
     
     // Build session details
@@ -447,8 +442,7 @@ async function showSessionHistory(interaction) {
   } else {
     // Show last 10 sessions
     const historyText = history.map((session, index) => {
-      const pushText = session.pushes > 0 ? `-${session.pushes}` : '';
-      const record = `${session.wins}-${session.losses}${pushText}`;
+      const record = `${session.wins}-${session.losses}-${session.pushes}`;
       const winRate = session.wins + session.losses > 0 
         ? ((session.wins / (session.wins + session.losses)) * 100).toFixed(1) 
         : '0.0';
@@ -474,13 +468,11 @@ async function showSessionHistory(interaction) {
       ? ((totalWins / (totalWins + totalLosses)) * 100).toFixed(1)
       : '0.0';
     
-    const historyPushText = totalPushes > 0 ? `-${totalPushes}` : '';
-    
     embed.addFields({
       name: '📈 History Summary',
       value: [
         `**Sessions Shown:** ${totalSessions}`,
-        `**Combined Record:** ${totalWins}-${totalLosses}${historyPushText}`,
+        `**Combined Record:** ${totalWins}-${totalLosses}-${totalPushes}`,
         `**Avg Win Rate:** ${avgWinRate}%`
       ].join('\n'),
       inline: false

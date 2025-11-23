@@ -279,13 +279,11 @@ async function showSessionDetail(interaction, sessionId) {
       try {
         const user = await interaction.client.users.fetch(entry.userId);
         const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-        const pushText = entry.pushes > 0 ? `-${entry.pushes}` : '';
-        const record = `${entry.wins}-${entry.losses}${pushText}`;
+        const record = `${entry.wins}-${entry.losses}-${entry.pushes}`;
         const missedText = entry.missedPicks > 0 ? ` • ${entry.missedPicks} missed` : '';
         return `${medal} **${user.username}** - ${record} (${entry.winPct}%)${missedText}`;
       } catch {
-        const pushText = entry.pushes > 0 ? `-${entry.pushes}` : '';
-        return `${index + 1}. Unknown User - ${entry.wins}-${entry.losses}${pushText}`;
+        return `${index + 1}. Unknown User - ${entry.wins}-${entry.losses}-${entry.pushes}`;
       }
     })
   );
@@ -299,9 +297,8 @@ async function showSessionDetail(interaction, sessionId) {
   // Create dropdown to select a user's picks
   const userOptions = leaderboard.slice(0, 25).map((entry, index) => {
     const pickCount = session.picks[entry.userId]?.length || 0;
-    const pushText = entry.pushes > 0 ? `-${entry.pushes}` : '';
     return {
-      label: `#${index + 1} - ${pickCount} picks • ${entry.wins}-${entry.losses}${pushText}`,
+      label: `#${index + 1} - ${pickCount} picks • ${entry.wins}-${entry.losses}-${entry.pushes}`,
       description: `View detailed picks for this user`,
       value: `${session.id}|${entry.userId}`
     };
@@ -381,10 +378,9 @@ async function showUserSessionDetail(interaction, sessionId, userId) {
   const picks = session.picks[userId] || [];
   const result = session.results[userId];
 
-  const pushText = result?.pushes > 0 ? `-${result.pushes}` : '';
   const embed = new EmbedBuilder()
     .setTitle(`🎯 ${user.username}'s Picks`)
-    .setDescription(`**Session:** ${session.date}\n**Record:** ${result?.wins || 0}-${result?.losses || 0}${pushText}`)
+    .setDescription(`**Session:** ${session.date}\n**Record:** ${result?.wins || 0}-${result?.losses || 0}-${result?.pushes || 0}`)
     .setColor(0x5865F2)
     .setTimestamp(new Date(session.closedAt));
 

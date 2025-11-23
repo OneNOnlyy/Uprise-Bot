@@ -27,14 +27,12 @@ export async function execute(interaction) {
         try {
           const user = await interaction.client.users.fetch(entry.userId);
           const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-          const pushText = entry.pushes > 0 ? `-${entry.pushes}` : '';
-          const record = `${entry.wins}-${entry.losses}${pushText}`;
+          const record = `${entry.wins}-${entry.losses}-${entry.pushes}`;
           const winPct = entry.totalComplete > 0 ? ` (${entry.winPercentage.toFixed(1)}%)` : '';
           const pendingText = entry.pending > 0 ? ` • ${entry.pending} pending` : '';
           return `${medal} **${user.username}** - ${record}${winPct}${pendingText}`;
         } catch {
-          const pushText = entry.pushes > 0 ? `-${entry.pushes}` : '';
-          return `${index + 1}. Unknown User - ${entry.wins}-${entry.losses}${pushText}`;
+          return `${index + 1}. Unknown User - ${entry.wins}-${entry.losses}-${entry.pushes}`;
         }
       }));
 
@@ -59,11 +57,9 @@ export async function execute(interaction) {
         try {
           const user = await interaction.client.users.fetch(entry.userId);
           const medal = index === 0 ? '👑' : index === 1 ? '⭐' : index === 2 ? '🌟' : `${index + 1}.`;
-          const pushText = entry.totalPushes > 0 ? `-${entry.totalPushes}` : '';
-          return `${medal} **${user.username}** - ${entry.totalWins}-${entry.totalLosses}${pushText} (${entry.winPercentage.toFixed(1)}%)`;
+          return `${medal} **${user.username}** - ${entry.totalWins}-${entry.totalLosses}-${entry.totalPushes} (${entry.winPercentage.toFixed(1)}%)`;
         } catch {
-          const pushText = entry.totalPushes > 0 ? `-${entry.totalPushes}` : '';
-          return `${index + 1}. Unknown User - ${entry.totalWins}-${entry.totalLosses}${pushText}`;
+          return `${index + 1}. Unknown User - ${entry.totalWins}-${entry.totalLosses}-${entry.totalPushes}`;
         }
       }));
 
@@ -84,8 +80,7 @@ export async function execute(interaction) {
     if (session) {
       const userStats = getCurrentSessionStats(interaction.user.id);
       if (userStats && userStats.totalPicks > 0) {
-        const pushText = userStats.pushes > 0 ? `-${userStats.pushes}` : '';
-        const record = `${userStats.wins}-${userStats.losses}${pushText}`;
+        const record = `${userStats.wins}-${userStats.losses}-${userStats.pushes}`;
         const pendingText = userStats.pending > 0 ? `\n**Pending:** ${userStats.pending}` : '';
         const ddText = userStats.doubleDownGame ? `\n**Double Down:**  ${userStats.doubleDownGame.awayTeam} @ ${userStats.doubleDownGame.homeTeam} 💰` : '';
         
@@ -102,16 +97,14 @@ export async function execute(interaction) {
     const userStatsData = leaderboard.find(entry => entry.userId === interaction.user.id);
     if (userStatsData) {
       const rank = leaderboard.findIndex(entry => entry.userId === interaction.user.id) + 1;
-      const ddPushText = userStatsData.doubleDownPushes > 0 ? `-${userStatsData.doubleDownPushes}` : '';
       const ddStats = (userStatsData.doubleDownsUsed || 0) > 0 
-        ? `\n**Double Downs:** ${userStatsData.doubleDownWins || 0}-${userStatsData.doubleDownLosses || 0}${ddPushText} 💰`
+        ? `\n**Double Downs:** ${userStatsData.doubleDownWins || 0}-${userStatsData.doubleDownLosses || 0}-${userStatsData.doubleDownPushes || 0} 💰`
         : '';
       
-      const allTimePushText = userStatsData.totalPushes > 0 ? `-${userStatsData.totalPushes}` : '';
       embed.addFields({
         name: '📈 Your All-Time Stats',
         value: `**Rank:** #${rank}\n` +
-               `**Record:** ${userStatsData.totalWins}-${userStatsData.totalLosses}${allTimePushText}\n` +
+               `**Record:** ${userStatsData.totalWins}-${userStatsData.totalLosses}-${userStatsData.totalPushes}\n` +
                `**Win %:** ${userStatsData.winPercentage.toFixed(1)}%\n` +
                `**Sessions:** ${userStatsData.sessions}${ddStats}`,
         inline: true
