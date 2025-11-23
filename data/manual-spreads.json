@@ -1,0 +1,13 @@
+{
+  "2025-11-23": {
+    "games": [
+      {
+        "homeTeam": "LA Clippers",
+        "awayTeam": "Denver Nuggets",
+        "homeSpread": -5.5,
+        "awaySpread": 5.5,
+        "note": "Manually entered - Clippers favored by 5.5"
+      }
+    ]
+  }
+}

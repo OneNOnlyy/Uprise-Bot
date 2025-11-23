@@ -11,6 +11,24 @@ import { getActiveSession, savePick, getUserPicks } from '../utils/patsData.js';
 import { getCachedMatchupInfo } from '../utils/dataCache.js';
 import { getMatchupInfo, formatInjuries } from '../utils/espnApi.js';
 
+/**
+ * FAIL-SAFE: Fix spreads where one is 0 but the other isn't (they should be inverse)
+ * This fixes visual bugs from old session data that was stored before the fail-safe was added
+ */
+function fixZeroSpreads(game) {
+  let homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
+  let awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
+  
+  // If one spread is 0 but the other isn't, they should be inverse
+  if (homeSpread !== 0 && awaySpread === 0) {
+    awaySpread = -homeSpread;
+  } else if (awaySpread !== 0 && homeSpread === 0) {
+    homeSpread = -awaySpread;
+  }
+  
+  return { homeSpread, awaySpread };
+}
+
 export const data = new SlashCommandBuilder()
   .setName('makepick')
   .setDescription('Make your picks against the spread');
@@ -180,9 +198,13 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
     // Ensure game has spreadDisplay
     if (!game.spreadDisplay) {
       console.warn(`Game missing spreadDisplay, creating default`);
+      
+      // FAIL-SAFE: Fix any 0 spreads that should be inverse of the other team
+      const { homeSpread, awaySpread } = fixZeroSpreads(game);
+      
       game.spreadDisplay = {
-        home: game.homeSpread !== undefined ? (game.homeSpread >= 0 ? `+${game.homeSpread}` : game.homeSpread.toString()) : 'N/A',
-        away: game.awaySpread !== undefined ? (game.awaySpread >= 0 ? `+${game.awaySpread}` : game.awaySpread.toString()) : 'N/A'
+        home: homeSpread !== undefined ? (homeSpread >= 0 ? `+${homeSpread}` : homeSpread.toString()) : 'N/A',
+        away: awaySpread !== undefined ? (awaySpread >= 0 ? `+${awaySpread}` : awaySpread.toString()) : 'N/A'
       };
     }
 
@@ -253,9 +275,10 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
     }
 
     // Spread explanation
+    const { homeSpread, awaySpread } = fixZeroSpreads(game);
     const favoredTeam = game.favored === 'home' ? game.homeTeam : game.awayTeam;
     const underdogTeam = game.favored === 'home' ? game.awayTeam : game.homeTeam;
-    const spreadValue = Math.abs(game.homeSpread);
+    const spreadValue = Math.abs(homeSpread);
     
     // Determine if there's a half-point (no push possible)
     const hasHalfPoint = spreadValue % 1 !== 0;
@@ -264,7 +287,7 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
     // Build clearer explanation
     let homeExplanation, awayExplanation;
     
-    if (game.homeSpread < 0) {
+    if (homeSpread < 0) {
       // Home is favored
       homeExplanation = `**${game.homeTeam}** (Favorite): Must win by more than ${spreadValue} points`;
       awayExplanation = `**${game.awayTeam}** (Underdog): Can lose by up to ${spreadValue} points, or win outright`;
@@ -435,8 +458,9 @@ export async function handlePickSubmission(interaction) {
       return;
     }
 
-    // Save the pick
-    const spread = pick === 'home' ? game.homeSpread : game.awaySpread;
+    // Save the pick (with fail-safe for 0 spreads)
+    const { homeSpread, awaySpread } = fixZeroSpreads(game);
+    const spread = pick === 'home' ? homeSpread : awaySpread;
     savePick(session.id, interaction.user.id, gameId, pick, spread);
 
     const pickedTeam = pick === 'home' ? game.homeTeam : game.awayTeam;
@@ -907,9 +931,10 @@ export async function handleViewMatchup(interaction) {
       });
     }
 
-    // Spread explanation
+    // Spread explanation (with fail-safe for 0 spreads)
+    const { homeSpread, awaySpread } = fixZeroSpreads(game);
     const favoredTeam = game.favored === 'home' ? game.homeTeam : game.awayTeam;
-    const favoredSpread = game.favored === 'home' ? game.homeSpread : game.awaySpread;
+    const favoredSpread = game.favored === 'home' ? homeSpread : awaySpread;
     
     embed.addFields({
       name: '📈 Spread Breakdown',
@@ -1014,9 +1039,8 @@ export async function handleViewMyPicks(interaction) {
           const homeScore = game.result.homeScore;
           const awayScore = game.result.awayScore;
           
-          // Calculate if pick won, lost, or pushed against the spread
-          const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
-          const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
+          // Calculate if pick won, lost, or pushed against the spread (with fail-safe)
+          const { homeSpread, awaySpread } = fixZeroSpreads(game);
           
           // Calculate adjusted scores
           const adjustedHomeScore = homeScore + homeSpread;

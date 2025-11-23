@@ -614,6 +614,18 @@ function matchScrapedSpreadsToGames(games, scrapedGames) {
     });
     
     if (match) {
+      let homeSpread = match.homeSpread;
+      let awaySpread = match.awaySpread;
+      
+      // FAIL-SAFE: If one spread is 0 but the other isn't, they should be inverse
+      if (homeSpread !== 0 && awaySpread === 0) {
+        awaySpread = -homeSpread;
+        console.log(`🔧 Fixed zero spread: ${awayTeam} spread corrected from 0 to ${awaySpread}`);
+      } else if (awaySpread !== 0 && homeSpread === 0) {
+        homeSpread = -awaySpread;
+        console.log(`🔧 Fixed zero spread: ${homeTeam} spread corrected from 0 to ${homeSpread}`);
+      }
+      
       results.push({
         id: game.id.toString(),
         home_team: homeTeam,
@@ -624,8 +636,8 @@ function matchScrapedSpreadsToGames(games, scrapedGames) {
           markets: [{
             key: 'spreads',
             outcomes: [
-              { name: homeTeam, point: match.homeSpread },
-              { name: awayTeam, point: match.awaySpread }
+              { name: homeTeam, point: homeSpread },
+              { name: awayTeam, point: awaySpread }
             ]
           }]
         }]
@@ -812,11 +824,18 @@ export function formatGameWithSpread(game) {
       homeSpread = homeOutcome?.point || 0;
       awaySpread = awayOutcome?.point || 0;
       
-      // Fix: If one spread is 0 but the other isn't, they should be inverse
+      // FAIL-SAFE: If one spread is 0 but the other isn't, they should be inverse
       if (homeSpread !== 0 && awaySpread === 0) {
         awaySpread = -homeSpread;
+        console.log(`🔧 Fixed zero spread: ${awayTeam} spread corrected from 0 to ${awaySpread}`);
       } else if (awaySpread !== 0 && homeSpread === 0) {
         homeSpread = -awaySpread;
+        console.log(`🔧 Fixed zero spread: ${homeTeam} spread corrected from 0 to ${homeSpread}`);
+      }
+      
+      // ADDITIONAL FAIL-SAFE: If both are 0 but it's clearly not a pick'em game
+      if (homeSpread === 0 && awaySpread === 0 && spreadMarket.outcomes.length === 2) {
+        console.warn(`⚠️ Both spreads are 0 for ${awayTeam} @ ${homeTeam} - this may be a pick'em game or data issue`);
       }
       
       // Determine favored team (negative spread = favored)

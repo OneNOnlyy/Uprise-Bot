@@ -7,6 +7,24 @@ import {
 } from 'discord.js';
 import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory } from '../utils/patsData.js';
 
+/**
+ * FAIL-SAFE: Fix spreads where one is 0 but the other isn't (they should be inverse)
+ * This fixes visual bugs from old session data that was stored before the fail-safe was added
+ */
+function fixZeroSpreads(game) {
+  let homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
+  let awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
+  
+  // If one spread is 0 but the other isn't, they should be inverse
+  if (homeSpread !== 0 && awaySpread === 0) {
+    awaySpread = -homeSpread;
+  } else if (awaySpread !== 0 && homeSpread === 0) {
+    homeSpread = -awaySpread;
+  }
+  
+  return { homeSpread, awaySpread };
+}
+
 export const data = new SlashCommandBuilder()
   .setName('pats')
   .setDescription('View your PATS dashboard and stats');
@@ -207,9 +225,8 @@ export async function showDashboard(interaction) {
         const homeScore = game.result.homeScore;
         const awayScore = game.result.awayScore;
         
-        // Calculate if pick won, lost, or pushed against the spread
-        const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
-        const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
+        // Calculate if pick won, lost, or pushed against the spread (with fail-safe)
+        const { homeSpread, awaySpread } = fixZeroSpreads(game);
         
         // Calculate adjusted scores
         const adjustedHomeScore = homeScore + homeSpread;
