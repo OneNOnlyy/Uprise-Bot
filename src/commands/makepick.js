@@ -195,18 +195,14 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
       matchupInfo = { home: null, away: null };
     }
 
-    // Ensure game has spreadDisplay
-    if (!game.spreadDisplay) {
-      console.warn(`Game missing spreadDisplay, creating default`);
-      
-      // FAIL-SAFE: Fix any 0 spreads that should be inverse of the other team
-      const { homeSpread, awaySpread } = fixZeroSpreads(game);
-      
-      game.spreadDisplay = {
-        home: homeSpread !== undefined ? (homeSpread >= 0 ? `+${homeSpread}` : homeSpread.toString()) : 'N/A',
-        away: awaySpread !== undefined ? (awaySpread >= 0 ? `+${awaySpread}` : awaySpread.toString()) : 'N/A'
-      };
-    }
+    // FAIL-SAFE: Always fix 0 spreads before displaying
+    const fixedSpreads = fixZeroSpreads(game);
+    
+    // Update or create spreadDisplay with corrected values
+    game.spreadDisplay = {
+      home: fixedSpreads.homeSpread !== undefined ? (fixedSpreads.homeSpread >= 0 ? `+${fixedSpreads.homeSpread}` : fixedSpreads.homeSpread.toString()) : 'N/A',
+      away: fixedSpreads.awaySpread !== undefined ? (fixedSpreads.awaySpread >= 0 ? `+${fixedSpreads.awaySpread}` : fixedSpreads.awaySpread.toString()) : 'N/A'
+    };
 
     // Create detailed game embed
     const embed = new EmbedBuilder()
@@ -312,9 +308,14 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
     if (existingPick) {
       const pickedTeam = existingPick.pick === 'home' ? game.homeTeam : game.awayTeam;
       const ddText = existingPick.isDoubleDown ? ' 💰 **DOUBLE DOWN**' : '';
+      
+      // Use the corrected spread, not the old saved value
+      const correctedSpread = existingPick.pick === 'home' ? fixedSpreads.homeSpread : fixedSpreads.awaySpread;
+      const spreadText = correctedSpread > 0 ? `+${correctedSpread}` : correctedSpread.toString();
+      
       embed.addFields({
         name: '✅ Your Current Pick',
-        value: `**${pickedTeam}** (${existingPick.spread > 0 ? '+' : ''}${existingPick.spread})${ddText}${isLocked ? ' - Locked' : ''}`,
+        value: `**${pickedTeam}** (${spreadText})${ddText}${isLocked ? ' - Locked' : ''}`,
         inline: false
       });
     } else if (isLocked) {
