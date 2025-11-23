@@ -254,13 +254,15 @@ async function showSessionDetail(interaction, sessionId) {
       const result = session.results[userId];
       if (!result) return null;
       
-      const totalComplete = result.wins + result.losses;
-      const winPct = totalComplete > 0 ? ((result.wins / totalComplete) * 100).toFixed(1) : '0.0';
+      const totalComplete = result.wins + result.losses + (result.pushes || 0);
+      const totalDecisive = result.wins + result.losses;
+      const winPct = totalDecisive > 0 ? ((result.wins / totalDecisive) * 100).toFixed(1) : '0.0';
       
       return {
         userId,
         wins: result.wins,
         losses: result.losses,
+        pushes: result.pushes || 0,
         missedPicks: result.missedPicks || 0,
         winPct: parseFloat(winPct),
         totalComplete
@@ -277,11 +279,13 @@ async function showSessionDetail(interaction, sessionId) {
       try {
         const user = await interaction.client.users.fetch(entry.userId);
         const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-        const record = `${entry.wins}-${entry.losses}`;
+        const pushText = entry.pushes > 0 ? `-${entry.pushes}` : '';
+        const record = `${entry.wins}-${entry.losses}${pushText}`;
         const missedText = entry.missedPicks > 0 ? ` • ${entry.missedPicks} missed` : '';
         return `${medal} **${user.username}** - ${record} (${entry.winPct}%)${missedText}`;
       } catch {
-        return `${index + 1}. Unknown User - ${entry.wins}-${entry.losses}`;
+        const pushText = entry.pushes > 0 ? `-${entry.pushes}` : '';
+        return `${index + 1}. Unknown User - ${entry.wins}-${entry.losses}${pushText}`;
       }
     })
   );
@@ -295,8 +299,9 @@ async function showSessionDetail(interaction, sessionId) {
   // Create dropdown to select a user's picks
   const userOptions = leaderboard.slice(0, 25).map((entry, index) => {
     const pickCount = session.picks[entry.userId]?.length || 0;
+    const pushText = entry.pushes > 0 ? `-${entry.pushes}` : '';
     return {
-      label: `#${index + 1} - ${pickCount} picks • ${entry.wins}-${entry.losses}`,
+      label: `#${index + 1} - ${pickCount} picks • ${entry.wins}-${entry.losses}${pushText}`,
       description: `View detailed picks for this user`,
       value: `${session.id}|${entry.userId}`
     };
@@ -307,7 +312,7 @@ async function showSessionDetail(interaction, sessionId) {
     const result = game.result;
     const scoreText = result ? `${result.awayScore}-${result.homeScore}` : 'Final';
     return {
-      label: `${game.awayTeam} @ ${game.homeTeam}`,
+      label: ` ${game.awayTeam} @ ${game.homeTeam}`,
       description: `${scoreText} • View all picks for this game`,
       value: `${session.id}|${game.id}`
     };
@@ -376,20 +381,22 @@ async function showUserSessionDetail(interaction, sessionId, userId) {
   const picks = session.picks[userId] || [];
   const result = session.results[userId];
 
+  const pushText = result?.pushes > 0 ? `-${result.pushes}` : '';
   const embed = new EmbedBuilder()
     .setTitle(`🎯 ${user.username}'s Picks`)
-    .setDescription(`**Session:** ${session.date}\n**Record:** ${result?.wins || 0}-${result?.losses || 0}`)
+    .setDescription(`**Session:** ${session.date}\n**Record:** ${result?.wins || 0}-${result?.losses || 0}${pushText}`)
     .setColor(0x5865F2)
     .setTimestamp(new Date(session.closedAt));
 
   // Overall result
-  const totalComplete = (result?.wins || 0) + (result?.losses || 0);
-  const winPct = totalComplete > 0 ? (((result?.wins || 0) / totalComplete) * 100).toFixed(1) : '0.0';
+  const totalComplete = (result?.wins || 0) + (result?.losses || 0) + (result?.pushes || 0);
+  const totalDecisive = (result?.wins || 0) + (result?.losses || 0);
+  const winPct = totalDecisive > 0 ? (((result?.wins || 0) / totalDecisive) * 100).toFixed(1) : '0.0';
   
   embed.addFields({
     name: '📊 Session Result',
     value: [
-      `**Record:** ${result?.wins || 0}-${result?.losses || 0}`,
+      `**Record:** ${result?.wins || 0}-${result?.losses || 0}${pushText}`,
       `**Win Rate:** ${winPct}%`,
       `**Picks Made:** ${picks.length}/${session.games.length}`,
       result?.missedPicks > 0 ? `**Missed:** ${result.missedPicks} ⚠️` : null
@@ -416,14 +423,30 @@ async function showUserSessionDetail(interaction, sessionId, userId) {
       const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
       const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
       
-      let pickWon = false;
+      // Calculate adjusted scores
+      const adjustedHomeScore = homeScore + homeSpread;
+      const adjustedAwayScore = awayScore + awaySpread;
+      
+      // Determine result based on which side user picked
+      let userAdjustedScore, opponentScore;
       if (pick.pick === 'home') {
-        pickWon = (homeScore + homeSpread) > awayScore;
+        userAdjustedScore = adjustedHomeScore;
+        opponentScore = awayScore;
       } else {
-        pickWon = (awayScore + awaySpread) > homeScore;
+        userAdjustedScore = adjustedAwayScore;
+        opponentScore = homeScore;
+      }
+      
+      // Three-way check: push, win, or loss
+      let statusEmoji;
+      if (userAdjustedScore === opponentScore) {
+        statusEmoji = '🟰';
+      } else if (userAdjustedScore > opponentScore) {
+        statusEmoji = '✅';
+      } else {
+        statusEmoji = '❌';
       }
 
-      const statusEmoji = pickWon ? '✅' : '❌';
       const scoreText = `(${game.awayTeam} ${awayScore} @ ${game.homeTeam} ${homeScore})`;
       
       return `${index + 1}. ${statusEmoji} **${pickedTeam}** ${spreadText}${ddEmoji}\n    ${scoreText}`;
@@ -519,7 +542,7 @@ async function showGameDetail(interaction, sessionId, gameId) {
   }
 
   const embed = new EmbedBuilder()
-    .setTitle(`🏀 ${game.awayTeam} @ ${game.homeTeam}`)
+    .setTitle(`🏀  ${game.awayTeam} @ ${game.homeTeam}`)
     .setDescription(`**Session:** ${session.date}`)
     .setColor(0x5865F2)
     .setTimestamp(new Date(session.closedAt));
@@ -621,13 +644,13 @@ async function showGameDetail(interaction, sessionId, gameId) {
     );
     
     embed.addFields({
-      name: `🔵 ${game.awayTeam} Picks (${awayPicks.length})`,
+      name: `🔵  ${game.awayTeam} Picks (${awayPicks.length})`,
       value: awayPicksText.join('\n') || 'None',
       inline: true
     });
   } else {
     embed.addFields({
-      name: `🔵 ${game.awayTeam} Picks (0)`,
+      name: `🔵  ${game.awayTeam} Picks (0)`,
       value: 'No picks',
       inline: true
     });
@@ -721,3 +744,4 @@ async function showGameDetail(interaction, sessionId, gameId) {
     components: [backButton]
   });
 }
+

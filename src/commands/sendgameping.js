@@ -47,7 +47,7 @@ export async function execute(interaction) {
       const timeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' });
       
       return new StringSelectMenuOptionBuilder()
-        .setLabel(`${gameInfo.awayTeam} @ ${gameInfo.homeTeam}`)
+        .setLabel(` ${gameInfo.awayTeam} @ ${gameInfo.homeTeam}`)
         .setDescription(`${dateStr} at ${timeStr} PT`)
         .setValue(index.toString());
     });
@@ -82,7 +82,7 @@ export async function execute(interaction) {
 
     // Reply to the user
     await interaction.editReply({
-      content: `✅ Game ping sent for **${selectedGameInfo.awayTeam} @ ${selectedGameInfo.homeTeam}**`,
+      content: `✅ Game ping sent for ** ${selectedGameInfo.awayTeam} @ ${selectedGameInfo.homeTeam}**`,
       components: [],
     });
 
@@ -144,9 +144,10 @@ async function sendGamePingToChannel(client, game, gameInfo, roleId, gameThreadC
                        `Get ready for tip-off! 🔥`;
 
     await targetChannel.send(pingMessage);
-    console.log(`✅ Sent game ping for ${gameInfo.awayTeam} @ ${gameInfo.homeTeam}`);
+    console.log(`✅ Sent game ping for  ${gameInfo.awayTeam} @ ${gameInfo.homeTeam}`);
 
   } catch (error) {
     console.error('Error sending game ping to channel:', error);
   }
 }
+

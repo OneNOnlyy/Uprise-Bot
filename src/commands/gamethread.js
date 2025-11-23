@@ -48,7 +48,7 @@ async function announceGameThreadCreated(client, gameInfo, threadId) {
     }
 
     const message = `🏀 **Game Thread Created!**\n\n` +
-                   `**${gameInfo.awayTeam} @ ${gameInfo.homeTeam}**\n` +
+                   `** ${gameInfo.awayTeam} @ ${gameInfo.homeTeam}**\n` +
                    `📅 ${gameInfo.gameDate} • 🕐 ${gameInfo.gameTime}\n\n` +
                    `Head over to <#${threadId}> to discuss the game! 🔥`;
 
@@ -116,7 +116,7 @@ async function createGameThread(interaction, gameInfo) {
     }
 
     // Create thread title
-    const threadTitle = `🏀 ${gameInfo.awayTeam} @ ${gameInfo.homeTeam} - ${gameInfo.gameDate}`;
+    const threadTitle = `🏀  ${gameInfo.awayTeam} @ ${gameInfo.homeTeam} - ${gameInfo.gameDate}`;
     
     // Get opponent logo
     const opponentTeam = gameInfo.isHomeGame ? gameInfo.awayTeam : gameInfo.homeTeam;
@@ -124,7 +124,7 @@ async function createGameThread(interaction, gameInfo) {
     
     // Create embed with opponent logo
     const embed = new EmbedBuilder()
-      .setTitle(`${gameInfo.awayTeam} @ ${gameInfo.homeTeam}`)
+      .setTitle(` ${gameInfo.awayTeam} @ ${gameInfo.homeTeam}`)
       .setDescription(`**Rip City!** 🌹 Let's go Blazers! Discuss the game here!`)
       .addFields(
         { name: '📅 Date', value: gameInfo.gameDate, inline: true },
@@ -215,7 +215,7 @@ export async function execute(interaction) {
 
     // Create select menu options (max 25)
     const options = formattedGames.slice(0, 25).map((gameInfo, index) => {
-      const label = `${gameInfo.awayTeam} @ ${gameInfo.homeTeam}`;
+      const label = ` ${gameInfo.awayTeam} @ ${gameInfo.homeTeam}`;
       const description = `${gameInfo.gameDate} at ${gameInfo.gameTime} (${gameInfo.location})`;
       
       console.log(`Dropdown option ${index}: ${label} - ${description}`);
@@ -263,7 +263,7 @@ export async function execute(interaction) {
           await announceGameThreadCreated(interaction.client, selectedGame, result.threadId);
           
           await interaction.editReply({
-            content: `✅ ${result.message}\n\n**Game Details:**\n- Matchup: ${selectedGame.awayTeam} @ ${selectedGame.homeTeam}\n- Date: ${selectedGame.gameDate}\n- Location: ${selectedGame.location}\n- Tip-off: ${selectedGame.gameTime}`,
+            content: `✅ ${result.message}\n\n**Game Details:**\n- Matchup:  ${selectedGame.awayTeam} @ ${selectedGame.homeTeam}\n- Date: ${selectedGame.gameDate}\n- Location: ${selectedGame.location}\n- Tip-off: ${selectedGame.gameTime}`,
             components: []
           });
         } else {
@@ -300,3 +300,4 @@ export async function execute(interaction) {
     }).catch(err => console.error('Failed to edit reply:', err));
   }
 }
+

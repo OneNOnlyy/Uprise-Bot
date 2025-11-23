@@ -75,7 +75,7 @@ export async function execute(interaction) {
     const gamesList = games.slice(0, 10).map(game => {
       const favoredTeam = game.favored === 'home' ? game.homeTeam : game.awayTeam;
       const spread = game.favored === 'home' ? game.homeSpread : game.awaySpread;
-      return `**${game.awayTeam}** @ **${game.homeTeam}**\n🎯 ${favoredTeam} ${spread}\n🕐 ${game.timeString}`;
+      return `**✈️ ${game.awayTeam}** @ **${game.homeTeam}**\n🎯 ${favoredTeam} ${spread}\n🕐 ${game.timeString}`;
     }).join('\n\n');
     
     embed.addFields({

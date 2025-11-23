@@ -76,7 +76,7 @@ export async function execute(interaction) {
       }
       
       return new StringSelectMenuOptionBuilder()
-        .setLabel(`${game.awayTeam} @ ${game.homeTeam}`)
+        .setLabel(` ${game.awayTeam} @ ${game.homeTeam}`)
         .setDescription(description)
         .setValue(game.id)
         .setEmoji(isLocked ? '🔒' : (hasPicked ? '📌' : '🏀'));
@@ -116,6 +116,16 @@ export async function execute(interaction) {
 
 /**
  * Handle game selection and show detailed view
+ */
+/**
+ * Helper function to show game detail view
+ */
+async function showGameDetail(interaction, gameId) {
+  await handleGameSelection(interaction, gameId);
+}
+
+/**
+ * Handle game selection from dropdown
  */
 export async function handleGameSelection(interaction, gameIdOverride = null) {
   try {
@@ -170,14 +180,14 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
     if (!game.spreadDisplay) {
       console.warn(`Game missing spreadDisplay, creating default`);
       game.spreadDisplay = {
-        home: game.homeSpread ? (game.homeSpread > 0 ? `+${game.homeSpread}` : game.homeSpread.toString()) : 'N/A',
-        away: game.awaySpread ? (game.awaySpread > 0 ? `+${game.awaySpread}` : game.awaySpread.toString()) : 'N/A'
+        home: game.homeSpread !== undefined ? (game.homeSpread >= 0 ? `+${game.homeSpread}` : game.homeSpread.toString()) : 'N/A',
+        away: game.awaySpread !== undefined ? (game.awaySpread >= 0 ? `+${game.awaySpread}` : game.awaySpread.toString()) : 'N/A'
       };
     }
 
     // Create detailed game embed
     const embed = new EmbedBuilder()
-      .setTitle(`🏀 ${game.awayTeam} @ ${game.homeTeam}`)
+      .setTitle(`🏀  ${game.awayTeam} @ ${game.homeTeam}`)
       .setColor(isLocked ? 0xFF0000 : 0xE03A3E)
       .setTimestamp();
 
@@ -317,23 +327,65 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
         .setDisabled(isLocked || (hasDoubleDown && !existingPick?.isDoubleDown))
     );
 
-    // Create info buttons
-    const infoButtons = new ActionRowBuilder().addComponents(
+    // Create info buttons with navigation
+    const currentGameIndex = session.games.findIndex(g => g.id === gameId);
+    const isFirstGame = currentGameIndex === 0;
+    const isLastGame = currentGameIndex === session.games.length - 1;
+    
+    const navigationButtons = new ActionRowBuilder();
+    
+    if (isFirstGame) {
+      // First game: show "Return to Dashboard" as back button
+      navigationButtons.addComponents(
+        new ButtonBuilder()
+          .setCustomId('pats_back_to_dashboard')
+          .setLabel('Return to Dashboard')
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('🏠')
+      );
+    } else {
+      // Not first game: show previous button
+      navigationButtons.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`pats_nav_game_${session.games[currentGameIndex - 1].id}`)
+          .setLabel('Previous Game')
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('◀️')
+      );
+    }
+    
+    // Add matchup info button (always present)
+    navigationButtons.addComponents(
       new ButtonBuilder()
         .setCustomId(`pats_matchup_${gameId}`)
         .setLabel('Full Matchup Info')
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji('📊'),
-      new ButtonBuilder()
-        .setCustomId('pats_back_to_menu')
-        .setLabel('Back to Games')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('◀️')
+        .setEmoji('📊')
     );
+    
+    if (isLastGame) {
+      // Last game: show "Return to Dashboard" as completion button
+      navigationButtons.addComponents(
+        new ButtonBuilder()
+          .setCustomId('pats_back_to_dashboard')
+          .setLabel('Return to Dashboard')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('✅')
+      );
+    } else {
+      // Not last game: show next button
+      navigationButtons.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`pats_nav_game_${session.games[currentGameIndex + 1].id}`)
+          .setLabel('Next Game')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('▶️')
+      );
+    }
 
     await interaction.editReply({
       embeds: [embed],
-      components: [pickButtons, ddButtons, infoButtons]
+      components: [pickButtons, ddButtons, navigationButtons]
     });
 
   } catch (error) {
@@ -389,70 +441,9 @@ export async function handlePickSubmission(interaction) {
     // Defer the update so we can edit the message
     await interaction.deferUpdate();
     
-    // Get user's updated picks
-    const userPicks = getUserPicks(session.id, interaction.user.id);
-    const pickedGameIds = userPicks.map(p => p.gameId);
-
-    // Create main menu embed
-    const embed = new EmbedBuilder()
-      .setTitle('🏀 Picks Against The Spread')
-      .setDescription('Select a game below to view details and make your pick!')
-      .setColor(0xE03A3E)
-      .addFields({
-        name: '📊 Your Progress',
-        value: `Picks Made: **${userPicks.length}/${session.games.length}**`,
-        inline: false
-      })
-      .setFooter({ text: 'Select a game from the dropdown below' });
-
-    // Create game selection menu
-    const options = session.games.map((game, index) => {
-      const hasPicked = pickedGameIds.includes(game.id);
-      const gameTime = new Date(game.commenceTime);
-      
-      // Format time properly
-      const dateStr = gameTime.toLocaleDateString('en-US', { 
-        timeZone: 'America/Los_Angeles',
-        month: 'numeric',
-        day: 'numeric'
-      });
-      const timeStr = gameTime.toLocaleTimeString('en-US', { 
-        timeZone: 'America/Los_Angeles',
-        hour: 'numeric',
-        minute: '2-digit'
-      });
-      
-      return new StringSelectMenuOptionBuilder()
-        .setLabel(`${game.awayTeam} @ ${game.homeTeam}`)
-        .setDescription(`${dateStr} ${timeStr} PT ${hasPicked ? '📌 Picked' : ''}`)
-        .setValue(game.id)
-        .setEmoji(hasPicked ? '📌' : '🏀');
-    });
-
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId('pats_game_select')
-      .setPlaceholder('Choose a game to view details...')
-      .addOptions(options);
-
-    const row = new ActionRowBuilder().addComponents(selectMenu);
-    
-    const components = [row];
-    
-    // Add "Back to Overview" button
-    const backButton = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('pats_back_to_overview')
-        .setLabel('Back to Overview')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('◀️')
-    );
-    components.push(backButton);
-
-    // Update the original message to show the main menu
-    await interaction.editReply({
-      embeds: [embed],
-      components: components
-    });
+    // Instead of going back to menu, refresh the current game detail view
+    // This keeps the user on the same page after making their pick
+    await showGameDetail(interaction, gameId);
 
   } catch (error) {
     console.error('Error handling pick submission:', error);
@@ -709,7 +700,7 @@ export async function handleBackToMenu(interaction) {
       }
       
       return new StringSelectMenuOptionBuilder()
-        .setLabel(`${game.awayTeam} @ ${game.homeTeam}`)
+        .setLabel(` ${game.awayTeam} @ ${game.homeTeam}`)
         .setDescription(description)
         .setValue(game.id)
         .setEmoji(isLocked ? '🔒' : (hasPicked ? '📌' : '🏀'));
@@ -779,7 +770,7 @@ export async function handleViewInjuries(interaction) {
     const matchupInfo = await getMatchupInfo(game.homeTeam, game.awayTeam);
 
     const embed = new EmbedBuilder()
-      .setTitle(`🏥 Injury Report: ${game.awayTeam} @ ${game.homeTeam}`)
+      .setTitle(`🏥 Injury Report:  ${game.awayTeam} @ ${game.homeTeam}`)
       .setColor(0xFF0000)
       .setTimestamp();
 
@@ -868,7 +859,7 @@ export async function handleViewMatchup(interaction) {
     const matchupInfo = await getMatchupInfo(game.homeTeam, game.awayTeam);
 
     const embed = new EmbedBuilder()
-      .setTitle(`📊 Full Matchup: ${game.awayTeam} @ ${game.homeTeam}`)
+      .setTitle(`📊 Full Matchup:  ${game.awayTeam} @ ${game.homeTeam}`)
       .setColor(0x0099FF)
       .setTimestamp();
 
@@ -982,6 +973,7 @@ export async function handleViewMyPicks(interaction) {
     let lockedCount = 0;
     let wins = 0;
     let losses = 0;
+    let pushes = 0;
 
     // Add each pick as a cleaner field
     for (const pick of userPicks) {
@@ -1017,21 +1009,30 @@ export async function handleViewMyPicks(interaction) {
           const homeScore = game.result.homeScore;
           const awayScore = game.result.awayScore;
           
-          // Calculate if pick won against the spread
-          // Correct logic: compare team's score + their spread vs opponent's score
+          // Calculate if pick won, lost, or pushed against the spread
           const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
           const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
           
-          let pickWon = false;
+          // Calculate adjusted scores
+          const adjustedHomeScore = homeScore + homeSpread;
+          const adjustedAwayScore = awayScore + awaySpread;
+          
+          // Determine result based on which side user picked
+          let userAdjustedScore, opponentScore;
           if (pick.pick === 'home') {
-            // Home covers if: homeScore + homeSpread > awayScore
-            pickWon = (homeScore + homeSpread) > awayScore;
+            userAdjustedScore = adjustedHomeScore;
+            opponentScore = awayScore;
           } else {
-            // Away covers if: awayScore + awaySpread > homeScore
-            pickWon = (awayScore + awaySpread) > homeScore;
+            userAdjustedScore = adjustedAwayScore;
+            opponentScore = homeScore;
           }
           
-          if (pickWon) {
+          // Three-way check: push, win, or loss
+          if (userAdjustedScore === opponentScore) {
+            statusEmoji = '🟰';
+            pushes += 1; // Pushes never double
+            resultText = `\n**Result:** 🟰 PUSH`;
+          } else if (userAdjustedScore > opponentScore) {
             statusEmoji = '✅';
             wins += pick.isDoubleDown ? 2 : 1;
             resultText = `\n**Result:** ✅ WIN${pick.isDoubleDown ? ' (DOUBLE DOWN x2)' : ''}`;
@@ -1067,9 +1068,10 @@ export async function handleViewMyPicks(interaction) {
     }
 
     // Update footer with record
-    if (wins > 0 || losses > 0) {
-      const pending = userPicks.length - wins - losses + missedPicks.length;
-      embed.setFooter({ text: `Record: ${wins}-${losses} • ${pending} pending` });
+    if (wins > 0 || losses > 0 || pushes > 0) {
+      const pushText = pushes > 0 ? `-${pushes}` : '';
+      const pending = userPicks.length - wins - losses - pushes + missedPicks.length;
+      embed.setFooter({ text: `Record: ${wins}-${losses}${pushText} • ${pending} pending` });
     } else if (lockedCount > 0) {
       embed.setFooter({ text: `${lockedCount} locked • ${userPicks.length - lockedCount} can be changed` });
     } else {
@@ -1195,7 +1197,7 @@ export async function handleMakepickFromDashboard(interaction) {
       }
       
       return new StringSelectMenuOptionBuilder()
-        .setLabel(`${game.awayTeam} @ ${game.homeTeam}`)
+        .setLabel(` ${game.awayTeam} @ ${game.homeTeam}`)
         .setDescription(description)
         .setValue(game.id)
         .setEmoji(isLocked ? '🔒' : (hasPicked ? '📌' : '🏀'));
@@ -1252,3 +1254,45 @@ export async function handleBackToOverview(interaction) {
     });
   }
 }
+
+/**
+ * Handle navigation back to dashboard
+ */
+export async function handleBackToDashboard(interaction) {
+  try {
+    await interaction.deferUpdate();
+    const patsCommand = await import('./pats.js');
+    await patsCommand.showDashboard(interaction);
+  } catch (error) {
+    console.error('Error returning to dashboard:', error);
+    await interaction.editReply({
+      content: '❌ Error returning to dashboard.',
+      embeds: [],
+      components: []
+    });
+  }
+}
+
+/**
+ * Handle navigation to previous/next game
+ */
+export async function handleGameNavigation(interaction) {
+  try {
+    await interaction.deferUpdate();
+    
+    // Extract game ID from customId: pats_nav_game_{gameId}
+    const gameId = interaction.customId.replace('pats_nav_game_', '');
+    
+    // Show the game detail for the specified game
+    await showGameDetail(interaction, gameId);
+  } catch (error) {
+    console.error('Error navigating to game:', error);
+    await interaction.editReply({
+      content: '❌ Error loading game.',
+      embeds: [],
+      components: []
+    });
+  }
+}
+
+

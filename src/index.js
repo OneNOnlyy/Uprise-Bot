@@ -135,6 +135,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (interaction.customId === 'pats_back_to_menu') {
         await makepickCommand.handleBackToMenu(interaction);
       }
+      // Handle back to dashboard button
+      else if (interaction.customId === 'pats_back_to_dashboard') {
+        await makepickCommand.handleBackToDashboard(interaction);
+      }
+      // Handle navigation to specific game (previous/next)
+      else if (interaction.customId.startsWith('pats_nav_game_')) {
+        await makepickCommand.handleGameNavigation(interaction);
+      }
       // Handle back to overview (dashboard) button
       else if (interaction.customId === 'pats_back_to_overview') {
         await makepickCommand.handleBackToOverview(interaction);

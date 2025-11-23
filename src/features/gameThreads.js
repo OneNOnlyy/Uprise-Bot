@@ -64,7 +64,7 @@ async function createGameThread(client, gameInfo) {
     }
 
     // Create thread title
-    const threadTitle = `🏀 ${gameInfo.awayTeam} @ ${gameInfo.homeTeam} - ${gameInfo.gameDate}`;
+    const threadTitle = `🏀  ${gameInfo.awayTeam} @ ${gameInfo.homeTeam} - ${gameInfo.gameDate}`;
     
     // Get opponent logo
     const opponentTeam = gameInfo.isHomeGame ? gameInfo.awayTeam : gameInfo.homeTeam;
@@ -72,7 +72,7 @@ async function createGameThread(client, gameInfo) {
     
     // Create embed with opponent logo
     const embed = new EmbedBuilder()
-      .setTitle(`${gameInfo.awayTeam} @ ${gameInfo.homeTeam}`)
+      .setTitle(` ${gameInfo.awayTeam} @ ${gameInfo.homeTeam}`)
       .setDescription(`**Rip City!** 🌹 Discuss the game here!`)
       .addFields(
         { name: '📅 Date', value: gameInfo.gameDate, inline: true },
@@ -137,7 +137,7 @@ async function announceGameThreadCreated(client, gameInfo, thread) {
     }
 
     const message = `🏀 **Game Thread Created!**\n\n` +
-                   `**${gameInfo.awayTeam} @ ${gameInfo.homeTeam}**\n` +
+                   `** ${gameInfo.awayTeam} @ ${gameInfo.homeTeam}**\n` +
                    `📅 ${gameInfo.gameDate} • 🕐 ${gameInfo.gameTime}\n\n` +
                    `Head over to <#${thread.id}> to discuss the game! 🔥`;
 
@@ -182,7 +182,7 @@ async function checkAndCreateGameThread(client) {
   
   if (game) {
     const gameInfo = formatGameInfo(game);
-    console.log(`🏀 Found game: ${gameInfo.awayTeam} @ ${gameInfo.homeTeam} at ${gameInfo.gameTime}`);
+    console.log(`🏀 Found game:  ${gameInfo.awayTeam} @ ${gameInfo.homeTeam} at ${gameInfo.gameTime}`);
     
     // Check if thread already exists
     const channelId = process.env.GAME_THREAD_CHANNEL_ID;
@@ -221,3 +221,4 @@ export function scheduleGameThreads(client) {
   
   console.log('📅 Game thread scheduler initialized (runs daily at 8:00 AM PT)');
 }
+

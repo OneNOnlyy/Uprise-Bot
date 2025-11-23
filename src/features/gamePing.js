@@ -111,7 +111,7 @@ async function sendGameStartingMessages(client, game) {
         const mainChat = await client.channels.fetch(mainChatId);
         if (mainChat && mainChat.send) {
           const mainChatMessage = `🏀 **Game Starting Now!**\n\n` +
-                                 `**${gameInfo.awayTeam} @ ${gameInfo.homeTeam}**\n\n` +
+                                 `** ${gameInfo.awayTeam} @ ${gameInfo.homeTeam}**\n\n` +
                                  `Head to <#${gameThread.id}> for game discussion! 🔥`;
           
           await mainChat.send(mainChatMessage);
@@ -145,3 +145,4 @@ export function scheduleGamePings(client) {
   
   console.log('✅ Game ping scheduler initialized (pings at game start time)');
 }
+

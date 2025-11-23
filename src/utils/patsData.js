@@ -238,24 +238,61 @@ export function updateGameResult(sessionId, gameId, result) {
     if (!data.users[userId]) {
       data.users[userId] = { 
         totalWins: 0, 
-        totalLosses: 0, 
+        totalLosses: 0,
+        totalPushes: 0,
         sessions: 0,
         doubleDownsUsed: 0,
         doubleDownWins: 0,
-        doubleDownLosses: 0
+        doubleDownLosses: 0,
+        doubleDownPushes: 0
       };
     }
     
-    // Update overall stats
-    if (pickWon) {
-      data.users[userId].totalWins += pick.isDoubleDown ? 2 : 1;
-      if (pick.isDoubleDown) {
-        data.users[userId].doubleDownWins += 1;
+    // Update overall stats - check for push first
+    const adjustedHomeScore = homeScore + homeSpread;
+    const adjustedAwayScore = awayScore + awaySpread;
+    
+    if (pick.pick === 'home') {
+      if (adjustedHomeScore === awayScore) {
+        // Push - tie
+        data.users[userId].totalPushes += 1;
+        if (pick.isDoubleDown) {
+          data.users[userId].doubleDownPushes += 1;
+        }
+        console.log(`[PATS] 🟰 PUSH (${adjustedHomeScore} = ${awayScore})`);
+      } else if (adjustedHomeScore > awayScore) {
+        // Win
+        data.users[userId].totalWins += pick.isDoubleDown ? 2 : 1;
+        if (pick.isDoubleDown) {
+          data.users[userId].doubleDownWins += 1;
+        }
+      } else {
+        // Loss
+        data.users[userId].totalLosses += pick.isDoubleDown ? 2 : 1;
+        if (pick.isDoubleDown) {
+          data.users[userId].doubleDownLosses += 1;
+        }
       }
     } else {
-      data.users[userId].totalLosses += pick.isDoubleDown ? 2 : 1;
-      if (pick.isDoubleDown) {
-        data.users[userId].doubleDownLosses += 1;
+      if (adjustedAwayScore === homeScore) {
+        // Push - tie
+        data.users[userId].totalPushes += 1;
+        if (pick.isDoubleDown) {
+          data.users[userId].doubleDownPushes += 1;
+        }
+        console.log(`[PATS] 🟰 PUSH (${adjustedAwayScore} = ${homeScore})`);
+      } else if (adjustedAwayScore > homeScore) {
+        // Win
+        data.users[userId].totalWins += pick.isDoubleDown ? 2 : 1;
+        if (pick.isDoubleDown) {
+          data.users[userId].doubleDownWins += 1;
+        }
+      } else {
+        // Loss
+        data.users[userId].totalLosses += pick.isDoubleDown ? 2 : 1;
+        if (pick.isDoubleDown) {
+          data.users[userId].doubleDownLosses += 1;
+        }
       }
     }
   }
@@ -292,11 +329,13 @@ export function closePATSSession(sessionId, gameResults) {
         if (!data.users[userId]) {
           data.users[userId] = { 
             totalWins: 0, 
-            totalLosses: 0, 
+            totalLosses: 0,
+            totalPushes: 0,
             sessions: 0,
             doubleDownsUsed: 0,
             doubleDownWins: 0,
-            doubleDownLosses: 0
+            doubleDownLosses: 0,
+            doubleDownPushes: 0
           };
         }
         
@@ -310,23 +349,49 @@ export function closePATSSession(sessionId, gameResults) {
           const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
           const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
           
-          let pickWon = false;
-          if (pick.pick === 'home') {
-            pickWon = (homeScore + homeSpread) > awayScore;
-          } else {
-            pickWon = (awayScore + awaySpread) > homeScore;
-          }
+          const adjustedHomeScore = homeScore + homeSpread;
+          const adjustedAwayScore = awayScore + awaySpread;
           
-          // Add to overall stats
-          if (pickWon) {
-            data.users[userId].totalWins += pick.isDoubleDown ? 2 : 1;
-            if (pick.isDoubleDown) {
-              data.users[userId].doubleDownWins += 1;
+          // Check for push, win, or loss
+          if (pick.pick === 'home') {
+            if (adjustedHomeScore === awayScore) {
+              // Push
+              data.users[userId].totalPushes += 1;
+              if (pick.isDoubleDown) {
+                data.users[userId].doubleDownPushes += 1;
+              }
+            } else if (adjustedHomeScore > awayScore) {
+              // Win
+              data.users[userId].totalWins += pick.isDoubleDown ? 2 : 1;
+              if (pick.isDoubleDown) {
+                data.users[userId].doubleDownWins += 1;
+              }
+            } else {
+              // Loss
+              data.users[userId].totalLosses += pick.isDoubleDown ? 2 : 1;
+              if (pick.isDoubleDown) {
+                data.users[userId].doubleDownLosses += 1;
+              }
             }
           } else {
-            data.users[userId].totalLosses += pick.isDoubleDown ? 2 : 1;
-            if (pick.isDoubleDown) {
-              data.users[userId].doubleDownLosses += 1;
+            if (adjustedAwayScore === homeScore) {
+              // Push
+              data.users[userId].totalPushes += 1;
+              if (pick.isDoubleDown) {
+                data.users[userId].doubleDownPushes += 1;
+              }
+            } else if (adjustedAwayScore > homeScore) {
+              // Win
+              data.users[userId].totalWins += pick.isDoubleDown ? 2 : 1;
+              if (pick.isDoubleDown) {
+                data.users[userId].doubleDownWins += 1;
+              }
+            } else {
+              // Loss
+              data.users[userId].totalLosses += pick.isDoubleDown ? 2 : 1;
+              if (pick.isDoubleDown) {
+                data.users[userId].doubleDownLosses += 1;
+              }
             }
           }
         }
@@ -334,7 +399,7 @@ export function closePATSSession(sessionId, gameResults) {
     }
   });
   
-  // Calculate wins/losses for each user (for session results record only)
+  // Calculate wins/losses/pushes for each user (for session results record only)
   const userResults = {};
   
   // Process all participants (including those with no picks)
@@ -342,17 +407,20 @@ export function closePATSSession(sessionId, gameResults) {
     const picks = session.picks[userId] || [];
     let wins = 0;
     let losses = 0;
+    let pushes = 0;
     let missedPicks = 0;
     
     // Initialize user if doesn't exist
     if (!data.users[userId]) {
       data.users[userId] = { 
         totalWins: 0, 
-        totalLosses: 0, 
+        totalLosses: 0,
+        totalPushes: 0,
         sessions: 0,
         doubleDownsUsed: 0,
         doubleDownWins: 0,
-        doubleDownLosses: 0
+        doubleDownLosses: 0,
+        doubleDownPushes: 0
       };
     }
     
@@ -369,26 +437,34 @@ export function closePATSSession(sessionId, gameResults) {
         const homeScore = game.result.homeScore;
         const awayScore = game.result.awayScore;
         
-        // Calculate if pick won against the spread
+        // Calculate if pick won/lost/pushed against the spread
         const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
         const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
         
-        let pickWon = false;
-        if (pick.pick === 'home') {
-          pickWon = (homeScore + homeSpread) > awayScore;
-        } else {
-          pickWon = (awayScore + awaySpread) > homeScore;
-        }
+        const adjustedHomeScore = homeScore + homeSpread;
+        const adjustedAwayScore = awayScore + awaySpread;
         
-        if (pickWon) {
-          wins += pick.isDoubleDown ? 2 : 1;
+        if (pick.pick === 'home') {
+          if (adjustedHomeScore === awayScore) {
+            pushes += 1; // Pushes don't count double
+          } else if (adjustedHomeScore > awayScore) {
+            wins += pick.isDoubleDown ? 2 : 1;
+          } else {
+            losses += pick.isDoubleDown ? 2 : 1;
+          }
         } else {
-          losses += pick.isDoubleDown ? 2 : 1;
+          if (adjustedAwayScore === homeScore) {
+            pushes += 1; // Pushes don't count double
+          } else if (adjustedAwayScore > homeScore) {
+            wins += pick.isDoubleDown ? 2 : 1;
+          } else {
+            losses += pick.isDoubleDown ? 2 : 1;
+          }
         }
       }
     });
     
-    userResults[userId] = { wins, losses, missedPicks };
+    userResults[userId] = { wins, losses, pushes, missedPicks };
     
     // Track double-down usage (increment once per session when user uses DD)
     const userDoubleDown = picks.find(p => p.isDoubleDown);
@@ -447,6 +523,7 @@ export function getUserStats(userId) {
     return {
       totalWins: 0,
       totalLosses: 0,
+      totalPushes: 0,
       sessions: 0,
       winPercentage: 0,
       currentStreak: 0,
@@ -455,12 +532,13 @@ export function getUserStats(userId) {
       doubleDownsUsed: 0,
       doubleDownWins: 0,
       doubleDownLosses: 0,
+      doubleDownPushes: 0,
       doubleDownWinRate: 0
     };
   }
   
   const user = data.users[userId];
-  const totalGames = user.totalWins + user.totalLosses;
+  const totalGames = user.totalWins + user.totalLosses; // Pushes don't count in win percentage
   const winPercentage = totalGames > 0 ? (user.totalWins / totalGames * 100) : 0;
   
   // Calculate double-down win rate
@@ -507,6 +585,7 @@ export function getUserStats(userId) {
   return {
     totalWins: user.totalWins,
     totalLosses: user.totalLosses,
+    totalPushes: user.totalPushes || 0,
     sessions: user.sessions,
     winPercentage: winPercentage,
     currentStreak: currentStreak,
@@ -515,6 +594,7 @@ export function getUserStats(userId) {
     doubleDownsUsed: user.doubleDownsUsed || 0,
     doubleDownWins: user.doubleDownWins || 0,
     doubleDownLosses: user.doubleDownLosses || 0,
+    doubleDownPushes: user.doubleDownPushes || 0,
     doubleDownWinRate: ddWinRate
   };
 }
@@ -533,6 +613,7 @@ export function getCurrentSessionStats(userId) {
   
   let wins = 0;
   let losses = 0;
+  let pushes = 0;
   let pending = 0;
   let doubleDownGame = null;
   
@@ -552,17 +633,25 @@ export function getCurrentSessionStats(userId) {
       const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
       const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
       
-      let pickWon = false;
-      if (pick.pick === 'home') {
-        pickWon = (homeScore + homeSpread) > awayScore;
-      } else {
-        pickWon = (awayScore + awaySpread) > homeScore;
-      }
+      const adjustedHomeScore = homeScore + homeSpread;
+      const adjustedAwayScore = awayScore + awaySpread;
       
-      if (pickWon) {
-        wins += pick.isDoubleDown ? 2 : 1;
+      if (pick.pick === 'home') {
+        if (adjustedHomeScore === awayScore) {
+          pushes += 1;
+        } else if (adjustedHomeScore > awayScore) {
+          wins += pick.isDoubleDown ? 2 : 1;
+        } else {
+          losses += pick.isDoubleDown ? 2 : 1;
+        }
       } else {
-        losses += pick.isDoubleDown ? 2 : 1;
+        if (adjustedAwayScore === homeScore) {
+          pushes += 1;
+        } else if (adjustedAwayScore > homeScore) {
+          wins += pick.isDoubleDown ? 2 : 1;
+        } else {
+          losses += pick.isDoubleDown ? 2 : 1;
+        }
       }
     } else if (new Date(game.commenceTime) < now) {
       // Game is locked but no result yet
@@ -578,6 +667,7 @@ export function getCurrentSessionStats(userId) {
   return {
     wins,
     losses,
+    pushes,
     pending,
     totalPicks: picks.length,
     totalGames: session.games.length,
@@ -611,6 +701,7 @@ export function getLiveSessionLeaderboard(forceUpdate = false) {
     const picks = session.picks[userId];
     let wins = 0;
     let losses = 0;
+    let pushes = 0;
     let pending = 0;
     
     for (const pick of picks) {
@@ -625,17 +716,25 @@ export function getLiveSessionLeaderboard(forceUpdate = false) {
         const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
         const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
         
-        let pickWon = false;
-        if (pick.pick === 'home') {
-          pickWon = (homeScore + homeSpread) > awayScore;
-        } else {
-          pickWon = (awayScore + awaySpread) > homeScore;
-        }
+        const adjustedHomeScore = homeScore + homeSpread;
+        const adjustedAwayScore = awayScore + awaySpread;
         
-        if (pickWon) {
-          wins += pick.isDoubleDown ? 2 : 1;
+        if (pick.pick === 'home') {
+          if (adjustedHomeScore === awayScore) {
+            pushes += 1;
+          } else if (adjustedHomeScore > awayScore) {
+            wins += pick.isDoubleDown ? 2 : 1;
+          } else {
+            losses += pick.isDoubleDown ? 2 : 1;
+          }
         } else {
-          losses += pick.isDoubleDown ? 2 : 1;
+          if (adjustedAwayScore === homeScore) {
+            pushes += 1;
+          } else if (adjustedAwayScore > homeScore) {
+            wins += pick.isDoubleDown ? 2 : 1;
+          } else {
+            losses += pick.isDoubleDown ? 2 : 1;
+          }
         }
       } else if (new Date(game.commenceTime) < new Date()) {
         // Game is locked but no result yet
@@ -649,13 +748,14 @@ export function getLiveSessionLeaderboard(forceUpdate = false) {
     const missedCount = lockedGames.filter(g => !pickedGameIds.includes(g.id)).length;
     losses += missedCount;
     
-    const totalComplete = wins + losses;
+    const totalComplete = wins + losses; // Pushes don't count in win percentage
     const winPercentage = totalComplete > 0 ? (wins / totalComplete * 100) : 0;
     
     standings.push({
       userId,
       wins,
       losses,
+      pushes,
       pending,
       totalPicks: picks.length,
       missedPicks: missedCount,

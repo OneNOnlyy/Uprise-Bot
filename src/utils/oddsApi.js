@@ -123,6 +123,13 @@ export function formatGameWithSpread(game) {
       homeSpread = homeOutcome?.point || 0;
       awaySpread = awayOutcome?.point || 0;
       
+      // Fix: If one spread is 0 but the other isn't, they should be inverse
+      if (homeSpread !== 0 && awaySpread === 0) {
+        awaySpread = -homeSpread;
+      } else if (awaySpread !== 0 && homeSpread === 0) {
+        homeSpread = -awaySpread;
+      }
+      
       // Determine favored team (negative spread = favored)
       if (homeSpread < 0) {
         favored = 'home';
@@ -149,8 +156,8 @@ export function formatGameWithSpread(game) {
       favored,
       bookmaker: game.bookmakers?.[0]?.title || 'N/A',
       spreadDisplay: {
-        home: homeSpread > 0 ? `+${homeSpread}` : homeSpread.toString(),
-        away: awaySpread > 0 ? `+${awaySpread}` : awaySpread.toString()
+        home: homeSpread >= 0 ? `+${homeSpread}` : homeSpread.toString(),
+        away: awaySpread >= 0 ? `+${awaySpread}` : awaySpread.toString()
       }
     };
   } catch (error) {
