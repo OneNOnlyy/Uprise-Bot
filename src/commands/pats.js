@@ -559,12 +559,17 @@ async function showEveryonesPicks(interaction, gameIndex = 0) {
     return;
   }
 
+  // Sort games by commence time to match dashboard and other views
+  const sortedGames = [...session.games].sort((a, b) => 
+    new Date(a.commenceTime) - new Date(b.commenceTime)
+  );
+
   // Validate game index
-  if (gameIndex < 0 || gameIndex >= session.games.length) {
+  if (gameIndex < 0 || gameIndex >= sortedGames.length) {
     gameIndex = 0;
   }
 
-  const game = session.games[gameIndex];
+  const game = sortedGames[gameIndex];
   
   // Apply zero spread fix
   const { homeSpread, awaySpread } = fixZeroSpreads(game);
@@ -584,7 +589,7 @@ async function showEveryonesPicks(interaction, gameIndex = 0) {
   // Build embed for this game
   const embed = new EmbedBuilder()
     .setTitle('👥 Everyone\'s Picks')
-    .setDescription(`**${game.awayTeam}** @ **${game.homeTeam}**\nGame ${gameIndex + 1} of ${session.games.length}`)
+    .setDescription(`**${game.awayTeam}** @ **${game.homeTeam}**\nGame ${gameIndex + 1} of ${sortedGames.length}`)
     .setColor(0x5865F2)
     .setTimestamp();
 
@@ -643,7 +648,7 @@ async function showEveryonesPicks(interaction, gameIndex = 0) {
   const navigationButtons = new ActionRowBuilder();
   
   const isFirstGame = gameIndex === 0;
-  const isLastGame = gameIndex === session.games.length - 1;
+  const isLastGame = gameIndex === sortedGames.length - 1;
 
   if (!isFirstGame) {
     navigationButtons.addComponents(
