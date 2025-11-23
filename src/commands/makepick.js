@@ -243,13 +243,30 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
 
     // Spread explanation
     const favoredTeam = game.favored === 'home' ? game.homeTeam : game.awayTeam;
-    const favoredSpread = game.favored === 'home' ? game.homeSpread : game.awaySpread;
+    const underdogTeam = game.favored === 'home' ? game.awayTeam : game.homeTeam;
+    const spreadValue = Math.abs(game.homeSpread);
+    
+    // Determine if there's a half-point (no push possible)
+    const hasHalfPoint = spreadValue % 1 !== 0;
+    const pushText = hasHalfPoint ? '' : `\n\n*If the margin is exactly ${spreadValue} points, it's a push (no win/loss).*`;
+    
+    // Build clearer explanation
+    let homeExplanation, awayExplanation;
+    
+    if (game.homeSpread < 0) {
+      // Home is favored
+      homeExplanation = `**${game.homeTeam}** (Favorite): Must win by more than ${spreadValue} points`;
+      awayExplanation = `**${game.awayTeam}** (Underdog): Can lose by up to ${spreadValue} points, or win outright`;
+    } else {
+      // Away is favored
+      homeExplanation = `**${game.homeTeam}** (Underdog): Can lose by up to ${spreadValue} points, or win outright`;
+      awayExplanation = `**${game.awayTeam}** (Favorite): Must win by more than ${spreadValue} points`;
+    }
     
     embed.addFields({
-      name: '📊 The Spread',
-      value: `**${favoredTeam}** is favored by **${Math.abs(favoredSpread)} points**\n\n` +
-             `Pick **${game.homeTeam}**: ${game.homeSpread < 0 ? `Must win by more than ${Math.abs(game.homeSpread)}` : `Can lose by up to ${Math.abs(game.homeSpread)}`} points\n` +
-             `Pick **${game.awayTeam}**: ${game.awaySpread < 0 ? `Must win by more than ${Math.abs(game.awaySpread)}` : `Can lose by up to ${Math.abs(game.awaySpread)}`} points`,
+      name: '📊 How The Spread Works',
+      value: `**${favoredTeam}** is favored by **${spreadValue} points**\n\n` +
+             `${homeExplanation}\n${awayExplanation}${pushText}`,
       inline: false
     });
 

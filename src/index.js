@@ -167,10 +167,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await patshistoryCommand.handleHistoryButton(interaction);
       } else if (interaction.customId.startsWith('history_user_')) {
         await patshistoryCommand.handleHistoryButton(interaction);
+      } else if (interaction.customId.startsWith('history_game_')) {
+        await patshistoryCommand.handleHistoryButton(interaction);
       } else if (interaction.customId === 'history_session_select') {
         await patshistoryCommand.handleSessionSelect(interaction);
       } else if (interaction.customId === 'history_user_select') {
         await patshistoryCommand.handleUserSelect(interaction);
+      } else if (interaction.customId === 'history_game_select') {
+        await patshistoryCommand.handleGameSelect(interaction);
       }
     } catch (error) {
       console.error('Error handling history interaction:', error);

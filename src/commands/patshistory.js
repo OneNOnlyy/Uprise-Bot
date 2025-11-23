@@ -44,6 +44,12 @@ export async function handleHistoryButton(interaction) {
       const sessionId = parts[2];
       const userId = parts[3];
       await showUserSessionDetail(interaction, sessionId, userId);
+    } else if (interaction.customId.startsWith('history_game_')) {
+      await interaction.deferUpdate();
+      const parts = interaction.customId.split('_');
+      const sessionId = parts[2];
+      const gameId = parts[3];
+      await showGameDetail(interaction, sessionId, gameId);
     }
   } catch (error) {
     console.error('Error handling history button:', error);
@@ -79,6 +85,19 @@ export async function handleUserSelect(interaction) {
     await showUserSessionDetail(interaction, sessionId, userId);
   } catch (error) {
     console.error('Error handling user select:', error);
+  }
+}
+
+/**
+ * Handle game selection dropdown
+ */
+export async function handleGameSelect(interaction) {
+  try {
+    await interaction.deferUpdate();
+    const [sessionId, gameId] = interaction.values[0].split('|');
+    await showGameDetail(interaction, sessionId, gameId);
+  } catch (error) {
+    console.error('Error handling game select:', error);
   }
 }
 
@@ -283,16 +302,37 @@ async function showSessionDetail(interaction, sessionId) {
     };
   });
 
+  // Create dropdown to select a game to see who picked what
+  const gameOptions = session.games.slice(0, 25).map((game, index) => {
+    const result = game.result;
+    const scoreText = result ? `${result.awayScore}-${result.homeScore}` : 'Final';
+    return {
+      label: `${game.awayTeam} @ ${game.homeTeam}`,
+      description: `${scoreText} • View all picks for this game`,
+      value: `${session.id}|${game.id}`
+    };
+  });
+
   const components = [];
   
+  if (gameOptions.length > 0) {
+    const gameSelectMenu = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('history_game_select')
+        .setPlaceholder('Select a game to see all picks')
+        .addOptions(gameOptions)
+    );
+    components.push(gameSelectMenu);
+  }
+  
   if (userOptions.length > 0) {
-    const selectMenu = new ActionRowBuilder().addComponents(
+    const userSelectMenu = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId('history_user_select')
         .setPlaceholder('Select a user to view their picks')
         .addOptions(userOptions)
     );
-    components.push(selectMenu);
+    components.push(userSelectMenu);
   }
 
   const backButton = new ActionRowBuilder().addComponents(
@@ -437,6 +477,236 @@ async function showUserSessionDetail(interaction, sessionId, userId) {
       });
     }
   }
+
+  const backButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`history_session_${sessionId}`)
+      .setLabel('Back to Session')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('◀️')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [backButton]
+  });
+}
+
+/**
+ * Show detailed view of a specific game with all picks
+ */
+async function showGameDetail(interaction, sessionId, gameId) {
+  const data = readPATSData();
+  const session = data.history.find(s => s.id === sessionId);
+
+  if (!session) {
+    await interaction.editReply({
+      content: '❌ Session not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+
+  const game = session.games.find(g => g.id === gameId);
+  if (!game) {
+    await interaction.editReply({
+      content: '❌ Game not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle(`🏀 ${game.awayTeam} @ ${game.homeTeam}`)
+    .setDescription(`**Session:** ${session.date}`)
+    .setColor(0x5865F2)
+    .setTimestamp(new Date(session.closedAt));
+
+  // Game info and result
+  if (game.result) {
+    const awayScore = game.result.awayScore;
+    const homeScore = game.result.homeScore;
+    const margin = Math.abs(awayScore - homeScore);
+    const winner = awayScore > homeScore ? game.awayTeam : game.homeTeam;
+    
+    embed.addFields({
+      name: '📊 Final Score',
+      value: [
+        `**${game.awayTeam}:** ${awayScore}`,
+        `**${game.homeTeam}:** ${homeScore}`,
+        `**Winner:** ${winner} by ${margin}`
+      ].join('\n'),
+      inline: true
+    });
+  }
+
+  // Spread info
+  const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
+  const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
+  const favoredTeam = awaySpread < 0 ? game.awayTeam : game.homeTeam;
+  const spreadValue = Math.abs(awaySpread);
+  
+  embed.addFields({
+    name: '📈 Spread',
+    value: [
+      `**${game.awayTeam}:** ${awaySpread > 0 ? '+' : ''}${awaySpread}`,
+      `**${game.homeTeam}:** ${homeSpread > 0 ? '+' : ''}${homeSpread}`,
+      `**Favorite:** ${favoredTeam} by ${spreadValue}`
+    ].join('\n'),
+    inline: true
+  });
+
+  // Calculate which side covered
+  if (game.result) {
+    const homeScore = game.result.homeScore;
+    const awayScore = game.result.awayScore;
+    const awayCovered = (awayScore + awaySpread) > homeScore;
+    const homeCovered = (homeScore + homeSpread) > awayScore;
+    
+    const coverText = awayCovered 
+      ? `✅ ${game.awayTeam} covered the spread`
+      : homeCovered 
+        ? `✅ ${game.homeTeam} covered the spread`
+        : `🟰 Push (tie)`;
+    
+    embed.addFields({
+      name: '🎯 Spread Result',
+      value: coverText,
+      inline: false
+    });
+  }
+
+  // Collect all picks for this game
+  const awayPicks = [];
+  const homePicks = [];
+  const noPicks = [];
+
+  for (const userId of session.participants) {
+    const userPicksArray = session.picks[userId] || [];
+    const pick = userPicksArray.find(p => p.gameId === gameId);
+    
+    if (!pick) {
+      noPicks.push(userId);
+    } else if (pick.pick === 'away') {
+      awayPicks.push({ userId, pick });
+    } else {
+      homePicks.push({ userId, pick });
+    }
+  }
+
+  // Display picks for away team
+  if (awayPicks.length > 0) {
+    const awayPicksText = await Promise.all(
+      awayPicks.map(async ({ userId, pick }) => {
+        try {
+          const user = await interaction.client.users.fetch(userId);
+          const ddEmoji = pick.isDoubleDown ? ' 💰' : '';
+          
+          // Determine if pick won
+          let statusEmoji = '❓';
+          if (game.result) {
+            const awayScore = game.result.awayScore;
+            const homeScore = game.result.homeScore;
+            const pickWon = (awayScore + awaySpread) > homeScore;
+            statusEmoji = pickWon ? '✅' : '❌';
+          }
+          
+          return `${statusEmoji} ${user.username}${ddEmoji}`;
+        } catch {
+          return `❓ Unknown User`;
+        }
+      })
+    );
+    
+    embed.addFields({
+      name: `🔵 ${game.awayTeam} Picks (${awayPicks.length})`,
+      value: awayPicksText.join('\n') || 'None',
+      inline: true
+    });
+  } else {
+    embed.addFields({
+      name: `🔵 ${game.awayTeam} Picks (0)`,
+      value: 'No picks',
+      inline: true
+    });
+  }
+
+  // Display picks for home team
+  if (homePicks.length > 0) {
+    const homePicksText = await Promise.all(
+      homePicks.map(async ({ userId, pick }) => {
+        try {
+          const user = await interaction.client.users.fetch(userId);
+          const ddEmoji = pick.isDoubleDown ? ' 💰' : '';
+          
+          // Determine if pick won
+          let statusEmoji = '❓';
+          if (game.result) {
+            const homeScore = game.result.homeScore;
+            const awayScore = game.result.awayScore;
+            const pickWon = (homeScore + homeSpread) > awayScore;
+            statusEmoji = pickWon ? '✅' : '❌';
+          }
+          
+          return `${statusEmoji} ${user.username}${ddEmoji}`;
+        } catch {
+          return `❓ Unknown User`;
+        }
+      })
+    );
+    
+    embed.addFields({
+      name: `🏠 ${game.homeTeam} Picks (${homePicks.length})`,
+      value: homePicksText.join('\n') || 'None',
+      inline: true
+    });
+  } else {
+    embed.addFields({
+      name: `🏠 ${game.homeTeam} Picks (0)`,
+      value: 'No picks',
+      inline: true
+    });
+  }
+
+  // Display users who didn't pick this game
+  if (noPicks.length > 0) {
+    const noPicksText = await Promise.all(
+      noPicks.slice(0, 10).map(async (userId) => {
+        try {
+          const user = await interaction.client.users.fetch(userId);
+          return `❌ ${user.username}`;
+        } catch {
+          return `❌ Unknown User`;
+        }
+      })
+    );
+    
+    const remaining = noPicks.length > 10 ? ` (+${noPicks.length - 10} more)` : '';
+    
+    embed.addFields({
+      name: `⚠️ No Pick / Missed (${noPicks.length})`,
+      value: (noPicksText.join('\n') || 'None') + remaining,
+      inline: false
+    });
+  }
+
+  // Summary stats
+  const totalPicks = awayPicks.length + homePicks.length;
+  const pickRate = session.participants.length > 0 
+    ? ((totalPicks / session.participants.length) * 100).toFixed(1)
+    : '0.0';
+  
+  embed.addFields({
+    name: '📊 Pick Distribution',
+    value: [
+      `**Total Participants:** ${session.participants.length}`,
+      `**Picks Made:** ${totalPicks} (${pickRate}%)`,
+      `**Missed:** ${noPicks.length}`
+    ].join('\n'),
+    inline: false
+  });
 
   const backButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
