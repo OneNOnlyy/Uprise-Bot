@@ -213,7 +213,15 @@ export async function showDashboard(interaction) {
     let pushes = 0;
     let pending = 0;
     
-    const pickSummary = userPicks.map((pick, index) => {
+    // Sort picks by game commence time to match the order elsewhere
+    const sortedPicks = [...userPicks].sort((a, b) => {
+      const gameA = session.games.find(g => g.id === a.gameId);
+      const gameB = session.games.find(g => g.id === b.gameId);
+      if (!gameA || !gameB) return 0;
+      return new Date(gameA.commenceTime) - new Date(gameB.commenceTime);
+    });
+    
+    const pickSummary = sortedPicks.map((pick, index) => {
       const game = session.games.find(g => g.id === pick.gameId);
       if (!game) return null;
       
