@@ -299,13 +299,19 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
     const summaryData = await summaryResponse.json();
     const injuries = [];
     
+    console.log(`[Scraper] Game summary has ${summaryData.injuries?.length || 0} team injury reports`);
+    
     // Extract injuries for our team
     if (summaryData.injuries && Array.isArray(summaryData.injuries)) {
       for (const teamInjuries of summaryData.injuries) {
+        const teamAbbreviation = teamInjuries.team.abbreviation;
+        const teamDisplayName = teamInjuries.team.displayName;
+        console.log(`[Scraper] Checking team: ${teamDisplayName} (${teamAbbreviation}) - looking for ${teamName} (${teamAbbr})`);
+        
         if (teamInjuries.team.abbreviation === teamAbbr || 
             teamInjuries.team.displayName === teamName) {
           
-          console.log(`[Scraper] Found ${teamInjuries.injuries?.length || 0} injuries for ${teamName}`);
+          console.log(`[Scraper] ✓ MATCH! Found ${teamInjuries.injuries?.length || 0} injuries for ${teamName}`);
           
           if (teamInjuries.injuries && teamInjuries.injuries.length > 0) {
             for (const injury of teamInjuries.injuries) {
@@ -331,9 +337,15 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
               });
               console.log(`[Scraper] Game Summary: ${injury.longComment || injury.athlete?.displayName} - ${injury.status} (${description})`);
             }
+          } else {
+            console.log(`[Scraper] ✓ MATCH but no injuries array for ${teamName}`);
           }
+        } else {
+          console.log(`[Scraper] ✗ No match: ${teamDisplayName} (${teamAbbreviation}) != ${teamName} (${teamAbbr})`);
         }
       }
+    } else {
+      console.log(`[Scraper] No injuries data in game summary`);
     }
     
     console.log(`[Scraper] Game summary injuries: ${injuries.length} for ${teamName}`);
