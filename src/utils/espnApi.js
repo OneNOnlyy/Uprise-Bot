@@ -323,9 +323,9 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
       for (const teamInjuries of summaryData.injuries) {
         const teamAbbreviation = teamInjuries.team.abbreviation;
         const teamDisplayName = teamInjuries.team.displayName;
-        console.log(`[Scraper] Checking team: ${teamDisplayName} (${teamAbbreviation}) - looking for ${teamName} (${teamAbbr})`);
+        console.log(`[Scraper] Checking team: ${teamDisplayName} (${teamAbbreviation}) - looking for ${teamName} (${normalizedAbbr})`);
         
-        if (teamInjuries.team.abbreviation === teamAbbr || 
+        if (teamInjuries.team.abbreviation === normalizedAbbr || 
             teamInjuries.team.displayName === teamName) {
           
           console.log(`[Scraper] ✓ MATCH! Found ${teamInjuries.injuries?.length || 0} injuries for ${teamName}`);
@@ -358,7 +358,7 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
             console.log(`[Scraper] ✓ MATCH but no injuries array for ${teamName}`);
           }
         } else {
-          console.log(`[Scraper] ✗ No match: ${teamDisplayName} (${teamAbbreviation}) != ${teamName} (${teamAbbr})`);
+          console.log(`[Scraper] ✗ No match: ${teamDisplayName} (${teamAbbreviation}) != ${teamName} (${normalizedAbbr})`);
         }
       }
     } else {
