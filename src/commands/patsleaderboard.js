@@ -70,7 +70,7 @@ export async function execute(interaction) {
       });
     } else {
       embed.addFields({
-        name: '� All-Time Leaders',
+        name: '🏅 All-Time Leaders',
         value: 'No stats yet! Be the first to participate in PATS.',
         inline: false
       });
