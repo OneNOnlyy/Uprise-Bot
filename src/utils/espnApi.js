@@ -263,9 +263,9 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
     const todayStr = now.toISOString().split('T')[0].replace(/-/g, '');
     const tomorrowStr = tomorrow.toISOString().split('T')[0].replace(/-/g, '');
     
-    // Try today first
-    let url = `${ESPN_API_BASE}/scoreboard?dates=${todayStr}`;
-    console.log(`[Scraper] Fetching scoreboard for ${teamName} - checking ${todayStr}...`);
+    // Try YESTERDAY first (most games finish "yesterday" in UTC when played in US timezones)
+    let url = `${ESPN_API_BASE}/scoreboard?dates=${yesterdayStr}`;
+    console.log(`[Scraper] Fetching scoreboard for ${teamName} - checking ${yesterdayStr}...`);
     
     let response = await fetch(url);
     if (!response.ok) {
@@ -276,9 +276,47 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
     let data = await response.json();
     let gameId = null;
     
-    console.log(`[Scraper] Found ${data.events?.length || 0} games on ${todayStr}`);
+    console.log(`[Scraper] Found ${data.events?.length || 0} games on ${yesterdayStr}`);
     
     // Find the game with this team
+      if (data.events) {
+        for (const event of data.events) {
+          const competition = event.competitions?.[0];
+          if (!competition) continue;
+          
+          console.log(`[Scraper] Event ${event.id}: ${competition.competitors?.map(c => `${c.team.displayName} (${c.team.abbreviation})`).join(' vs ')}`);
+          
+          for (const competitor of competition.competitors) {
+            const compAbbr = competitor.team.abbreviation;
+            const compName = competitor.team.displayName;
+            
+            console.log(`[Scraper]   Comparing: "${compAbbr}" === "${normalizedAbbr}" || "${compName}" === "${teamName}"`);
+            
+            if (compAbbr === normalizedAbbr || compName === teamName) {
+              gameId = event.id;
+              console.log(`[Scraper] ✓ Found game ID ${gameId} for ${teamName} on ${yesterdayStr}`);
+              break;
+            }
+          }
+          
+          if (gameId) break;
+        }
+      }
+    
+    // If not found, try today
+    if (!gameId) {
+      console.log(`[Scraper] Game not found on ${yesterdayStr}, trying ${todayStr}...`);
+      url = `${ESPN_API_BASE}/scoreboard?dates=${todayStr}`;
+      response = await fetch(url);
+      
+      if (!response.ok) {
+        console.warn(`[Scraper] Today scoreboard fetch failed: ${response.status}`);
+        return [];
+      }
+      
+      data = await response.json();
+      console.log(`[Scraper] Found ${data.events?.length || 0} games on ${todayStr}`);
+      
       if (data.events) {
         for (const event of data.events) {
           const competition = event.competitions?.[0];
@@ -302,10 +340,11 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
           if (gameId) break;
         }
       }
+    }
     
     // If not found, try tomorrow
     if (!gameId) {
-      console.log(`[Scraper] Game not found on ${todayStr}, trying ${tomorrowStr}...`);
+      console.log(`[Scraper] Game not found on ${yesterdayStr} or ${todayStr}, trying ${tomorrowStr}...`);
       url = `${ESPN_API_BASE}/scoreboard?dates=${tomorrowStr}`;
       response = await fetch(url);
       
@@ -333,45 +372,6 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
             if (compAbbr === normalizedAbbr || compName === teamName) {
               gameId = event.id;
               console.log(`[Scraper] ✓ Found game ID ${gameId} for ${teamName} on ${tomorrowStr}`);
-              break;
-            }
-          }
-          
-          if (gameId) break;
-        }
-      }
-    }
-    
-    // If still not found, try yesterday (timezone issues)
-    if (!gameId) {
-      console.log(`[Scraper] Game not found on ${todayStr} or ${tomorrowStr}, trying ${yesterdayStr}...`);
-      url = `${ESPN_API_BASE}/scoreboard?dates=${yesterdayStr}`;
-      response = await fetch(url);
-      
-      if (!response.ok) {
-        console.warn(`[Scraper] Yesterday scoreboard fetch failed: ${response.status}`);
-        return [];
-      }
-      
-      data = await response.json();
-      console.log(`[Scraper] Found ${data.events?.length || 0} games on ${yesterdayStr}`);
-      
-      if (data.events) {
-        for (const event of data.events) {
-          const competition = event.competitions?.[0];
-          if (!competition) continue;
-          
-          console.log(`[Scraper] Event ${event.id}: ${competition.competitors?.map(c => `${c.team.displayName} (${c.team.abbreviation})`).join(' vs ')}`);
-          
-          for (const competitor of competition.competitors) {
-            const compAbbr = competitor.team.abbreviation;
-            const compName = competitor.team.displayName;
-            
-            console.log(`[Scraper]   Comparing: "${compAbbr}" === "${normalizedAbbr}" || "${compName}" === "${teamName}"`);
-            
-            if (compAbbr === normalizedAbbr || compName === teamName) {
-              gameId = event.id;
-              console.log(`[Scraper] ✓ Found game ID ${gameId} for ${teamName} on ${yesterdayStr}`);
               break;
             }
           }
