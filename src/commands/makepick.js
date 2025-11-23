@@ -1,4 +1,4 @@
-import { 
+﻿import { 
   SlashCommandBuilder, 
   EmbedBuilder, 
   ActionRowBuilder, 
@@ -96,7 +96,7 @@ export async function execute(interaction) {
         const pickedTeam = pick.pick === 'home' ? game.homeTeam : game.awayTeam;
         const spread = pick.pick === 'home' ? fixedSpreads.homeSpread : fixedSpreads.awaySpread;
         const spreadText = spread > 0 ? `+${spread}` : spread;
-        const ddEmoji = pick.isDoubleDown ? ' �' : '';
+        const ddEmoji = pick.isDoubleDown ? ' 💰' : '';
         
         if (isLocked) {
           description += ` 🔒 ${pickedTeam} (${spreadText})${ddEmoji}`;
@@ -805,7 +805,7 @@ export async function handleBackToMenu(interaction) {
         const pickedTeam = pick.pick === 'home' ? game.homeTeam : game.awayTeam;
         const spread = pick.pick === 'home' ? fixedSpreads.homeSpread : fixedSpreads.awaySpread;
         const spreadText = spread > 0 ? `+${spread}` : spread;
-        const ddEmoji = pick.isDoubleDown ? ' �' : '';
+        const ddEmoji = pick.isDoubleDown ? ' 💰' : '';
         
         if (isLocked) {
           description += ` 🔒 ${pickedTeam} (${spreadText})${ddEmoji}`;
