@@ -284,11 +284,11 @@ async function showUserStats(interaction) {
     inline: true
   });
 
-  // Double-Down Stats
+  // Double-Down Stats (Overall - only show if used at least once in history)
   if (stats.doubleDownsUsed > 0) {
     const ddRecord = `${stats.doubleDownWins}-${stats.doubleDownLosses}`;
     embed.addFields({
-      name: '💰 Double Down Stats',
+      name: '💰 Double Down Stats (All-Time)',
       value: [
         `**Used:** ${stats.doubleDownsUsed} times`,
         `**Record:** ${ddRecord}`,
@@ -304,15 +304,22 @@ async function showUserStats(interaction) {
     const sessionRecord = `${sessionStats.wins}-${sessionStats.losses}`;
     const sessionProgress = `${sessionStats.totalPicks}/${sessionStats.totalGames}`;
     
+    // Build session details
+    const sessionDetails = [
+      `**Record:** ${sessionRecord}`,
+      `**Progress:** ${sessionProgress} picks made`,
+      sessionStats.pending > 0 ? `**Pending:** ${sessionStats.pending} locked` : null,
+      sessionStats.missedPicks > 0 ? `**Missed:** ${sessionStats.missedPicks} ⚠️` : null
+    ].filter(Boolean);
+    
+    // Add double-down info if used in current session
+    if (sessionStats.doubleDownGame) {
+      sessionDetails.push(`**💰 Double Down:** ${sessionStats.doubleDownGame.awayTeam} @ ${sessionStats.doubleDownGame.homeTeam}`);
+    }
+    
     embed.addFields({
       name: '📅 Today\'s Session',
-      value: [
-        `**Record:** ${sessionRecord}`,
-        `**Progress:** ${sessionProgress} picks made`,
-        sessionStats.pending > 0 ? `**Pending:** ${sessionStats.pending} locked` : null,
-        sessionStats.missedPicks > 0 ? `**Missed:** ${sessionStats.missedPicks} ⚠️` : null,
-        sessionStats.doubleDownGame ? `**Double Down:** ${sessionStats.doubleDownGame.awayTeam} @ ${sessionStats.doubleDownGame.homeTeam} 💰` : null
-      ].filter(Boolean).join('\n'),
+      value: sessionDetails.join('\n'),
       inline: false
     });
   } else {

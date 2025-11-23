@@ -114,6 +114,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (interaction.customId.startsWith('pats_doubledown_')) {
         await makepickCommand.handleDoubleDownToggle(interaction);
       }
+      // Handle set double-down button
+      else if (interaction.customId.startsWith('pats_set_doubledown_')) {
+        await makepickCommand.handleSetDoubleDown(interaction);
+      }
       // Handle view matchup button
       else if (interaction.customId.startsWith('pats_matchup_')) {
         await makepickCommand.handleViewMatchup(interaction);

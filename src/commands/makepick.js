@@ -287,7 +287,17 @@ export async function handleGameSelection(interaction) {
         .setDisabled(isLocked)
     );
 
-    // Create info buttons (removed View Injuries, only Full Matchup Info)
+    // Create double-down button (disabled if locked or already used on another game)
+    const ddButtons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pats_set_doubledown_${gameId}`)
+        .setLabel(existingPick?.isDoubleDown ? 'Double Down Active' : 'Use Double Down')
+        .setStyle(existingPick?.isDoubleDown ? ButtonStyle.Success : ButtonStyle.Danger)
+        .setEmoji('💰')
+        .setDisabled(isLocked || (hasDoubleDown && !existingPick?.isDoubleDown))
+    );
+
+    // Create info buttons
     const infoButtons = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`pats_matchup_${gameId}`)
@@ -303,7 +313,7 @@ export async function handleGameSelection(interaction) {
 
     await interaction.editReply({
       embeds: [embed],
-      components: [pickButtons, infoButtons]
+      components: [pickButtons, ddButtons, infoButtons]
     });
 
   } catch (error) {
@@ -510,6 +520,118 @@ export async function handleDoubleDownToggle(interaction) {
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
         content: '❌ Error toggling double-down.',
+        ephemeral: true
+      });
+    }
+  }
+}
+
+/**
+ * Handle setting double-down for a game (new golden button)
+ */
+export async function handleSetDoubleDown(interaction) {
+  try {
+    await interaction.deferUpdate();
+
+    const session = getActiveSession();
+    if (!session) {
+      await interaction.followUp({
+        content: '❌ Session ended.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    const gameId = interaction.customId.split('_')[3];
+    const game = session.games.find(g => g.id === gameId);
+    
+    if (!game) {
+      await interaction.followUp({
+        content: '❌ Game not found.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Check if game has started
+    const gameTime = new Date(game.commenceTime);
+    if (gameTime < new Date()) {
+      await interaction.followUp({
+        content: '❌ This game has already started!',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Get user's picks
+    const userPicks = getUserPicks(session.id, interaction.user.id);
+    const existingPick = userPicks.find(p => p.gameId === gameId);
+    const hasDoubleDown = userPicks.some(p => p.isDoubleDown);
+    
+    // If already has double-down on this game, toggle it off
+    if (existingPick?.isDoubleDown) {
+      const result = savePick(session.id, interaction.user.id, gameId, existingPick.pick, existingPick.spread, false);
+      
+      if (result.error) {
+        await interaction.followUp({
+          content: `❌ ${result.error}`,
+          ephemeral: true
+        });
+        return;
+      }
+      
+      await interaction.followUp({
+        content: '✅ Double-down removed from this game.',
+        ephemeral: true
+      });
+      
+      // Refresh the game view
+      await handleGameSelection(interaction, gameId);
+      return;
+    }
+    
+    // If already has double-down on another game, show error
+    if (hasDoubleDown) {
+      await interaction.followUp({
+        content: '❌ You already have a double-down active on another game! Remove it first.',
+        ephemeral: true
+      });
+      return;
+    }
+    
+    // If has a pick, add double-down to it
+    if (existingPick) {
+      const result = savePick(session.id, interaction.user.id, gameId, existingPick.pick, existingPick.spread, true);
+      
+      if (result.error) {
+        await interaction.followUp({
+          content: `❌ ${result.error}`,
+          ephemeral: true
+        });
+        return;
+      }
+      
+      await interaction.followUp({
+        content: '💰 **Double-down activated!** Your pick for this game will count 2x.',
+        ephemeral: true
+      });
+      
+      // Refresh the game view
+      await handleGameSelection(interaction, gameId);
+      return;
+    }
+    
+    // No pick made yet - just show message
+    await interaction.followUp({
+      content: '💰 **Double-down is ready!** Make your pick now and it will automatically count 2x.',
+      ephemeral: true
+    });
+
+  } catch (error) {
+    console.error('Error setting double-down:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.followUp({
+        content: '❌ Error setting double-down.',
         ephemeral: true
       });
     }
