@@ -3,21 +3,40 @@ import * as cheerio from 'cheerio';
 
 /**
  * Fetch and parse NBA transactions from official NBA website
+ * @param {number} retryCount - Number of retries attempted
  */
-export async function fetchNBATransactions() {
+export async function fetchNBATransactions(retryCount = 0) {
+  const maxRetries = 2;
+  
   try {
     const url = 'https://www.nba.com/players/transactions';
     
-    console.log('🔍 Fetching NBA transactions...');
+    console.log(`🔍 Fetching NBA transactions... (attempt ${retryCount + 1}/${maxRetries + 1})`);
+    
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000); // 15 second timeout
     
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9'
+      },
+      signal: controller.signal
     });
+    
+    clearTimeout(timeout);
     
     if (!response.ok) {
       console.error(`❌ Failed to fetch transactions: ${response.status}`);
+      
+      // Retry on server errors
+      if (response.status >= 500 && retryCount < maxRetries) {
+        console.log(`⏳ Retrying in 5 seconds...`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        return fetchNBATransactions(retryCount + 1);
+      }
+      
       return [];
     }
     
@@ -79,7 +98,22 @@ export async function fetchNBATransactions() {
     return transactions;
     
   } catch (error) {
-    console.error('❌ Error fetching NBA transactions:', error);
+    // Handle timeout and network errors
+    if (error.name === 'AbortError') {
+      console.error('⏱️ Request timed out after 15 seconds');
+    } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET') {
+      console.error('🌐 Network timeout or connection reset');
+    } else {
+      console.error('❌ Error fetching NBA transactions:', error.message || error);
+    }
+    
+    // Retry on network errors
+    if (retryCount < maxRetries && (error.name === 'AbortError' || error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET')) {
+      console.log(`⏳ Retrying in 5 seconds... (${retryCount + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      return fetchNBATransactions(retryCount + 1);
+    }
+    
     return [];
   }
 }

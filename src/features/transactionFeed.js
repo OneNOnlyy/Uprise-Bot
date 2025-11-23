@@ -68,6 +68,13 @@ async function checkAndPostTransactions(client) {
     console.log('🔍 Checking for new NBA transactions...');
     
     const transactions = await fetchNBATransactions();
+    
+    // If fetch failed completely, skip this cycle
+    if (!transactions || transactions.length === 0) {
+      console.log('⏭️ No transactions fetched, skipping this cycle');
+      return;
+    }
+    
     const cache = loadCache();
     const newTransactions = [];
     
