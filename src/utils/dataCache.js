@@ -1,7 +1,7 @@
 /**
  * Data caching system for PATS
- * Fetches and caches NBA game data (spreads, injuries, records) every minute
- * to improve responsiveness and reduce API calls
+ * Caches NBA game data fetched ONLY during session creation to conserve API calls
+ * Odds API has a limit of 500 calls per month, so we only fetch once per session
  */
 
 import { getNBAGamesWithSpreads } from './oddsApi.js';
@@ -11,83 +11,81 @@ import { getMatchupInfo, getTeamInfo } from './espnApi.js';
 const cache = {
   games: null,
   gamesLastUpdated: null,
+  gamesDate: null, // Track what date the games are for
   matchupInfo: new Map(), // gameId -> matchupInfo
   matchupLastUpdated: new Map(), // gameId -> timestamp
   teamInfo: new Map(), // teamName -> teamInfo (ESPN scrapes)
   teamLastUpdated: new Map(), // teamName -> timestamp
-  isRefreshing: false
+  isFetchingGames: false
 };
 
 // Cache settings
-const CACHE_DURATION = 60 * 1000; // 1 minute
 const MATCHUP_CACHE_DURATION = 60 * 1000; // 1 minute for matchup info
 const TEAM_CACHE_DURATION = 60 * 1000; // 1 minute for team info (ESPN scrapes)
 
 /**
- * Initialize the cache and start periodic refresh
+ * Initialize the cache system (no auto-refresh for odds)
  */
 export function initializeCache() {
-  console.log('[Cache] Initializing data cache system...');
-  
-  // Do initial fetch
-  refreshGamesCache().then(() => {
-    console.log('[Cache] Initial games cache loaded');
-  });
-
-  // Set up periodic refresh every minute
-  setInterval(async () => {
-    await refreshGamesCache();
-  }, CACHE_DURATION);
+  console.log('[Cache] ✅ Data cache system initialized (odds fetched only on session creation)');
 }
 
 /**
- * Refresh the games cache
+ * Fetch games with spreads ONCE for session creation
+ * This is the ONLY time we call the Odds API to conserve API usage (500/month limit)
  */
-async function refreshGamesCache() {
-  if (cache.isRefreshing) {
-    console.log('[Cache] Already refreshing, skipping...');
-    return;
+export async function fetchGamesForSession(date = null) {
+  if (cache.isFetchingGames) {
+    console.log('[Cache] Already fetching games, waiting...');
+    // Wait for the current fetch to complete
+    while (cache.isFetchingGames) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    return cache.games || [];
   }
 
   try {
-    cache.isRefreshing = true;
-    console.log('[Cache] Refreshing games data...');
+    cache.isFetchingGames = true;
+    const dateStr = date || new Date().toISOString().split('T')[0];
+    console.log(`[Cache] 📊 Fetching games with spreads from Odds API for ${dateStr}...`);
     
-    const games = await getNBAGamesWithSpreads();
+    const games = await getNBAGamesWithSpreads(date);
     
     if (games && games.length > 0) {
       cache.games = games;
       cache.gamesLastUpdated = Date.now();
-      console.log(`[Cache] ✅ Cached ${games.length} games at ${new Date().toLocaleTimeString()}`);
+      cache.gamesDate = dateStr;
+      console.log(`[Cache] ✅ Fetched and cached ${games.length} games with spreads`);
+      console.log(`[Cache] 💡 These spreads will be used for the entire session (no refreshes)`);
     } else {
-      console.log('[Cache] ⚠️ No games returned, keeping old cache');
+      console.log('[Cache] ⚠️ No games returned from Odds API');
     }
+    
+    return games || [];
   } catch (error) {
-    console.error('[Cache] ❌ Error refreshing games cache:', error.message);
+    console.error('[Cache] ❌ Error fetching games from Odds API:', error.message);
+    return [];
   } finally {
-    cache.isRefreshing = false;
+    cache.isFetchingGames = false;
   }
 }
 
 /**
- * Get cached games
- * Falls back to live fetch if cache is empty or stale
+ * Get cached games (NO auto-refresh, returns what's in cache)
+ * Used for displaying games after session creation
  */
-export async function getCachedGames() {
-  // If cache is empty, fetch immediately
-  if (!cache.games) {
-    console.log('[Cache] Cache empty, fetching games...');
-    await refreshGamesCache();
-  }
-  
-  // If cache is very stale (>5 minutes), trigger background refresh
-  const cacheAge = Date.now() - (cache.gamesLastUpdated || 0);
-  if (cacheAge > 5 * 60 * 1000) {
-    console.log('[Cache] Cache is stale, triggering refresh...');
-    refreshGamesCache(); // Don't await - let it run in background
-  }
-  
+export function getCachedGames() {
   return cache.games || [];
+}
+
+/**
+ * Clear the games cache (useful when starting a new session for a different date)
+ */
+export function clearGamesCache() {
+  cache.games = null;
+  cache.gamesLastUpdated = null;
+  cache.gamesDate = null;
+  console.log('[Cache] 🗑️ Games cache cleared');
 }
 
 /**

@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { getFormattedGamesForDate } from '../utils/oddsApi.js';
 import { createPATSSession, getActiveSession } from '../utils/patsData.js';
-import { getCachedGames, prefetchMatchupInfo } from '../utils/dataCache.js';
+import { fetchGamesForSession, clearGamesCache, prefetchMatchupInfo } from '../utils/dataCache.js';
 
 export const data = new SlashCommandBuilder()
   .setName('patsstart')
@@ -34,20 +34,14 @@ export async function execute(interaction) {
     const targetDate = dateParam ? new Date(dateParam) : new Date();
     const dateStr = targetDate.toISOString().split('T')[0];
     
-    // Get games for the date - use cached data for better performance
-    console.log(`📊 Fetching games for PATS session on ${dateStr}...`);
-    let games;
+    // Fetch games for the session - this is the ONLY time we call Odds API
+    // This conserves our 500 API calls/month limit
+    console.log(`📊 Fetching games with spreads for PATS session on ${dateStr}...`);
+    console.log(`💡 This will use 1 Odds API call (we have 500/month)`);
     
-    // If requesting today's games, use cache
-    const today = new Date().toISOString().split('T')[0];
-    if (dateStr === today) {
-      console.log('[PATS] Using cached games for today');
-      games = await getCachedGames();
-    } else {
-      // For other dates, fetch directly
-      console.log('[PATS] Fetching games for specific date:', dateStr);
-      games = await getFormattedGamesForDate(dateStr);
-    }
+    // Clear any old cache and fetch fresh data for this session
+    clearGamesCache();
+    const games = await fetchGamesForSession(dateStr);
     
     if (!games || games.length === 0) {
       await interaction.editReply({

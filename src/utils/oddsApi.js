@@ -1,3 +1,18 @@
+/**
+ * Odds API and NBA Game Fetching Module
+ * 
+ * API USAGE STRATEGY:
+ * - The Odds API has a limit of 500 calls per month
+ * - We ONLY call the Odds API ONCE when creating a PATS session
+ * - Spreads are cached for the entire session duration (no refreshes)
+ * - This conserves API calls while maintaining accuracy
+ * 
+ * Data Sources (in priority order):
+ * 1. The Odds API (primary, called once per session)
+ * 2. Puppeteer web scraping (ESPN for games, OddsShark/Covers for spreads)
+ * 3. Manual spreads file (fallback)
+ */
+
 import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
 import fs from 'fs';
