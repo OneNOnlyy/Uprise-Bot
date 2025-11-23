@@ -332,11 +332,13 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
         .setCustomId(`pats_pick_${gameId}_away`)
         .setLabel(`${game.awayTeam} ${game.spreadDisplay.away}`)
         .setStyle(ButtonStyle.Primary)
+        .setEmoji('✈️')
         .setDisabled(isLocked),
       new ButtonBuilder()
         .setCustomId(`pats_pick_${gameId}_home`)
         .setLabel(`${game.homeTeam} ${game.spreadDisplay.home}`)
         .setStyle(ButtonStyle.Success)
+        .setEmoji('🏠')
         .setDisabled(isLocked)
     );
 
@@ -346,16 +348,17 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
         .setCustomId(`pats_matchup_${gameId}`)
         .setLabel('Full Matchup Info')
         .setStyle(ButtonStyle.Secondary)
+        .setEmoji('📊')
     );
     
-    // Add Double Down button if available/active
+    // Add Double Down button if available/active (make it toggleable)
     if (existingPick?.isDoubleDown) {
       infoRow.addComponents(
         new ButtonBuilder()
-          .setCustomId(`pats_set_doubledown_${gameId}`)
-          .setLabel('Double Down Active')
-          .setStyle(ButtonStyle.Success)
-          .setDisabled(true)
+          .setCustomId(`pats_remove_doubledown_${gameId}`)
+          .setLabel('Remove Double Down')
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('❌')
       );
     } else if (!hasDoubleDown && !isLocked) {
       infoRow.addComponents(
@@ -363,6 +366,7 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
           .setCustomId(`pats_set_doubledown_${gameId}`)
           .setLabel('Use Double Down')
           .setStyle(ButtonStyle.Danger)
+          .setEmoji('💰')
       );
     }
 
@@ -381,6 +385,7 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
           .setCustomId(`pats_nav_game_${session.games[currentGameIndex - 1].id}`)
           .setLabel('Previous Game')
           .setStyle(ButtonStyle.Secondary)
+          .setEmoji('◀️')
       );
     }
     
@@ -390,6 +395,7 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
         .setCustomId('pats_back_to_dashboard')
         .setLabel('Return to Dashboard')
         .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🏠')
     );
     
     if (!isLastGame) {
@@ -398,6 +404,7 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
           .setCustomId(`pats_nav_game_${session.games[currentGameIndex + 1].id}`)
           .setLabel('Next Game')
           .setStyle(ButtonStyle.Primary)
+          .setEmoji('▶️')
       );
     }
 
@@ -652,6 +659,71 @@ export async function handleSetDoubleDown(interaction) {
     if (!interaction.replied && !interaction.deferred) {
       await interaction.followUp({
         content: '❌ Error setting double-down.',
+        ephemeral: true
+      });
+    }
+  }
+}
+
+/**
+ * Handle remove double down button
+ */
+export async function handleRemoveDoubleDown(interaction) {
+  try {
+    await interaction.deferUpdate();
+
+    const session = getActiveSession();
+    if (!session) {
+      await interaction.followUp({
+        content: '❌ Session ended.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    const gameId = interaction.customId.split('_')[3];
+    const game = session.games.find(g => g.id === gameId);
+    
+    if (!game) {
+      await interaction.followUp({
+        content: '❌ Game not found.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Get user's picks
+    const userPicks = getUserPicks(session.id, interaction.user.id);
+    const existingPick = userPicks.find(p => p.gameId === gameId);
+    
+    if (!existingPick || !existingPick.isDoubleDown) {
+      await interaction.followUp({
+        content: '❌ No double-down active on this game.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Remove double-down by saving pick with isDoubleDown = false
+    const result = savePick(session.id, interaction.user.id, gameId, existingPick.pick, existingPick.spread, false);
+    
+    if (result.error) {
+      await interaction.followUp({
+        content: `❌ ${result.error}`,
+        ephemeral: true
+      });
+      return;
+    }
+    
+    console.log(`[PATS] Double-down removed from game ${gameId}`);
+    
+    // Refresh the game view to show updated button state
+    await handleGameSelection(interaction, gameId);
+  } catch (error) {
+    console.error('Error removing double-down:', error);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Error removing double-down.',
         ephemeral: true
       });
     }

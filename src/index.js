@@ -135,6 +135,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (interaction.customId.startsWith('pats_set_doubledown_')) {
         await makepickCommand.handleSetDoubleDown(interaction);
       }
+      // Handle remove double-down button
+      else if (interaction.customId.startsWith('pats_remove_doubledown_')) {
+        await makepickCommand.handleRemoveDoubleDown(interaction);
+      }
       // Handle view matchup button
       else if (interaction.customId.startsWith('pats_matchup_')) {
         await makepickCommand.handleViewMatchup(interaction);
