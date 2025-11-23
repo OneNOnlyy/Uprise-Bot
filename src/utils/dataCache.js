@@ -20,8 +20,8 @@ const cache = {
 };
 
 // Cache settings
-const MATCHUP_CACHE_DURATION = 60 * 1000; // 1 minute for matchup info
-const TEAM_CACHE_DURATION = 60 * 1000; // 1 minute for team info (ESPN scrapes)
+const MATCHUP_CACHE_DURATION = 0; // 0 minutes for matchup info - force fresh fetches
+const TEAM_CACHE_DURATION = 0; // 0 minutes for team info - force fresh fetches
 const CACHE_VERSION = 'v2'; // Increment when injury fetching logic changes
 
 /**
