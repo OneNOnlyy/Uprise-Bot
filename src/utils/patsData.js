@@ -206,24 +206,33 @@ export function updateGameResult(sessionId, gameId, result) {
     
     const margin = awayScore - homeScore; // Positive if away won
     
+    console.log(`[PATS] ========================================`);
     console.log(`[PATS] Game ${gameId}: ${game.awayTeam} ${awayScore} @ ${game.homeTeam} ${homeScore}`);
     console.log(`[PATS] Margin: ${margin > 0 ? 'Away +' + margin : 'Home +' + Math.abs(margin)}`);
-    console.log(`[PATS] Spreads: Away ${game.awaySpread}, Home ${game.homeSpread}`);
+    console.log(`[PATS] Spreads stored: Away=${game.awaySpread}, Home=${game.homeSpread}`);
+    console.log(`[PATS] User pick: ${pick.pick.toUpperCase()}`);
+    
+    // Safety check and use stored spread values
+    const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
+    const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
+    
+    if (awaySpread === 0 && homeSpread === 0) {
+      console.warn(`[PATS] WARNING: Both spreads are 0 for game ${gameId}!`);
+    }
     
     let pickWon = false;
     if (pick.pick === 'home') {
       // User picked home. Home covers if: homeScore + homeSpread > awayScore
-      // Or equivalently: margin < -homeSpread (home wins by more than their spread)
-      const homeCovered = (homeScore + game.homeSpread) > awayScore;
+      const homeCovered = (homeScore + homeSpread) > awayScore;
       pickWon = homeCovered;
-      console.log(`[PATS] User picked HOME: ${homeScore} + ${game.homeSpread} = ${homeScore + game.homeSpread} vs ${awayScore} => ${pickWon ? 'WIN' : 'LOSS'}`);
+      console.log(`[PATS] HOME calculation: ${homeScore} + (${homeSpread}) = ${homeScore + homeSpread} vs ${awayScore} => ${pickWon ? '✅ WIN' : '❌ LOSS'}`);
     } else {
       // User picked away. Away covers if: awayScore + awaySpread > homeScore
-      // Or equivalently: margin > -awaySpread (away wins by more than their spread)
-      const awayCovered = (awayScore + game.awaySpread) > homeScore;
+      const awayCovered = (awayScore + awaySpread) > homeScore;
       pickWon = awayCovered;
-      console.log(`[PATS] User picked AWAY: ${awayScore} + ${game.awaySpread} = ${awayScore + game.awaySpread} vs ${homeScore} => ${pickWon ? 'WIN' : 'LOSS'}`);
+      console.log(`[PATS] AWAY calculation: ${awayScore} + (${awaySpread}) = ${awayScore + awaySpread} vs ${homeScore} => ${pickWon ? '✅ WIN' : '❌ LOSS'}`);
     }
+    console.log(`[PATS] ========================================`);
     
     // Initialize user if doesn't exist
     if (!data.users[userId]) {
