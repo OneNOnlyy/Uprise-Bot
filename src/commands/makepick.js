@@ -71,7 +71,8 @@ export async function execute(interaction) {
 
     // Create game selection menu
     const options = session.games.map((game, index) => {
-      const hasPicked = pickedGameIds.includes(game.id);
+      const pick = userPicks.find(p => p.gameId === game.id);
+      const hasPicked = !!pick;
       const gameTime = new Date(game.commenceTime);
       const isLocked = gameTime < now;
       
@@ -88,10 +89,20 @@ export async function execute(interaction) {
       });
       
       let description = `${dateStr} ${timeStr} PT`;
-      if (isLocked) {
-        description += ' 🔒 LOCKED';
-      } else if (hasPicked) {
-        description += ' 📌 Picked';
+      
+      // Show which team was picked with their spread
+      if (hasPicked && pick) {
+        const fixedSpreads = fixZeroSpreads(game);
+        const pickedTeam = pick.pick === 'home' ? game.homeTeam : game.awayTeam;
+        const spread = pick.pick === 'home' ? fixedSpreads.homeSpread : fixedSpreads.awaySpread;
+        const spreadText = spread > 0 ? `+${spread}` : spread;
+        const ddEmoji = pick.isDoubleDown ? ' �' : '';
+        
+        if (isLocked) {
+          description += ` 🔒 ${pickedTeam} (${spreadText})${ddEmoji}`;
+        } else {
+          description += ` 📌 ${pickedTeam} (${spreadText})${ddEmoji}`;
+        }
       }
       
       return new StringSelectMenuOptionBuilder()
@@ -769,7 +780,8 @@ export async function handleBackToMenu(interaction) {
 
     // Create game selection menu
     const options = session.games.map((game, index) => {
-      const hasPicked = pickedGameIds.includes(game.id);
+      const pick = userPicks.find(p => p.gameId === game.id);
+      const hasPicked = !!pick;
       const gameTime = new Date(game.commenceTime);
       const isLocked = gameTime < now;
       
@@ -786,10 +798,20 @@ export async function handleBackToMenu(interaction) {
       });
       
       let description = `${dateStr} ${timeStr} PT`;
-      if (isLocked) {
-        description += ' 🔒 LOCKED';
-      } else if (hasPicked) {
-        description += ' 📌 Picked';
+      
+      // Show which team was picked with their spread
+      if (hasPicked && pick) {
+        const fixedSpreads = fixZeroSpreads(game);
+        const pickedTeam = pick.pick === 'home' ? game.homeTeam : game.awayTeam;
+        const spread = pick.pick === 'home' ? fixedSpreads.homeSpread : fixedSpreads.awaySpread;
+        const spreadText = spread > 0 ? `+${spread}` : spread;
+        const ddEmoji = pick.isDoubleDown ? ' �' : '';
+        
+        if (isLocked) {
+          description += ` 🔒 ${pickedTeam} (${spreadText})${ddEmoji}`;
+        } else {
+          description += ` 📌 ${pickedTeam} (${spreadText})${ddEmoji}`;
+        }
       }
       
       return new StringSelectMenuOptionBuilder()
