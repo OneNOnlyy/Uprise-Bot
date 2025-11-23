@@ -5,7 +5,7 @@ import {
   ButtonBuilder,
   ButtonStyle
 } from 'discord.js';
-import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard } from '../utils/patsData.js';
+import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory } from '../utils/patsData.js';
 
 export const data = new SlashCommandBuilder()
   .setName('pats')
@@ -49,6 +49,14 @@ export async function handleDashboardButton(interaction) {
       // Return to dashboard from stats
       await interaction.deferUpdate();
       await showDashboard(interaction);
+    } else if (interaction.customId === 'pats_view_history') {
+      // Show session history
+      await interaction.deferUpdate();
+      await showSessionHistory(interaction);
+    } else if (interaction.customId === 'pats_history_back') {
+      // Return to stats from history
+      await interaction.deferUpdate();
+      await showUserStats(interaction);
     }
   } catch (error) {
     console.error('Error handling dashboard button:', error);
@@ -393,6 +401,78 @@ async function showUserStats(interaction) {
     new ButtonBuilder()
       .setCustomId('pats_stats_back')
       .setLabel('Back to Dashboard')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('◀️'),
+    new ButtonBuilder()
+      .setCustomId('pats_view_history')
+      .setLabel('View Session History')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('📜')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [backButton]
+  });
+}
+
+/**
+ * Show session history
+ */
+async function showSessionHistory(interaction) {
+  const history = getUserSessionHistory(interaction.user.id, 10);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📜 Your Session History')
+    .setDescription(`**${interaction.user.displayName}'s** recent PATS sessions`)
+    .setColor(0x5865F2)
+    .setTimestamp();
+
+  if (history.length === 0) {
+    embed.setDescription('No session history found. Complete a session to see your history here!');
+  } else {
+    // Show last 10 sessions
+    const historyText = history.map((session, index) => {
+      const record = `${session.wins}-${session.losses}`;
+      const winRate = session.wins + session.losses > 0 
+        ? ((session.wins / (session.wins + session.losses)) * 100).toFixed(1) 
+        : '0.0';
+      const pickCount = session.picks.length;
+      const missedText = session.missedPicks > 0 ? ` • ${session.missedPicks} missed` : '';
+      const dateStr = new Date(session.closedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      
+      return `**${index + 1}. ${dateStr}** - ${record} (${winRate}%) • ${pickCount}/${session.totalGames} picks${missedText}`;
+    }).join('\n');
+
+    embed.addFields({
+      name: '📊 Recent Sessions',
+      value: historyText,
+      inline: false
+    });
+    
+    // Summary stats from history
+    const totalSessions = history.length;
+    const totalWins = history.reduce((sum, s) => sum + s.wins, 0);
+    const totalLosses = history.reduce((sum, s) => sum + s.losses, 0);
+    const avgWinRate = totalWins + totalLosses > 0 
+      ? ((totalWins / (totalWins + totalLosses)) * 100).toFixed(1)
+      : '0.0';
+    
+    embed.addFields({
+      name: '📈 History Summary',
+      value: [
+        `**Sessions Shown:** ${totalSessions}`,
+        `**Combined Record:** ${totalWins}-${totalLosses}`,
+        `**Avg Win Rate:** ${avgWinRate}%`
+      ].join('\n'),
+      inline: false
+    });
+  }
+
+  const backButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_history_back')
+      .setLabel('Back to Stats')
       .setStyle(ButtonStyle.Secondary)
       .setEmoji('◀️')
   );

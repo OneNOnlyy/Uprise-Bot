@@ -276,10 +276,61 @@ export function closePATSSession(sessionId, gameResults) {
   }
   
   // Update any remaining game results that weren't already updated
+  // AND ensure overall stats are correctly updated for all games
   gameResults.forEach(result => {
     const game = session.games.find(g => g.id === result.gameId);
     if (game && !game.result) {
       game.result = result; // { homeScore, awayScore, winner }
+      
+      // This game result wasn't processed by updateGameResult, so we need to update stats now
+      console.log(`[PATS] Session close: Processing game ${result.gameId} that wasn't updated in real-time`);
+      
+      for (const userId in session.picks) {
+        const picks = session.picks[userId];
+        const pick = picks.find(p => p.gameId === result.gameId);
+        
+        if (!data.users[userId]) {
+          data.users[userId] = { 
+            totalWins: 0, 
+            totalLosses: 0, 
+            sessions: 0,
+            doubleDownsUsed: 0,
+            doubleDownWins: 0,
+            doubleDownLosses: 0
+          };
+        }
+        
+        if (!pick) {
+          // Missed pick - add loss to overall stats
+          data.users[userId].totalLosses += 1;
+        } else {
+          // Calculate pick result
+          const homeScore = result.homeScore;
+          const awayScore = result.awayScore;
+          const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
+          const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
+          
+          let pickWon = false;
+          if (pick.pick === 'home') {
+            pickWon = (homeScore + homeSpread) > awayScore;
+          } else {
+            pickWon = (awayScore + awaySpread) > homeScore;
+          }
+          
+          // Add to overall stats
+          if (pickWon) {
+            data.users[userId].totalWins += pick.isDoubleDown ? 2 : 1;
+            if (pick.isDoubleDown) {
+              data.users[userId].doubleDownWins += 1;
+            }
+          } else {
+            data.users[userId].totalLosses += pick.isDoubleDown ? 2 : 1;
+            if (pick.isDoubleDown) {
+              data.users[userId].doubleDownLosses += 1;
+            }
+          }
+        }
+      }
     }
   });
   
@@ -313,18 +364,6 @@ export function closePATSSession(sessionId, gameResults) {
         // No pick made for this game - automatic loss
         losses++;
         missedPicks++;
-        
-        // Only add to overall stats if game result wasn't already processed
-        // (games without picks wouldn't have been processed by updateGameResult)
-        if (game.result && game.result.status === 'Final') {
-          // This will be counted as 1 loss per missed game
-          // Note: updateGameResult already handles this for games that finished,
-          // but we need to ensure all participants get the loss
-          const alreadyCounted = true; // Assume updateGameResult handled it
-          if (!alreadyCounted) {
-            data.users[userId].totalLosses += 1;
-          }
-        }
       } else if (game.result) {
         // Pick was made, calculate result (for session record)
         const homeScore = game.result.homeScore;
@@ -346,9 +385,6 @@ export function closePATSSession(sessionId, gameResults) {
         } else {
           losses += pick.isDoubleDown ? 2 : 1;
         }
-        
-        // Note: Overall stats already updated by updateGameResult in real-time
-        // We don't add to totalWins/totalLosses here to avoid double-counting
       }
     });
     
@@ -659,3 +695,27 @@ export function updateLeaderboardCache() {
   return getLiveSessionLeaderboard(true);
 }
 
+/**
+ * Get user's session history
+ */
+export function getUserSessionHistory(userId, limit = 10) {
+  const data = readPATSData();
+  
+  // Get all sessions where user participated
+  const userSessions = data.history
+    .filter(s => s.results && s.results[userId])
+    .sort((a, b) => new Date(b.closedAt) - new Date(a.closedAt)) // Most recent first
+    .slice(0, limit);
+  
+  return userSessions.map(session => ({
+    id: session.id,
+    date: session.date,
+    closedAt: session.closedAt,
+    wins: session.results[userId].wins,
+    losses: session.results[userId].losses,
+    missedPicks: session.results[userId].missedPicks,
+    totalGames: session.games.length,
+    picks: session.picks[userId] || [],
+    games: session.games
+  }));
+}

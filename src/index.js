@@ -98,8 +98,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // Handle PATS interactions (select menus, buttons)
   if (interaction.customId && interaction.customId.startsWith('pats_')) {
     try {
-      // Handle dashboard buttons (including stats)
-      if (interaction.customId.startsWith('pats_dashboard_') || interaction.customId.startsWith('pats_stats_')) {
+      // Handle dashboard buttons (including stats and history)
+      if (interaction.customId.startsWith('pats_dashboard_') || 
+          interaction.customId.startsWith('pats_stats_') ||
+          interaction.customId.startsWith('pats_view_history') ||
+          interaction.customId.startsWith('pats_history_')) {
         await patsCommand.handleDashboardButton(interaction);
       }
       // Handle game selection dropdown
