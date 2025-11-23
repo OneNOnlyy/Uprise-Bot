@@ -1160,8 +1160,16 @@ export async function handleViewMyPicks(interaction) {
     let losses = 0;
     let pushes = 0;
 
+    // Sort picks by game commence time to match the dashboard order
+    const sortedPicks = [...userPicks].sort((a, b) => {
+      const gameA = session.games.find(g => g.id === a.gameId);
+      const gameB = session.games.find(g => g.id === b.gameId);
+      if (!gameA || !gameB) return 0;
+      return new Date(gameA.commenceTime) - new Date(gameB.commenceTime);
+    });
+
     // Add each pick as a cleaner field
-    for (const pick of userPicks) {
+    for (const pick of sortedPicks) {
       const game = session.games.find(g => g.id === pick.gameId);
       if (game) {
         const gameTime = new Date(game.commenceTime);
