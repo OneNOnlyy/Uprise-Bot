@@ -55,6 +55,10 @@ export async function handleDashboardButton(interaction) {
       // Import and execute view picks handler
       const makepickCommand = await import('./makepick.js');
       await makepickCommand.handleViewMyPicks(interaction);
+    } else if (interaction.customId === 'pats_dashboard_view_everyone_picks') {
+      // Show everyone's picks for all games
+      await interaction.deferUpdate();
+      await showEveryonesPicks(interaction);
     } else if (interaction.customId === 'pats_dashboard_stats') {
       // Show user stats
       await interaction.deferUpdate();
@@ -307,10 +311,13 @@ export async function showDashboard(interaction) {
 
   const secondRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
+      .setCustomId('pats_dashboard_view_everyone_picks')
+      .setLabel('View Everyone\'s Picks')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
       .setCustomId('pats_dashboard_refresh')
       .setLabel('Refresh')
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji('🔄')
   );
 
   await interaction.editReply({
@@ -507,6 +514,124 @@ async function showSessionHistory(interaction) {
       .setLabel('Back to Stats')
       .setStyle(ButtonStyle.Secondary)
       .setEmoji('◀️')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [backButton]
+  });
+}
+
+/**
+ * Show everyone's picks for all games in the session
+ */
+async function showEveryonesPicks(interaction) {
+  const session = getActiveSession();
+  
+  if (!session) {
+    await interaction.editReply({
+      content: '❌ No active session.',
+      components: []
+    });
+    return;
+  }
+
+  // Get all picks from patsData
+  const { readPATSData } = await import('../utils/patsData.js');
+  const data = readPATSData();
+  const sessionData = data.activeSessions.find(s => s.id === session.id);
+  
+  if (!sessionData || !sessionData.picks) {
+    await interaction.editReply({
+      content: '❌ No picks found for this session.',
+      components: []
+    });
+    return;
+  }
+
+  // Group picks by game
+  const picksByGame = {};
+  for (const game of session.games) {
+    picksByGame[game.id] = {
+      game: game,
+      picks: []
+    };
+  }
+
+  // Organize picks by game
+  for (const [userId, userPicksArray] of Object.entries(sessionData.picks)) {
+    for (const pick of userPicksArray) {
+      if (picksByGame[pick.gameId]) {
+        picksByGame[pick.gameId].picks.push({
+          userId: userId,
+          pick: pick
+        });
+      }
+    }
+  }
+
+  // Build embeds - Discord allows 10 fields per embed, so we'll group games
+  const embed = new EmbedBuilder()
+    .setTitle('👥 Everyone\'s Picks')
+    .setDescription(`View all player picks for today's ${session.games.length} games.`)
+    .setColor(0x5865F2)
+    .setTimestamp();
+
+  let fieldCount = 0;
+  const maxFields = 25; // Discord limit
+
+  for (const gameId in picksByGame) {
+    if (fieldCount >= maxFields) {
+      embed.setFooter({ text: 'Some games not shown due to Discord limits' });
+      break;
+    }
+
+    const { game, picks } = picksByGame[gameId];
+    
+    if (picks.length === 0) {
+      continue; // Skip games with no picks
+    }
+
+    // Count picks for each team
+    let homePicks = 0;
+    let awayPicks = 0;
+    const pickDetails = [];
+
+    for (const { userId, pick } of picks) {
+      if (pick.pick === 'home') {
+        homePicks++;
+      } else {
+        awayPicks++;
+      }
+      
+      const teamPicked = pick.pick === 'home' ? game.homeTeam : game.awayTeam;
+      const spread = pick.spread > 0 ? `+${pick.spread}` : pick.spread;
+      const ddTag = pick.isDoubleDown ? ' 💰' : '';
+      
+      pickDetails.push(`<@${userId}>: **${teamPicked}** (${spread})${ddTag}`);
+    }
+
+    const gameTitle = `${game.awayTeam} @ ${game.homeTeam}`;
+    const pickSummary = `**${awayPicks}** picked ${game.awayTeam} | **${homePicks}** picked ${game.homeTeam}`;
+    
+    embed.addFields({
+      name: gameTitle,
+      value: `${pickSummary}\n${pickDetails.join('\n')}`,
+      inline: false
+    });
+
+    fieldCount++;
+  }
+
+  // Add summary at the top
+  const totalPlayers = Object.keys(sessionData.picks).length;
+  embed.setDescription(`View all player picks for today's ${session.games.length} games.\n**${totalPlayers} players** have made picks.`);
+
+  const backButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_dashboard_refresh')
+      .setLabel('Back to Dashboard')
+      .setStyle(ButtonStyle.Secondary)
   );
 
   await interaction.editReply({
