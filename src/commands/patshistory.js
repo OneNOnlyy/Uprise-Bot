@@ -9,6 +9,22 @@ import {
 } from 'discord.js';
 import { readPATSData } from '../utils/patsData.js';
 
+/**
+ * FAIL-SAFE: Fix spreads where one is 0 but the other isn't (they should be inverse)
+ */
+function fixZeroSpreads(game) {
+  let homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
+  let awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
+  
+  if (homeSpread !== 0 && awaySpread === 0) {
+    awaySpread = -homeSpread;
+  } else if (awaySpread !== 0 && homeSpread === 0) {
+    homeSpread = -awaySpread;
+  }
+  
+  return { homeSpread, awaySpread };
+}
+
 export const data = new SlashCommandBuilder()
   .setName('patshistory')
   .setDescription('View complete PATS session history (Admin only)')
@@ -407,7 +423,12 @@ async function showUserSessionDetail(interaction, sessionId, userId) {
       if (!game) return null;
 
       const pickedTeam = pick.pick === 'home' ? game.homeTeam : game.awayTeam;
-      const spreadText = pick.spread > 0 ? `+${pick.spread}` : pick.spread.toString();
+      
+      // Use corrected spread, not the old saved value
+      const fixedSpreads = fixZeroSpreads(game);
+      const correctedSpread = pick.pick === 'home' ? fixedSpreads.homeSpread : fixedSpreads.awaySpread;
+      const spreadText = correctedSpread > 0 ? `+${correctedSpread}` : correctedSpread.toString();
+      
       const ddEmoji = pick.isDoubleDown ? ' 💰' : '';
       
       if (!game.result) {
@@ -416,8 +437,10 @@ async function showUserSessionDetail(interaction, sessionId, userId) {
 
       const homeScore = game.result.homeScore;
       const awayScore = game.result.awayScore;
-      const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
-      const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
+      
+      // Use corrected spreads for calculations too
+      const awaySpread = fixedSpreads.awaySpread;
+      const homeSpread = fixedSpreads.homeSpread;
       
       // Calculate adjusted scores
       const adjustedHomeScore = homeScore + homeSpread;

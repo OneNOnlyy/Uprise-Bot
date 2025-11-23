@@ -214,7 +214,12 @@ export async function showDashboard(interaction) {
       if (!game) return null;
       
       const pickedTeam = pick.pick === 'home' ? game.homeTeam : game.awayTeam;
-      const spreadText = pick.spread > 0 ? `+${pick.spread}` : pick.spread.toString();
+      
+      // Use corrected spread, not the old saved value
+      const fixedSpreads = fixZeroSpreads(game);
+      const correctedSpread = pick.pick === 'home' ? fixedSpreads.homeSpread : fixedSpreads.awaySpread;
+      const spreadText = correctedSpread > 0 ? `+${correctedSpread}` : correctedSpread.toString();
+      
       const isLocked = new Date(game.commenceTime) < now;
       const ddEmoji = pick.isDoubleDown ? ' 💰' : '';
       

@@ -888,6 +888,13 @@ export async function handleViewMatchup(interaction) {
     // Fetch matchup info - use cache
     const matchupInfo = await getCachedMatchupInfo(game.homeTeam, game.awayTeam, game.id);
 
+    // FAIL-SAFE: Fix spreads before displaying
+    const fixedSpreads = fixZeroSpreads(game);
+    game.spreadDisplay = {
+      home: fixedSpreads.homeSpread >= 0 ? `+${fixedSpreads.homeSpread}` : fixedSpreads.homeSpread.toString(),
+      away: fixedSpreads.awaySpread >= 0 ? `+${fixedSpreads.awaySpread}` : fixedSpreads.awaySpread.toString()
+    };
+
     const embed = new EmbedBuilder()
       .setTitle(`📊 Full Matchup:  ${game.awayTeam} @ ${game.homeTeam}`)
       .setColor(0x0099FF)
@@ -1015,7 +1022,12 @@ export async function handleViewMyPicks(interaction) {
         if (isLocked) lockedCount++;
         
         const pickedTeam = pick.pick === 'home' ? game.homeTeam : game.awayTeam;
-        const spreadText = pick.spread > 0 ? `+${pick.spread}` : pick.spread.toString();
+        
+        // Use corrected spread, not the old saved value
+        const fixedSpreads = fixZeroSpreads(game);
+        const correctedSpread = pick.pick === 'home' ? fixedSpreads.homeSpread : fixedSpreads.awaySpread;
+        const spreadText = correctedSpread > 0 ? `+${correctedSpread}` : correctedSpread.toString();
+        
         const otherTeam = pick.pick === 'home' ? game.awayTeam : game.homeTeam;
         
         // Format time properly
