@@ -22,6 +22,7 @@ const cache = {
 // Cache settings
 const MATCHUP_CACHE_DURATION = 60 * 1000; // 1 minute for matchup info
 const TEAM_CACHE_DURATION = 60 * 1000; // 1 minute for team info (ESPN scrapes)
+const CACHE_VERSION = 'v2'; // Increment when injury fetching logic changes
 
 /**
  * Initialize the cache system (no auto-refresh for odds)
@@ -93,7 +94,7 @@ export function clearGamesCache() {
  * Falls back to live fetch if not cached or stale
  */
 export async function getCachedMatchupInfo(homeTeam, awayTeam, gameId = null) {
-  const cacheKey = gameId || `${homeTeam}_${awayTeam}`;
+  const cacheKey = `${CACHE_VERSION}_${gameId || `${homeTeam}_${awayTeam}`}`;
   
   // Check if we have cached data
   const cachedData = cache.matchupInfo.get(cacheKey);
@@ -166,9 +167,11 @@ export function clearCache() {
  * Falls back to live fetch if not cached or stale
  */
 export async function getCachedTeamInfo(teamName) {
+  const cacheKey = `${CACHE_VERSION}_${teamName}`;
+  
   // Check if we have cached data
-  const cachedData = cache.teamInfo.get(teamName);
-  const lastUpdated = cache.teamLastUpdated.get(teamName) || 0;
+  const cachedData = cache.teamInfo.get(cacheKey);
+  const lastUpdated = cache.teamLastUpdated.get(cacheKey) || 0;
   const cacheAge = Date.now() - lastUpdated;
   
   // If cache is fresh (less than 1 minute old), return it
@@ -183,8 +186,8 @@ export async function getCachedTeamInfo(teamName) {
     const teamInfo = await getTeamInfo(teamName);
     
     // Cache the result
-    cache.teamInfo.set(teamName, teamInfo);
-    cache.teamLastUpdated.set(teamName, Date.now());
+    cache.teamInfo.set(cacheKey, teamInfo);
+    cache.teamLastUpdated.set(cacheKey, Date.now());
     
     return teamInfo;
   } catch (error) {
@@ -215,4 +218,14 @@ export function getCacheStats() {
     teamsCached: cache.teamInfo.size,
     isRefreshing: cache.isRefreshing
   };
+}
+
+/**
+ * Clear matchup cache to force fresh data fetching
+ */
+export function clearMatchupCache() {
+  console.log('[Cache] Clearing matchup cache...');
+  cache.matchupInfo.clear();
+  cache.matchupLastUpdated.clear();
+  console.log('[Cache] Matchup cache cleared');
 }
