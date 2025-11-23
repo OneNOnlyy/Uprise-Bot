@@ -330,35 +330,31 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
     const pickButtons = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`pats_pick_${gameId}_away`)
-        .setLabel(`Pick ${game.awayTeam} ${game.spreadDisplay.away}`)
+        .setLabel(`${game.awayTeam} ${game.spreadDisplay.away}`)
         .setStyle(ButtonStyle.Primary)
-        .setEmoji('✈️')
         .setDisabled(isLocked),
       new ButtonBuilder()
         .setCustomId(`pats_pick_${gameId}_home`)
-        .setLabel(`Pick ${game.homeTeam} ${game.spreadDisplay.home}`)
+        .setLabel(`${game.homeTeam} ${game.spreadDisplay.home}`)
         .setStyle(ButtonStyle.Success)
-        .setEmoji('🏠')
         .setDisabled(isLocked)
     );
 
-    // ROW 2: Full Matchup Info - Return to Dashboard (or Double Down if not used)
+    // ROW 2: Full Matchup Info - Double Down (if available)
     const infoRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`pats_matchup_${gameId}`)
         .setLabel('Full Matchup Info')
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji('�')
     );
     
-    // Add Double Down button if available/active, otherwise Return to Dashboard
+    // Add Double Down button if available/active
     if (existingPick?.isDoubleDown) {
       infoRow.addComponents(
         new ButtonBuilder()
           .setCustomId(`pats_set_doubledown_${gameId}`)
           .setLabel('Double Down Active')
           .setStyle(ButtonStyle.Success)
-          .setEmoji('💰')
           .setDisabled(true)
       );
     } else if (!hasDoubleDown && !isLocked) {
@@ -367,19 +363,10 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
           .setCustomId(`pats_set_doubledown_${gameId}`)
           .setLabel('Use Double Down')
           .setStyle(ButtonStyle.Danger)
-          .setEmoji('💰')
-      );
-    } else {
-      infoRow.addComponents(
-        new ButtonBuilder()
-          .setCustomId('pats_back_to_dashboard')
-          .setLabel('Return to Dashboard')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('🏠')
       );
     }
 
-    // ROW 3: Navigation (Previous Game - Next Game)
+    // ROW 3: Navigation (Previous Game - Return to Dashboard - Next Game)
     const currentGameIndex = session.games.findIndex(g => g.id === gameId);
     const isFirstGame = currentGameIndex === 0;
     const isLastGame = currentGameIndex === session.games.length - 1;
@@ -394,9 +381,16 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
           .setCustomId(`pats_nav_game_${session.games[currentGameIndex - 1].id}`)
           .setLabel('Previous Game')
           .setStyle(ButtonStyle.Secondary)
-          .setEmoji('◀️')
       );
     }
+    
+    // Always show Return to Dashboard in the middle
+    navigationButtons.addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_back_to_dashboard')
+        .setLabel('Return to Dashboard')
+        .setStyle(ButtonStyle.Secondary)
+    );
     
     if (!isLastGame) {
       navigationButtons.addComponents(
@@ -404,7 +398,6 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
           .setCustomId(`pats_nav_game_${session.games[currentGameIndex + 1].id}`)
           .setLabel('Next Game')
           .setStyle(ButtonStyle.Primary)
-          .setEmoji('▶️')
       );
     }
 
