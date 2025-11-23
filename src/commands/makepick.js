@@ -248,8 +248,8 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
     embed.addFields({
       name: '📊 The Spread',
       value: `**${favoredTeam}** is favored by **${Math.abs(favoredSpread)} points**\n\n` +
-             `Pick ${game.homeTeam}: They must win by more than ${Math.abs(game.homeSpread)} points\n` +
-             `Pick ${game.awayTeam}: They must ${game.awaySpread > 0 ? 'win or lose by less than' : 'win by more than'} ${Math.abs(game.awaySpread)} points`,
+             `Pick **${game.homeTeam}**: ${game.homeSpread < 0 ? `Must win by more than ${Math.abs(game.homeSpread)}` : `Can lose by up to ${Math.abs(game.homeSpread)}`} points\n` +
+             `Pick **${game.awayTeam}**: ${game.awaySpread < 0 ? `Must win by more than ${Math.abs(game.awaySpread)}` : `Can lose by up to ${Math.abs(game.awaySpread)}`} points`,
       inline: false
     });
 
