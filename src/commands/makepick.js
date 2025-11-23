@@ -72,14 +72,14 @@ export async function execute(interaction) {
       if (isLocked) {
         description += ' 🔒 LOCKED';
       } else if (hasPicked) {
-        description += ' ✅ Picked';
+        description += ' 📌 Picked';
       }
       
       return new StringSelectMenuOptionBuilder()
         .setLabel(`${game.awayTeam} @ ${game.homeTeam}`)
         .setDescription(description)
         .setValue(game.id)
-        .setEmoji(isLocked ? '🔒' : (hasPicked ? '✅' : '🏀'));
+        .setEmoji(isLocked ? '🔒' : (hasPicked ? '📌' : '🏀'));
     });
 
     const selectMenu = new StringSelectMenuBuilder()
@@ -394,9 +394,9 @@ export async function handlePickSubmission(interaction) {
       
       return new StringSelectMenuOptionBuilder()
         .setLabel(`${game.awayTeam} @ ${game.homeTeam}`)
-        .setDescription(`${dateStr} ${timeStr} PT ${hasPicked ? '✅ Picked' : ''}`)
+        .setDescription(`${dateStr} ${timeStr} PT ${hasPicked ? '📌 Picked' : ''}`)
         .setValue(game.id)
-        .setEmoji(hasPicked ? '✅' : '🏀');
+        .setEmoji(hasPicked ? '📌' : '🏀');
     });
 
     const selectMenu = new StringSelectMenuBuilder()
@@ -575,14 +575,14 @@ export async function handleBackToMenu(interaction) {
       if (isLocked) {
         description += ' 🔒 LOCKED';
       } else if (hasPicked) {
-        description += ' ✅ Picked';
+        description += ' 📌 Picked';
       }
       
       return new StringSelectMenuOptionBuilder()
         .setLabel(`${game.awayTeam} @ ${game.homeTeam}`)
         .setDescription(description)
         .setValue(game.id)
-        .setEmoji(isLocked ? '🔒' : (hasPicked ? '✅' : '🏀'));
+        .setEmoji(isLocked ? '🔒' : (hasPicked ? '📌' : '🏀'));
     });
 
     const selectMenu = new StringSelectMenuBuilder()
@@ -878,7 +878,7 @@ export async function handleViewMyPicks(interaction) {
           minute: '2-digit'
         });
         
-        let statusEmoji = isLocked ? '🔒' : '✅';
+        let statusEmoji = isLocked ? '🔒' : '📌';  // 📌 for unlocked picks, 🔒 for locked pending
         let resultText = '';
         const ddEmoji = pick.isDoubleDown ? ' 💰' : '';
         
@@ -1058,14 +1058,14 @@ export async function handleMakepickFromDashboard(interaction) {
       if (isLocked) {
         description += ' 🔒 LOCKED';
       } else if (hasPicked) {
-        description += ' ✅ Picked';
+        description += ' 📌 Picked';
       }
       
       return new StringSelectMenuOptionBuilder()
         .setLabel(`${game.awayTeam} @ ${game.homeTeam}`)
         .setDescription(description)
         .setValue(game.id)
-        .setEmoji(isLocked ? '🔒' : (hasPicked ? '✅' : '🏀'));
+        .setEmoji(isLocked ? '🔒' : (hasPicked ? '📌' : '🏀'));
     });
 
     const selectMenu = new StringSelectMenuBuilder()

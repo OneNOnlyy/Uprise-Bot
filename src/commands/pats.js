@@ -186,6 +186,7 @@ export async function showDashboard(interaction) {
         statusEmoji = '🔒';
         pending++;
       } else {
+        statusEmoji = '📌';  // Pick made but not locked yet
         pending++;
       }
       
