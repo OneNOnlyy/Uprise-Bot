@@ -332,6 +332,8 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
     const isFirstGame = currentGameIndex === 0;
     const isLastGame = currentGameIndex === session.games.length - 1;
     
+    console.log(`[PATS] Showing game ${currentGameIndex + 1}/${session.games.length} - First: ${isFirstGame}, Last: ${isLastGame}`);
+    
     const navigationButtons = new ActionRowBuilder();
     
     if (isFirstGame) {
@@ -437,6 +439,8 @@ export async function handlePickSubmission(interaction) {
     savePick(session.id, interaction.user.id, gameId, pick, spread);
 
     const pickedTeam = pick === 'home' ? game.homeTeam : game.awayTeam;
+    
+    console.log(`[PATS] Pick saved: ${pickedTeam} for game ${gameId}. Refreshing game detail view...`);
     
     // Defer the update so we can edit the message
     await interaction.deferUpdate();
