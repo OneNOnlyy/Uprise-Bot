@@ -165,14 +165,33 @@ async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
     const divTables = $('div[class*="Table"]').length;
     const actualTables = $('table').length;
     const rows = $('tr').length;
-    console.log(`[Scraper] Found: ${actualTables} <table>, ${divTables} div.Table, ${rows} <tr> elements`);
+    const injuryCards = $('div[class*="Injury"], div[class*="injury"]').length;
+    console.log(`[Scraper] Found: ${actualTables} <table>, ${divTables} div.Table, ${rows} <tr>, ${injuryCards} injury divs`);
     
-    // Method 1: ESPN's div-based table structure (most common now)
-    $('.Table__TBODY .Table__TR, .ResponsiveTable tbody tr, tbody tr').each((i, row) => {
+    // Method 1: Try JSON data embedded in page (ESPN often includes this)
+    $('script[type="application/json"]').each((i, elem) => {
+      try {
+        const jsonText = $(elem).html();
+        if (jsonText && jsonText.includes('injury') || jsonText.includes('Injury')) {
+          const data = JSON.parse(jsonText);
+          console.log(`[Scraper] Found potential JSON data in script tag ${i}`);
+          // Try to extract injury data from JSON if present
+          if (data.page?.content?.injuries || data.injuries) {
+            const injuryData = data.page?.content?.injuries || data.injuries;
+            console.log(`[Scraper] Found ${injuryData.length || 0} injuries in JSON data`);
+          }
+        }
+      } catch (e) {
+        // Not valid JSON or doesn't contain injuries
+      }
+    });
+    
+    // Method 2: ESPN's div-based table structure (most common)
+    $('.Table__TBODY .Table__TR, .ResponsiveTable tbody tr, tbody tr, div[class*="TableRow"]').each((i, row) => {
       const $row = $(row);
       
       // Get all cells
-      const cells = $row.find('td, .Table__TD');
+      const cells = $row.find('td, .Table__TD, div[class*="TableCell"]');
       
       if (cells.length >= 3) {
         // Column 0: Player name
@@ -189,10 +208,29 @@ async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
             status: status,
             description: description || 'Injury'
           });
-          console.log(`[Scraper] Found: ${playerName} - ${status} (${description})`);
+          console.log(`[Scraper] Table method: ${playerName} - ${status} (${description})`);
         }
       }
     });
+    
+    // Method 3: Try finding injury cards or list items (newer ESPN design)
+    if (injuries.length === 0) {
+      $('div[class*="PlayerCard"], li[class*="Athlete"], div[class*="InjuryCard"]').each((i, card) => {
+        const $card = $(card);
+        const playerName = $card.find('a[class*="AthleteName"], h3, h4, span[class*="Name"]').first().text().trim();
+        const status = $card.find('span[class*="Status"], div[class*="Status"]').first().text().trim();
+        const description = $card.find('span[class*="Injury"], div[class*="Injury"], span[class*="Comment"]').first().text().trim();
+        
+        if (playerName && status) {
+          injuries.push({
+            player: playerName,
+            status: status,
+            description: description || 'Injury'
+          });
+          console.log(`[Scraper] Card method: ${playerName} - ${status} (${description})`);
+        }
+      });
+    }
     
     console.log(`[Scraper] Final count: ${injuries.length} injuries for ${teamName} via ESPN scraping`);
     return injuries;
