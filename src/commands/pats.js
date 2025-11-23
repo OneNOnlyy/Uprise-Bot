@@ -92,18 +92,22 @@ export async function showDashboard(interaction) {
       });
     }
 
-    // Add button to view detailed stats
-    const buttons = stats.sessions > 0 ? new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('pats_dashboard_stats')
-        .setLabel('View Full Statistics')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('📊')
-    ) : null;
+    // Add button to view detailed stats - always show if user has played before
+    const components = [];
+    if (stats.sessions > 0) {
+      const buttons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('pats_dashboard_stats')
+          .setLabel('View Full Statistics')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('📊')
+      );
+      components.push(buttons);
+    }
 
     await interaction.editReply({
       embeds: [embed],
-      components: buttons ? [buttons] : []
+      components: components
     });
     return;
   }
