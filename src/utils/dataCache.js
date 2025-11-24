@@ -16,12 +16,16 @@ const cache = {
   matchupLastUpdated: new Map(), // gameId -> timestamp
   teamInfo: new Map(), // teamName -> teamInfo (ESPN scrapes)
   teamLastUpdated: new Map(), // teamName -> timestamp
-  isFetchingGames: false
+  injuryReports: new Map(), // teamAbbr -> injuries array (CBS Sports data)
+  injuryReportsLastUpdated: null, // timestamp for entire injury report
+  isFetchingGames: false,
+  isFetchingInjuries: false
 };
 
 // Cache settings
-const MATCHUP_CACHE_DURATION = 0; // 0 minutes for matchup info - force fresh fetches
-const TEAM_CACHE_DURATION = 0; // 0 minutes for team info - force fresh fetches
+const MATCHUP_CACHE_DURATION = 60 * 1000; // 1 minute for matchup info
+const TEAM_CACHE_DURATION = 60 * 1000; // 1 minute for team info (ESPN scrapes)
+const INJURY_CACHE_DURATION = 60 * 1000; // 1 minute for injury reports
 const CACHE_VERSION = 'v2'; // Increment when injury fetching logic changes
 
 /**
@@ -221,11 +225,70 @@ export function getCacheStats() {
 }
 
 /**
- * Clear matchup cache to force fresh data fetching
+ * Get cached injury reports
  */
-export function clearMatchupCache() {
-  console.log('[Cache] Clearing matchup cache...');
-  cache.matchupInfo.clear();
-  cache.matchupLastUpdated.clear();
-  console.log('[Cache] Matchup cache cleared');
+export function getCachedInjuryReports() {
+  // Check if we have valid cached injury data
+  if (cache.injuryReports && cache.injuryReportsLastUpdated) {
+    const age = Date.now() - cache.injuryReportsLastUpdated;
+    if (age < INJURY_CACHE_DURATION * 1000) {
+      return cache.injuryReports;
+    }
+  }
+  return null;
+}
+
+/**
+ * Fetch and cache injury reports from CBS Sports
+ */
+export async function fetchAndCacheInjuryReports() {
+  if (cache.isFetchingInjuries) {
+    console.log('[Cache] Injury fetch already in progress, skipping...');
+    return;
+  }
+  
+  cache.isFetchingInjuries = true;
+  
+  try {
+    console.log('[Cache] Fetching injury reports from CBS Sports...');
+    const { fetchAllInjuryReports } = await import('./espnApi.js');
+    const injuryReports = await fetchAllInjuryReports();
+    
+    if (injuryReports && injuryReports.size > 0) {
+      cache.injuryReports = injuryReports;
+      cache.injuryReportsLastUpdated = Date.now();
+      console.log(`[Cache] Cached injury reports for ${injuryReports.size} teams`);
+    } else {
+      console.warn('[Cache] No injury reports fetched from CBS Sports');
+    }
+  } catch (error) {
+    console.error('[Cache] Error fetching injury reports:', error.message);
+  } finally {
+    cache.isFetchingInjuries = false;
+  }
+}
+
+/**
+ * Start automated injury report updates (runs every minute)
+ */
+export function startInjuryReportUpdates() {
+  console.log('[Cache] Starting automated injury report updates...');
+  
+  // Initial fetch
+  fetchAndCacheInjuryReports().catch(error => {
+    console.error('[Cache] Initial injury report fetch failed:', error.message);
+  });
+  
+  // Set up cron job to run every minute
+  const cron = require('node-cron');
+  cron.schedule('* * * * *', async () => {
+    try {
+      await fetchAndCacheInjuryReports();
+      console.log('[Cache] Injury reports updated successfully');
+    } catch (error) {
+      console.error('[Cache] Scheduled injury report update failed:', error.message);
+    }
+  });
+  
+  console.log('[Cache] Injury report updates scheduled (every minute)');
 }

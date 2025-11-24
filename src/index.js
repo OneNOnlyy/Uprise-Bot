@@ -1,6 +1,6 @@
 import { Client, GatewayIntentBits, Events, Collection } from 'discord.js';
 import dotenv from 'dotenv';
-import { initializeCache } from './utils/dataCache.js';
+import { initializeCache, startInjuryReportUpdates } from './utils/dataCache.js';
 import { scheduleGameThreads } from './features/gameThreads.js';
 import { scheduleGamePings } from './features/gamePing.js';
 import { scheduleThreadLocking } from './features/lockThreads.js';
@@ -55,6 +55,9 @@ client.once(Events.ClientReady, (readyClient) => {
   
   // Initialize data cache system
   initializeCache();
+  
+  // Start automated injury report updates
+  startInjuryReportUpdates();
   
   // Start the game thread scheduler
   scheduleGameThreads(client);

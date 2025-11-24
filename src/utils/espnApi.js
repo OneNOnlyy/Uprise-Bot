@@ -1,5 +1,6 @@
 import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
+import { getCachedInjuryReports } from './dataCache.js';
 
 const ESPN_API_BASE = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
 const BALLDONTLIE_API = 'https://api.balldontlie.io/v1';
@@ -716,18 +717,27 @@ export async function getTeamInfo(teamName) {
     
     console.log(`[ESPN] Total injuries found for ${normalizedName}: ${injuries.length}`);
     
-    // Always try CBS Sports for comprehensive injury reports (supplement existing data)
-    console.log(`[ESPN] Attempting to supplement with CBS Sports comprehensive data...`);
+    // Try to get CBS Sports injury data from cache
+    console.log(`[ESPN] Checking for cached CBS Sports injury data...`);
     try {
-      const cbsInjuries = await scrapeInjuriesFromCBSSports(normalizedName);
-      if (cbsInjuries.length > injuries.length) {
-        console.log(`[ESPN] CBS Sports has ${cbsInjuries.length} injuries vs current ${injuries.length} - using CBS data`);
-        injuries = cbsInjuries; // Replace with comprehensive CBS data
-      } else if (cbsInjuries.length > 0) {
-        console.log(`[ESPN] CBS Sports has ${cbsInjuries.length} injuries, keeping current ${injuries.length} from ESPN`);
+      const cachedInjuryReports = await getCachedInjuryReports();
+      if (cachedInjuryReports && cachedInjuryReports.size > 0) {
+        const teamAbbr = team.abbreviation;
+        const cbsInjuries = getInjuriesForTeam(teamAbbr, cachedInjuryReports);
+        
+        if (cbsInjuries.length > injuries.length) {
+          console.log(`[ESPN] CBS Sports cache has ${cbsInjuries.length} injuries vs current ${injuries.length} - using CBS data`);
+          injuries = cbsInjuries; // Replace with comprehensive CBS data
+        } else if (cbsInjuries.length > 0) {
+          console.log(`[ESPN] CBS Sports cache has ${cbsInjuries.length} injuries, keeping current ${injuries.length} from ESPN`);
+        } else {
+          console.log(`[ESPN] No CBS injuries found for ${teamAbbr} in cache`);
+        }
+      } else {
+        console.log(`[ESPN] No cached CBS injury reports available`);
       }
     } catch (cbsError) {
-      console.warn(`[ESPN] CBS Sports scraping failed:`, cbsError.message);
+      console.warn(`[ESPN] Error accessing cached CBS injury data:`, cbsError.message);
     }
     
     // If still no injuries after all attempts, try alternative sources as fallback
@@ -895,12 +905,12 @@ export async function getMatchupInfo(homeTeam, awayTeam) {
 }
 
 /**
- * Scrape injuries from CBS Sports (comprehensive reports)
+ * Fetch all injury reports from CBS Sports and organize by team
  */
-async function scrapeInjuriesFromCBSSports(teamName) {
+export async function fetchAllInjuryReports() {
   try {
     const url = 'https://www.cbssports.com/nba/injuries/';
-    console.log(`[CBS] Fetching injuries from CBS Sports for ${teamName}...`);
+    console.log(`[CBS] Fetching all injury reports from CBS Sports...`);
 
     const response = await fetch(url, {
       headers: {
@@ -909,31 +919,27 @@ async function scrapeInjuriesFromCBSSports(teamName) {
     });
 
     if (!response.ok) {
-      console.warn(`[CBS] Failed to fetch CBS Sports page: ${response.status}`);
-      return [];
+      console.error(`[CBS] Failed to fetch CBS Sports page: ${response.status}`);
+      return new Map();
     }
 
     const html = await response.text();
     console.log(`[CBS] Received HTML length: ${html.length} chars`);
 
     const $ = cheerio.load(html);
-    const injuries = [];
+    const injuryReports = new Map(); // teamAbbr -> injuries array
 
     // CBS Sports organizes injuries in tables, one per team
-    // Each table has: Player, Position, Updated, Injury, Injury Status
     $('table').each((tableIndex, table) => {
       const $table = $(table);
       const rows = $table.find('tr');
 
       if (rows.length < 2) return; // Skip empty tables
 
-      // Check if this table contains injuries for our target team
-      let tableHasTargetTeam = false;
       const tableInjuries = [];
+      let teamAbbr = null;
 
       rows.each((rowIndex, row) => {
-        if (rowIndex === 0) return; // Skip header row
-
         const $row = $(row);
         const cells = $row.find('td');
 
@@ -945,11 +951,72 @@ async function scrapeInjuriesFromCBSSports(teamName) {
           const status = $(cells[4]).text().trim();
 
           // Extract clean player name (CBS often duplicates like "L. KennardLuke Kennard")
-          const cleanPlayerName = playerName.replace(/^[A-Z]\.\s*[A-Za-z]+\s*/, '');
+          // Simple approach: take everything after the first space
+          const spaceIndex = playerName.indexOf(' ');
+          let cleanPlayerName = spaceIndex >= 0 ? playerName.substring(spaceIndex + 1) : playerName;
+
+          // For cases like "Finney-SmithDorian Finney-Smith", extract the proper name
+          if (cleanPlayerName.includes(' ')) {
+            const parts = cleanPlayerName.split(' ');
+            if (parts.length === 2) {
+              // Check if first part has a capital letter in the middle (indicating first name attached)
+              const firstCapInMiddle = parts[0].match(/[a-z-][A-Z]/);
+              if (firstCapInMiddle) {
+                // Extract first name and last name
+                const match = parts[0].match(/^([A-Za-z'-]*)([A-Z][A-Za-z'-]*)$/);
+                if (match) {
+                  cleanPlayerName = match[2] + ' ' + match[1];
+                }
+              }
+            }
+          }
 
           if (cleanPlayerName && status) {
-            // For now, collect all injuries - we'll filter by team later if needed
-            // CBS tables are organized by team, so we can identify teams by player names
+            // Try to identify team from player name patterns
+            // This is a heuristic - look for common team identifiers in player names
+            if (!teamAbbr) {
+              // Common team abbreviations that appear in player names
+              const teamPatterns = {
+                'LAL': ['LeBron', 'Davis', 'James', 'AD', 'Anthony Davis'],
+                'BOS': ['Tatum', 'Brown', 'Jr.Jaren Jackson', 'Jr.JJ', 'White', 'Porzingis'],
+                'MIL': ['Antetokounmpo', 'Giannis', 'Lillard', 'Middleton'],
+                'DEN': ['Jokic', 'Nikola', 'Murray', 'Jamal', 'Gordon'],
+                'PHI': ['Embiid', 'Joel', 'Maxey', 'Tyrese', 'Harden'],
+                'LAC': ['Kawhi', 'Leonard', 'Paul', 'Jameson', 'George'],
+                'OKC': ['SGA', 'Shai', 'Gilgeous-Alexander', 'Jalen Williams'],
+                'DAL': ['Luka', 'Doncic', 'Irving', 'Kyrie', 'Saraf', 'Thomas', 'Finney-Smith'],
+                'NYK': ['Randle', 'Julius', 'Brunson', 'Jalen Brunson', 'McBride', 'Shamet'],
+                'PHO': ['Booker', 'Devin', 'Durant', 'Kevin', 'Beal'],
+                'MIA': ['Butler', 'Jimmy', 'Rozier', 'Terry', 'Herro'],
+                'ATL': ['Trae', 'Young', 'Hunter', 'Dejounte', 'Murray'],
+                'GSW': ['Curry', 'Stephen', 'Klay', 'Thompson', 'Green'],
+                'SAS': ['Wembanyama', 'Victor', 'Vassell', 'Devin'],
+                'UTA': ['Markkanen', 'Lauri', 'Sexton', 'Collin', 'George'],
+                'MEM': ['Morant', 'Ja', 'Kennard', 'Luke', 'Bane', 'Travers', 'Jackson'],
+                'POR': ['Lillard', 'Damian', 'Jr.Jerami Grant', 'Simons', 'Anfernee', 'Clingan'],
+                'SAC': ['Sabonis', 'Domantas', 'Fox', 'DeAaron', 'Murray'],
+                'CHA': ['Ball', 'Lamelo', 'Jr.Miles Bridges', 'Rozier', 'Murray-Boyles'],
+                'WAS': ['Beal', 'Bradley', 'Jr.Kyle Kuzma', 'Porzingis', 'Bagley III'],
+                'IND': ['Haliburton', 'Tyrese', 'Nembhard', 'Andrew', 'Turner'],
+                'ORL': ['Banchero', 'Paolo', 'Wagner', 'Franz', 'Carter Jr.'],
+                'CHI': ['DeRozan', 'DeMar', 'Vucevic', 'Nikola', 'Jr.Zach LaVine'],
+                'DET': ['Cunningham', 'Cade', 'Durant', 'Jr.Jalen Duren', 'Bogdanovic', 'Klintman', 'Miller'],
+                'BKN': ['Irving', 'Kyrie', 'Bridges', 'Mikal', 'Claxton'],
+                'NOP': ['Jr.Zion Williamson', 'Jr.Jonas Valanciunas', 'Jr.Trey Murphy', 'Jr.Larry Nance', 'Jones'],
+                'TOR': ['VanVleet', 'Fred', 'Jr.Pascal Siakam', 'Jr.Gary Trent', 'Jr.O.G. Anunoby'],
+                'MIN': ['Edwards', 'Anthony', 'Gobert', 'Rudy', 'McDaniels', 'Shannon Jr.', 'McLaughlin'],
+                'CLE': ['Garland', 'Darius', 'Allen', 'Jarrett', 'Mobley', 'Fleming', 'Niang']
+              };
+
+              // Check if any known player names match this team
+              for (const [abbr, players] of Object.entries(teamPatterns)) {
+                if (players.some(player => cleanPlayerName.includes(player) || playerName.includes(player))) {
+                  teamAbbr = abbr;
+                  break;
+                }
+              }
+            }
+
             tableInjuries.push({
               player: cleanPlayerName,
               status: status,
@@ -957,33 +1024,112 @@ async function scrapeInjuriesFromCBSSports(teamName) {
               position: position,
               updated: updated
             });
-
-            // Check if this player belongs to our target team
-            // This is a simple heuristic - in production you might want a player->team mapping
-            if (playerName.toLowerCase().includes(teamName.toLowerCase().replace(' ', '')) ||
-                teamName.toLowerCase().includes('lakers') && playerName.includes('LeBron') ||
-                teamName.toLowerCase().includes('celtics') && playerName.includes('Tatum')) {
-              tableHasTargetTeam = true;
-            }
           }
         }
       });
 
-      // If this table has injuries for our target team, or if we can't determine teams,
-      // collect all injuries (CBS Sports provides comprehensive reports)
-      if (tableHasTargetTeam || tableInjuries.length > 0) {
-        injuries.push(...tableInjuries);
-        console.log(`[CBS] Found ${tableInjuries.length} injuries in table ${tableIndex}`);
+      // If we couldn't identify the team but have injuries, try to infer from context
+      if (!teamAbbr && tableInjuries.length > 0) {
+        // Look for team name in surrounding elements or use table index as fallback
+        const $prevElement = $table.prev();
+        if ($prevElement.length > 0) {
+          const prevText = $prevElement.text().toLowerCase();
+          // Simple team name detection in previous element
+          const teamNames = ['lakers', 'celtics', 'bucks', 'nuggets', '76ers', 'clippers', 'thunder', 'mavericks', 'knicks', 'suns', 'heat', 'hawks', 'warriors', 'spurs', 'jazz', 'grizzlies', 'blazers', 'kings', 'hornets', 'wizards', 'pacers', 'magic', 'bulls', 'pistons', 'nets', 'pelicans', 'raptors', 'timberwolves', 'cavaliers'];
+          for (const teamName of teamNames) {
+            if (prevText.includes(teamName)) {
+              // Convert common names to abbreviations
+              const abbrMap = {
+                'lakers': 'LAL', 'celtics': 'BOS', 'bucks': 'MIL', 'nuggets': 'DEN', '76ers': 'PHI', 'clippers': 'LAC',
+                'thunder': 'OKC', 'mavericks': 'DAL', 'knicks': 'NYK', 'suns': 'PHO', 'heat': 'MIA', 'hawks': 'ATL',
+                'warriors': 'GSW', 'spurs': 'SAS', 'jazz': 'UTA', 'grizzlies': 'MEM', 'blazers': 'POR', 'kings': 'SAC',
+                'hornets': 'CHA', 'wizards': 'WAS', 'pacers': 'IND', 'magic': 'ORL', 'bulls': 'CHI', 'pistons': 'DET',
+                'nets': 'BKN', 'pelicans': 'NOP', 'raptors': 'TOR', 'timberwolves': 'MIN', 'cavaliers': 'CLE'
+              };
+              teamAbbr = abbrMap[teamName];
+              break;
+            }
+          }
+        }
       }
+
+      // If we still don't have a team abbreviation, skip this table
+      if (!teamAbbr) {
+        console.log(`[CBS] Could not identify team for table ${tableIndex} with ${tableInjuries.length} injuries`);
+        return;
+      }
+
+      // Store injuries for this team
+      injuryReports.set(teamAbbr, tableInjuries);
+      console.log(`[CBS] Found ${tableInjuries.length} injuries for ${teamAbbr} in table ${tableIndex}`);
     });
 
-    console.log(`[CBS] Total injuries scraped for ${teamName}: ${injuries.length}`);
-    return injuries;
+    console.log(`[CBS] Total teams with injury reports: ${injuryReports.size}`);
+    return injuryReports;
 
   } catch (error) {
-    console.error(`[CBS] Error scraping CBS Sports injuries for ${teamName}:`, error.message);
+    console.error(`[CBS] Error fetching all injury reports:`, error.message);
+    return new Map();
+  }
+}
+
+/**
+ * Get injuries for a specific team from cached injury reports
+ */
+export function getInjuriesForTeam(teamAbbr, injuryReports) {
+  if (!injuryReports || !(injuryReports instanceof Map)) {
     return [];
   }
+
+  // Try exact match first
+  if (injuryReports.has(teamAbbr)) {
+    return injuryReports.get(teamAbbr);
+  }
+
+  // Try some common variations
+  const variations = {
+    'LAL': ['LA Lakers', 'Los Angeles Lakers'],
+    'LAC': ['LA Clippers', 'Los Angeles Clippers'],
+    'BOS': ['Boston Celtics'],
+    'MIL': ['Milwaukee Bucks'],
+    'DEN': ['Denver Nuggets'],
+    'PHI': ['Philadelphia 76ers'],
+    'OKC': ['Oklahoma City Thunder'],
+    'DAL': ['Dallas Mavericks'],
+    'NYK': ['New York Knicks'],
+    'PHO': ['Phoenix Suns'],
+    'MIA': ['Miami Heat'],
+    'ATL': ['Atlanta Hawks'],
+    'GSW': ['Golden State Warriors'],
+    'SAS': ['San Antonio Spurs'],
+    'UTA': ['Utah Jazz'],
+    'MEM': ['Memphis Grizzlies'],
+    'POR': ['Portland Trail Blazers'],
+    'SAC': ['Sacramento Kings'],
+    'CHA': ['Charlotte Hornets'],
+    'WAS': ['Washington Wizards'],
+    'IND': ['Indiana Pacers'],
+    'ORL': ['Orlando Magic'],
+    'CHI': ['Chicago Bulls'],
+    'DET': ['Detroit Pistons'],
+    'BKN': ['Brooklyn Nets'],
+    'NOP': ['New Orleans Pelicans'],
+    'TOR': ['Toronto Raptors'],
+    'MIN': ['Minnesota Timberwolves'],
+    'CLE': ['Cleveland Cavaliers']
+  };
+
+  // Check if any variation matches
+  for (const [abbr, names] of Object.entries(variations)) {
+    if (names.some(name => name.toLowerCase().includes(teamAbbr.toLowerCase()) ||
+                          teamAbbr.toLowerCase().includes(name.toLowerCase()))) {
+      if (injuryReports.has(abbr)) {
+        return injuryReports.get(abbr);
+      }
+    }
+  }
+
+  return [];
 }
 
 /**
