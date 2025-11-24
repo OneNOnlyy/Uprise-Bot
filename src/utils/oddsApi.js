@@ -999,25 +999,48 @@ export async function fetchCBSSportsScores(date = null) {
           homeScore = scores[1];
         }
         
-        // Try to find game status
-        const statusElement = $game('.game-status, [class*="status"]').first();
-        if (statusElement.length > 0) {
-          status = statusElement.text().trim();
-          
-          // Normalize status
-          if (status.toLowerCase().includes('final')) {
+        // Determine game status more accurately
+        // Check for INPROGRESS-status class which indicates live game
+        const isInProgress = $game('body').attr('class')?.includes('INPROGRESS-status') || false;
+        
+        // Check for FINAL-status class
+        const isGameFinal = $game('body').attr('class')?.includes('FINAL-status') || false;
+        
+        // Get period/quarter status
+        const periodStatus = $game('.game-period-status').first().text().trim();
+        const timeStatus = $game('.status').first().text().trim();
+        
+        // Determine status based on game state
+        if (isGameFinal) {
+          status = 'Final';
+        } else if (isInProgress && periodStatus) {
+          // Live game with quarter info
+          status = periodStatus; // e.g., "2nd Quarter", "Halftime"
+        } else if (timeStatus && timeStatus.match(/\d+(st|nd|rd|th)/)) {
+          // Status like "4th 3:31"
+          status = timeStatus;
+        } else if (periodStatus) {
+          status = periodStatus;
+        } else {
+          // Fallback to checking text content
+          const bodyText = $game('body').text();
+          if (bodyText.includes('FINAL') || bodyText.includes('Final')) {
             status = 'Final';
-          } else if (status.toLowerCase().includes('half')) {
-            status = 'Halftime';
-          } else if (status.match(/\d+(st|nd|rd|th)/)) {
-            // Quarter status like "1st", "2nd", etc.
-            status = status.split(' ')[0]; // Keep just the quarter/period
+          } else {
+            status = 'Scheduled';
           }
+        }
+        
+        // Normalize common status formats
+        if (status.toLowerCase().includes('final')) {
+          status = 'Final';
+        } else if (status.toLowerCase().includes('half')) {
+          status = 'Halftime';
         }
         
         // Determine if game is final or live
         const isFinal = status === 'Final';
-        const isLive = awayScore !== null && homeScore !== null && !isFinal;
+        const isLive = (isInProgress || (awayScore !== null && homeScore !== null)) && !isFinal;
         
         games.push({
           id: gameId,
