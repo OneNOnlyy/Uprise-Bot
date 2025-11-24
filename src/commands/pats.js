@@ -5,8 +5,8 @@ import {
   ButtonBuilder,
   ButtonStyle
 } from 'discord.js';
-import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory } from '../utils/patsData.js';
-import { getTeamAbbreviation } from '../utils/oddsApi.js';
+import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory, updateGameResult } from '../utils/patsData.js';
+import { getTeamAbbreviation, fetchCBSSportsScores } from '../utils/oddsApi.js';
 
 /**
  * FAIL-SAFE: Fix spreads where one is 0 but the other isn't (they should be inverse)
@@ -33,6 +33,59 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   try {
     await interaction.deferReply({ ephemeral: true });
+    
+    // Fetch fresh CBS scores before showing dashboard
+    const session = getActiveSession();
+    if (session) {
+      try {
+        console.log('🔄 Loading dashboard - fetching fresh CBS scores...');
+        const cbsGames = await fetchCBSSportsScores(session.date);
+        
+        let updatedCount = 0;
+        for (const sessionGame of session.games) {
+          // Match with CBS Sports data using abbreviations
+          const awayAbbr = getTeamAbbreviation(sessionGame.awayTeam);
+          const homeAbbr = getTeamAbbreviation(sessionGame.homeTeam);
+          
+          const cbsGame = cbsGames.find(cg => 
+            cg.awayTeam === awayAbbr && cg.homeTeam === homeAbbr
+          );
+          
+          if (cbsGame && cbsGame.awayScore !== null && cbsGame.homeScore !== null) {
+            // If CBS says game is live, always update
+            if (cbsGame.isLive) {
+              const liveResult = {
+                homeScore: cbsGame.homeScore,
+                awayScore: cbsGame.awayScore,
+                status: cbsGame.status,
+                isLive: true
+              };
+              updateGameResult(session.id, sessionGame.id, liveResult);
+              updatedCount++;
+            } else if (cbsGame.isFinal) {
+              // Only mark as final if not already final
+              if (!sessionGame.result || sessionGame.result.status !== 'Final') {
+                const result = {
+                  homeScore: cbsGame.homeScore,
+                  awayScore: cbsGame.awayScore,
+                  winner: cbsGame.homeScore > cbsGame.awayScore ? 'home' : 'away',
+                  status: 'Final'
+                };
+                updateGameResult(session.id, sessionGame.id, result);
+                updatedCount++;
+              }
+            }
+          }
+        }
+        
+        if (updatedCount > 0) {
+          console.log(`✅ Updated ${updatedCount} games with fresh CBS scores on load`);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching fresh CBS scores on load:', error);
+      }
+    }
+    
     await showDashboard(interaction);
   } catch (error) {
     console.error('Error executing pats command:', error);
@@ -65,8 +118,60 @@ export async function handleDashboardButton(interaction) {
       await interaction.deferUpdate();
       await showUserStats(interaction);
     } else if (interaction.customId === 'pats_dashboard_refresh') {
-      // Defer and re-execute the dashboard
+      // Fetch fresh CBS scores and update session before showing dashboard
       await interaction.deferUpdate();
+      
+      const session = getActiveSession();
+      if (session) {
+        try {
+          console.log('🔄 Refreshing dashboard - fetching fresh CBS scores...');
+          const cbsGames = await fetchCBSSportsScores(session.date);
+          
+          let updatedCount = 0;
+          for (const sessionGame of session.games) {
+            // Match with CBS Sports data using abbreviations
+            const awayAbbr = getTeamAbbreviation(sessionGame.awayTeam);
+            const homeAbbr = getTeamAbbreviation(sessionGame.homeTeam);
+            
+            const cbsGame = cbsGames.find(cg => 
+              cg.awayTeam === awayAbbr && cg.homeTeam === homeAbbr
+            );
+            
+            if (cbsGame && cbsGame.awayScore !== null && cbsGame.homeScore !== null) {
+              // If CBS says game is live, always update
+              if (cbsGame.isLive) {
+                const liveResult = {
+                  homeScore: cbsGame.homeScore,
+                  awayScore: cbsGame.awayScore,
+                  status: cbsGame.status,
+                  isLive: true
+                };
+                updateGameResult(session.id, sessionGame.id, liveResult);
+                updatedCount++;
+              } else if (cbsGame.isFinal) {
+                // Only mark as final if not already final
+                if (!sessionGame.result || sessionGame.result.status !== 'Final') {
+                  const result = {
+                    homeScore: cbsGame.homeScore,
+                    awayScore: cbsGame.awayScore,
+                    winner: cbsGame.homeScore > cbsGame.awayScore ? 'home' : 'away',
+                    status: 'Final'
+                  };
+                  updateGameResult(session.id, sessionGame.id, result);
+                  updatedCount++;
+                }
+              }
+            }
+          }
+          
+          if (updatedCount > 0) {
+            console.log(`✅ Updated ${updatedCount} games with fresh CBS scores`);
+          }
+        } catch (error) {
+          console.error('❌ Error fetching fresh CBS scores for refresh:', error);
+        }
+      }
+      
       await showDashboard(interaction);
     } else if (interaction.customId === 'pats_stats_back') {
       // Return to dashboard from stats
