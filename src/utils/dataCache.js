@@ -4,7 +4,6 @@
  * Odds API has a limit of 500 calls per month, so we only fetch once per session
  */
 
-import { getNBAGamesWithSpreads } from './oddsApi.js';
 import { getMatchupInfo, getTeamInfo } from './espnApi.js';
 import * as cron from 'node-cron';
 
@@ -55,7 +54,9 @@ export async function fetchGamesForSession(date = null) {
     const dateStr = date || new Date().toISOString().split('T')[0];
     console.log(`[Cache] 📊 Fetching games with spreads from Odds API for ${dateStr}...`);
     
-    const games = await getNBAGamesWithSpreads(date);
+    // Use getFormattedGamesForDate to get properly formatted games with spreads
+    const { getFormattedGamesForDate } = await import('./oddsApi.js');
+    const games = await getFormattedGamesForDate(date);
     
     if (games && games.length > 0) {
       cache.games = games;
