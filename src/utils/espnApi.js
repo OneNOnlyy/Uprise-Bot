@@ -929,11 +929,11 @@ export async function fetchAllInjuryReports() {
 
     // CBS ID to NBA abbreviation mapping (from team logo URLs)
     const CBS_ID_TO_ABBR = {
-      '333': 'MEM', '334': 'BOS', '335': 'CLE', '336': 'PHO', '337': 'MIL', '338': 'ORL',
-      '339': 'IND', '340': 'DET', '341': 'TOR', '342': 'WAS', '343': 'CHA', '344': 'MIA',
-      '345': 'ATL', '346': 'NOP', '347': 'BKN', '348': 'NYK', '349': 'DAL', '350': 'DEN',
-      '351': 'GSW', '352': 'HOU', '353': 'LAC', '354': 'LAL', '355': 'MIN', '356': 'OKC',
-      '357': 'POR', '358': 'SAC', '359': 'SAS', '360': 'UTA', '361': 'CHI', '448283': 'CHA'
+      '333': 'MEM', '334': 'BOS', '335': 'NOP', '336': 'CHI', '337': 'CLE', '338': 'DAL',
+      '339': 'DEN', '340': 'DET', '341': 'GSW', '342': 'HOU', '343': 'IND', '344': 'LAC',
+      '345': 'ATL', '346': 'MIA', '347': 'MIL', '348': 'MIN', '349': 'BKN', '350': 'NYK',
+      '351': 'ORL', '352': 'PHI', '353': 'PHO', '354': 'POR', '355': 'SAC', '356': 'SAS',
+      '358': 'TOR', '359': 'UTA', '360': 'MEM', '361': 'WAS', '448283': 'CHA', '1628527': 'OKC'
     };
 
     // CBS Sports organizes injuries in tables, one per team
