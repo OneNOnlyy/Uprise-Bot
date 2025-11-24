@@ -601,6 +601,87 @@ async function scrapeESPNOdds() {
 }
 
 /**
+ * Scrape NBA odds from ESPN Bet Odds page
+ * URL: https://www.espn.com/nba/odds
+ * This page shows odds from ESPN BET with spreads that end in .5 to avoid pushes
+ */
+async function scrapeESPNBetOdds() {
+  let browser;
+  try {
+    console.log('🌐 Scraping NBA odds from ESPN Bet Odds page...');
+    browser = await puppeteer.launch({ 
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    console.log('📡 Loading ESPN Bet odds page...');
+    await page.goto('https://www.espn.com/nba/odds', { 
+      waitUntil: 'networkidle2',
+      timeout: 30000 
+    });
+    
+    // Wait for the odds table to load
+    await page.waitForSelector('.odds__table, [class*="Table"]', { timeout: 10000 }).catch(() => {
+      console.warn('No odds table found on ESPN Bet page');
+    });
+    
+    // Extract odds data
+    const games = await page.evaluate(() => {
+      const gamesList = [];
+      
+      // Get all team names in order
+      const teamLinks = Array.from(document.querySelectorAll('a[data-clubhouse-uid]'));
+      const teams = teamLinks.map(link => link.querySelector('span')?.textContent?.trim()).filter(Boolean);
+      
+      // Get all spreads ending in .5 in order
+      const spreadElements = Array.from(document.querySelectorAll('.FTMw.FuEs'));
+      const spreads = spreadElements
+        .map(el => el.textContent.trim())
+        .filter(text => /^[+-]?\d+\.5$/.test(text))
+        .map(text => parseFloat(text));
+      
+      // Match teams and spreads in pairs (every 2 teams = 1 game, every 2 spreads = 1 game)
+      const numGames = Math.min(Math.floor(teams.length / 2), Math.floor(spreads.length / 2));
+      
+      for (let i = 0; i < numGames; i++) {
+        const awayTeam = teams[i * 2];
+        const homeTeam = teams[i * 2 + 1];
+        const awaySpread = spreads[i * 2];
+        const homeSpread = spreads[i * 2 + 1];
+        
+        if (awayTeam && homeTeam && awaySpread !== undefined && homeSpread !== undefined) {
+          gamesList.push({
+            awayTeam,
+            awaySpread,
+            homeTeam,
+            homeSpread
+          });
+        }
+      }
+      
+      return gamesList;
+    });
+    
+    await browser.close();
+    
+    console.log(`✅ Scraped ${games.length} games with spreads from ESPN Bet odds`);
+    games.forEach(game => {
+      console.log(`  ${game.awayTeam} (${game.awaySpread}) @ ${game.homeTeam} (${game.homeSpread})`);
+    });
+    
+    return games;
+    
+  } catch (error) {
+    console.error('Error scraping ESPN Bet odds:', error.message);
+    if (browser) await browser.close();
+    return [];
+  }
+}
+
+/**
  * Scrape NBA spreads from ActionNetwork (more reliable)
  */
 async function scrapeActionNetworkOdds() {
@@ -941,8 +1022,13 @@ export async function getNBAGamesWithSpreads(date = null) {
       const espnGames = await scrapeESPNWithPuppeteer();
       
       if (espnGames.length > 0) {
-        // Try ActionNetwork for spreads
-        let spreadGames = await scrapeActionNetworkOdds();
+        // Try ESPN Bet odds first (best spreads with .5 endings to avoid pushes)
+        let spreadGames = await scrapeESPNBetOdds();
+        
+        if (spreadGames.length === 0) {
+          console.log('📡 ESPN Bet failed, trying ActionNetwork...');
+          spreadGames = await scrapeActionNetworkOdds();
+        }
         
         if (spreadGames.length === 0) {
           console.log('📡 ActionNetwork failed, trying Covers...');
@@ -969,7 +1055,7 @@ export async function getNBAGamesWithSpreads(date = null) {
             away_team: game.awayTeam,
             commence_time: new Date().toISOString(),
             bookmakers: match ? [{
-              title: 'Scraped (Covers)',
+              title: 'ESPN BET',
               markets: [{
                 key: 'spreads',
                 outcomes: [
