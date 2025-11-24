@@ -984,28 +984,41 @@ export async function fetchCBSSportsScores(date = null) {
         // Fetch game details
         const gametrackerUrl = `${CBS_GAMETRACKER_URL}${gameId}`;
         const gameHtml = await new Promise((resolve, reject) => {
-          const gameRequest = https.get(gametrackerUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            },
-            timeout: 8000
-          }, (res) => {
-            let data = '';
-            res.on('data', (chunk) => data += chunk);
-            res.on('end', () => {
-              if (res.statusCode === 200) {
-                resolve(data);
-              } else {
-                reject(new Error(`HTTP ${res.statusCode}`));
+          const makeRequest = (urlToFetch) => {
+            const gameRequest = https.get(urlToFetch, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+              },
+              timeout: 8000
+            }, (res) => {
+              // Handle redirects
+              if (res.statusCode === 301 || res.statusCode === 302) {
+                if (res.headers.location) {
+                  console.log(`  Redirecting to: ${res.headers.location}`);
+                  makeRequest(res.headers.location);
+                  return;
+                }
               }
+              
+              let data = '';
+              res.on('data', (chunk) => data += chunk);
+              res.on('end', () => {
+                if (res.statusCode === 200) {
+                  resolve(data);
+                } else {
+                  reject(new Error(`HTTP ${res.statusCode}`));
+                }
+              });
             });
-          });
 
-          gameRequest.on('error', reject);
-          gameRequest.on('timeout', () => {
-            gameRequest.destroy();
-            reject(new Error('Request timeout'));
-          });
+            gameRequest.on('error', reject);
+            gameRequest.on('timeout', () => {
+              gameRequest.destroy();
+              reject(new Error('Request timeout'));
+            });
+          };
+          
+          makeRequest(gametrackerUrl);
         });
 
         const $game = cheerio.load(gameHtml);
