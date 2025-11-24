@@ -16,7 +16,6 @@
 import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
 import https from 'https';
-import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -922,14 +921,31 @@ export async function fetchCBSSportsScores(date = null) {
 
     console.log(`🏀 Fetching scores from CBS Sports for ${dateStr}...`);
 
-    // Use curl to fetch HTML (more reliable than https.get)
-    let html;
-    try {
-      html = execSync(`curl -s --max-time 10 "https://www.cbssports.com/nba/scoreboard/"`, { encoding: 'utf8' });
-    } catch (error) {
-      console.error('Curl failed:', error.message);
-      return [];
-    }
+    // Use native https.get for reliable fetching
+    const html = await new Promise((resolve, reject) => {
+      const request = https.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
+        timeout: 10000
+      }, (res) => {
+        let data = '';
+        res.on('data', (chunk) => data += chunk);
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            resolve(data);
+          } else {
+            reject(new Error(`HTTP ${res.statusCode}`));
+          }
+        });
+      });
+
+      request.on('error', reject);
+      request.on('timeout', () => {
+        request.destroy();
+        reject(new Error('Request timeout'));
+      });
+    });
 
     const $ = cheerio.load(html);
 
@@ -967,13 +983,30 @@ export async function fetchCBSSportsScores(date = null) {
 
         // Fetch game details
         const gametrackerUrl = `${CBS_GAMETRACKER_URL}${gameId}`;
-        let gameHtml;
-        try {
-          gameHtml = execSync(`curl -s --max-time 8 "${gametrackerUrl}"`, { encoding: 'utf8' });
-        } catch (error) {
-          console.log(`⚠️ Could not fetch gametracker for ${awayTeam} @ ${homeTeam}`);
-          continue;
-        }
+        const gameHtml = await new Promise((resolve, reject) => {
+          const gameRequest = https.get(gametrackerUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            },
+            timeout: 8000
+          }, (res) => {
+            let data = '';
+            res.on('data', (chunk) => data += chunk);
+            res.on('end', () => {
+              if (res.statusCode === 200) {
+                resolve(data);
+              } else {
+                reject(new Error(`HTTP ${res.statusCode}`));
+              }
+            });
+          });
+
+          gameRequest.on('error', reject);
+          gameRequest.on('timeout', () => {
+            gameRequest.destroy();
+            reject(new Error('Request timeout'));
+          });
+        });
 
         const $game = cheerio.load(gameHtml);
 
