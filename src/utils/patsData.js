@@ -164,10 +164,64 @@ export function updateGameResult(sessionId, gameId, result) {
     return false;
   }
   
+  // Track if we need to revert previous stats (if game was already processed)
+  const hadPreviousResult = game.result && game.result.status === 'Final';
+  const previousResult = hadPreviousResult ? { ...game.result } : null;
+  
   // Allow updating live scores or setting final results
   game.result = result;
   
-  // Calculate and update user stats immediately for this game
+  // Only update user stats if game is FINAL (not for live updates)
+  if (result.status !== 'Final') {
+    writePATSData(data);
+    return true;
+  }
+  
+  // If we already processed this game as final, revert the old stats first
+  if (hadPreviousResult) {
+    console.log(`[PATS] Game ${gameId} was already final, reverting previous stats before applying new ones`);
+    
+    for (const userId in session.picks) {
+      const picks = session.picks[userId];
+      const pick = picks.find(p => p.gameId === gameId);
+      
+      if (!pick || !data.users[userId]) continue;
+      
+      const oldHomeScore = previousResult.homeScore;
+      const oldAwayScore = previousResult.awayScore;
+      const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
+      const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
+      const oldAdjustedHomeScore = oldHomeScore + homeSpread;
+      const oldAdjustedAwayScore = oldAwayScore + awaySpread;
+      
+      // Revert the old result
+      if (pick.pick === 'home') {
+        if (oldAdjustedHomeScore === oldAwayScore) {
+          data.users[userId].totalPushes -= 1;
+          if (pick.isDoubleDown) data.users[userId].doubleDownPushes -= 1;
+        } else if (oldAdjustedHomeScore > oldAwayScore) {
+          data.users[userId].totalWins -= pick.isDoubleDown ? 2 : 1;
+          if (pick.isDoubleDown) data.users[userId].doubleDownWins -= 1;
+        } else {
+          data.users[userId].totalLosses -= pick.isDoubleDown ? 2 : 1;
+          if (pick.isDoubleDown) data.users[userId].doubleDownLosses -= 1;
+        }
+      } else {
+        if (oldAdjustedAwayScore === oldHomeScore) {
+          data.users[userId].totalPushes -= 1;
+          if (pick.isDoubleDown) data.users[userId].doubleDownPushes -= 1;
+        } else if (oldAdjustedAwayScore > oldHomeScore) {
+          data.users[userId].totalWins -= pick.isDoubleDown ? 2 : 1;
+          if (pick.isDoubleDown) data.users[userId].doubleDownWins -= 1;
+        } else {
+          data.users[userId].totalLosses -= pick.isDoubleDown ? 2 : 1;
+          if (pick.isDoubleDown) data.users[userId].doubleDownLosses -= 1;
+        }
+      }
+    }
+  }
+  
+  // Calculate and update user stats immediately for this game (FINAL games only)
   for (const userId in session.picks) {
     const picks = session.picks[userId];
     const pick = picks.find(p => p.gameId === gameId);
