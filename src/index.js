@@ -21,6 +21,7 @@ import * as patsaddplayerCommand from './commands/patsaddplayer.js';
 import * as patseditplayerCommand from './commands/patseditplayer.js';
 import * as patsviewplayerCommand from './commands/patsviewplayer.js';
 import * as patsdeleteplayerCommand from './commands/patsdeleteplayer.js';
+import * as patsrefreshspreadsCommand from './commands/patsrefreshspreads.js';
 
 dotenv.config();
 
@@ -49,6 +50,7 @@ client.commands.set(patsaddplayerCommand.data.name, patsaddplayerCommand);
 client.commands.set(patseditplayerCommand.data.name, patseditplayerCommand);
 client.commands.set(patsviewplayerCommand.data.name, patsviewplayerCommand);
 client.commands.set(patsdeleteplayerCommand.data.name, patsdeleteplayerCommand);
+client.commands.set(patsrefreshspreadsCommand.data.name, patsrefreshspreadsCommand);
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`✅ Uprise Bot is ready! Logged in as ${readyClient.user.tag}`);

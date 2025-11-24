@@ -93,6 +93,26 @@ export function getActiveSession() {
 }
 
 /**
+ * Update spreads for an existing PATS session
+ * Used by admin command to refresh spreads from Odds API
+ */
+export function updateSessionSpreads(sessionId, updatedGames) {
+  const data = readPATSData();
+  const session = data.activeSessions.find(s => s.id === sessionId);
+  
+  if (!session) {
+    return false;
+  }
+  
+  // Update the games array with new spread data
+  session.games = updatedGames;
+  
+  writePATSData(data);
+  console.log(`[PATS] Updated spreads for session ${sessionId}`);
+  return true;
+}
+
+/**
  * Save a user's pick
  */
 export function savePick(sessionId, userId, gameId, pick, spread, isDoubleDown = false) {

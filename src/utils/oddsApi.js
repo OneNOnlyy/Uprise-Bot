@@ -3,14 +3,15 @@
  * 
  * API USAGE STRATEGY:
  * - The Odds API has a limit of 500 calls per month
- * - We ONLY call the Odds API ONCE when creating a PATS session
- * - Spreads are cached for the entire session duration (no refreshes)
- * - This conserves API calls while maintaining accuracy
+ * - We use the Odds API as the PRIMARY source for games and spreads
+ * - Fallback to web scraping (ESPN, ActionNetwork, Covers) if API fails
+ * - Spreads are cached for the session duration (no refreshes during gameplay)
  * 
  * Data Sources (in priority order):
- * 1. The Odds API (primary, called once per session)
- * 2. Puppeteer web scraping (ESPN for games, OddsShark/Covers for spreads)
- * 3. Manual spreads file (fallback)
+ * 1. The Odds API (primary - most reliable)
+ * 2. BallDontLie API (for games list)
+ * 3. Puppeteer web scraping (ESPN for games, ActionNetwork/Covers for spreads)
+ * 4. Manual spreads file (fallback)
  */
 
 import fetch from 'node-fetch';
@@ -379,10 +380,16 @@ async function scrapeESPNGamesAndSpreads() {
     // Try multiple sources for spreads
     let spreadsFound = false;
     
-    // Try ActionNetwork first (most reliable)
-    let spreadGames = await scrapeActionNetworkOdds();
+    // Try ESPN odds page first (official source)
+    let spreadGames = await scrapeESPNOdds();
     if (spreadGames.length === 0) {
-      // Fallback to Covers
+      // Fallback to ActionNetwork
+      console.log('ESPN odds failed, trying ActionNetwork...');
+      spreadGames = await scrapeActionNetworkOdds();
+    }
+    if (spreadGames.length === 0) {
+      // Final fallback to Covers
+      console.log('ActionNetwork failed, trying Covers...');
       spreadGames = await scrapeCoversOdds();
     }
     
@@ -489,6 +496,107 @@ async function scrapeESPNSpreads() {
   } catch (error) {
     console.error('Error scraping ESPN spreads:', error.message);
     return {};
+  }
+}
+
+/**
+ * Scrape NBA odds from ESPN Odds page
+ * URL: https://www.espn.com/nba/odds
+ * ESPN embeds odds data as JSON in the page source
+ */
+async function scrapeESPNOdds() {
+  let browser;
+  try {
+    console.log('🌐 Scraping NBA odds from ESPN odds page...');
+    browser = await puppeteer.launch({ 
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    console.log('📡 Loading ESPN odds page...');
+    await page.goto('https://www.espn.com/nba/odds', { 
+      waitUntil: 'domcontentloaded',
+      timeout: 30000 
+    });
+    
+    // Extract odds data from embedded JSON
+    const html = await page.content();
+    await browser.close();
+    
+    // ESPN embeds odds data in a variable assignment before </script>
+    // Pattern: oddstable:{"events":[...]}
+    const jsonMatch = html.match(/"oddstable":\{[^}]*"events":\[(.+?)\],"oddsFooterText"/s);
+    if (!jsonMatch) {
+      console.error('Could not find ESPN odds events data in page');
+      return [];
+    }
+    
+    try {
+      // Parse the events array
+      const eventsJson = '[' + jsonMatch[1] + ']';
+      const events = JSON.parse(eventsJson);
+      const gamesList = [];
+      
+      if (!events || !Array.isArray(events) || events.length === 0) {
+        console.warn('No games found in ESPN odds data');
+        return [];
+      }
+      
+      // Extract spread data from each game
+      for (const event of events) {
+        try {
+          const competitors = event.competitors;
+          if (!competitors || competitors.length < 2) continue;
+          
+          // Get team info
+          const homeTeam = competitors.find(c => c.homeAway === 'home');
+          const awayTeam = competitors.find(c => c.homeAway === 'away');
+          
+          if (!homeTeam || !awayTeam) continue;
+          
+          // Get spread from odds
+          const odds = event.odds?.[0]; // First odds provider (ESPN BET)
+          if (!odds) continue;
+          
+          const awaySpreadData = odds.pointSpread?.away?.close;
+          const homeSpreadData = odds.pointSpread?.home?.close;
+          
+          if (!awaySpreadData || !homeSpreadData) continue;
+          
+          // Parse spread values (e.g., "-9.5", "+3.5")
+          const awaySpread = parseFloat(awaySpreadData.line);
+          const homeSpread = parseFloat(homeSpreadData.line);
+          
+          if (isNaN(awaySpread) || isNaN(homeSpread)) continue;
+          
+          gamesList.push({
+            awayTeam: awayTeam.team.displayName,
+            homeTeam: homeTeam.team.displayName,
+            awaySpread: awaySpread,
+            homeSpread: homeSpread
+          });
+          
+          console.log(`  ${awayTeam.team.shortDisplayName} (${awaySpread}) @ ${homeTeam.team.shortDisplayName} (${homeSpread})`);
+        } catch (e) {
+          console.warn('Error parsing game:', e.message);
+        }
+      }
+      
+      console.log(`✅ Scraped ${gamesList.length} games with spreads from ESPN odds`);
+      return gamesList;
+      
+    } catch (error) {
+      console.error('Error parsing ESPN JSON data:', error.message);
+      return [];
+    }
+    
+  } catch (error) {
+    console.error('Error scraping ESPN odds:', error.message);
+    if (browser) await browser.close();
+    return [];
   }
 }
 
@@ -705,150 +813,7 @@ function matchScrapedSpreadsToGames(games, scrapedGames) {
 }
 
 /**
- * Get NBA games with spreads for a specific date
- */
-export async function getNBAGamesWithSpreads(date = null) {
-  try {
-    // Try getting games from BallDontLie first
-    let games = await getNBAGamesFromBallDontLie(date);
-    
-    // If BallDontLie fails, use Puppeteer to scrape ESPN
-    if (games.length === 0) {
-      console.log('📡 BallDontLie failed, using Puppeteer to scrape ESPN...');
-      const espnGames = await scrapeESPNWithPuppeteer();
-      
-      if (espnGames.length > 0) {
-        // Try OddsShark first, then Covers as fallback
-        let spreadGames = await scrapeOddsSharkWithPuppeteer();
-        
-        if (spreadGames.length === 0) {
-          console.log('📡 OddsShark failed, trying Covers...');
-          spreadGames = await scrapeCoversWithPuppeteer();
-        }
-        
-        // Match spreads to games
-        const gamesWithSpreads = espnGames.map(game => {
-          const match = spreadGames.find(cg => {
-            const awayMatch = cg.awayTeam.toLowerCase().includes(game.awayTeam.toLowerCase()) ||
-                             game.awayTeam.toLowerCase().includes(cg.awayTeam.toLowerCase());
-            const homeMatch = cg.homeTeam.toLowerCase().includes(game.homeTeam.toLowerCase()) ||
-                             game.homeTeam.toLowerCase().includes(cg.homeTeam.toLowerCase());
-            return awayMatch && homeMatch;
-          });
-          
-          if (match) {
-            console.log(`  ✅ Matched spreads: ${game.awayTeam} @ ${game.homeTeam} - ${match.awaySpread}/${match.homeSpread}`);
-          }
-          
-          return {
-            id: game.id,
-            home_team: game.homeTeam,
-            away_team: game.awayTeam,
-            commence_time: new Date().toISOString(),
-            bookmakers: match ? [{
-              title: 'Scraped (Covers)',
-              markets: [{
-                key: 'spreads',
-                outcomes: [
-                  { name: game.homeTeam, point: match.homeSpread },
-                  { name: game.awayTeam, point: match.awaySpread }
-                ]
-              }]
-            }] : []
-          };
-        });
-        
-        return gamesWithSpreads;
-      }
-      
-      console.warn('⚠️ Puppeteer scraping failed');
-      return [];
-    }
-    
-    // Try The Odds API for spreads
-    const apiKey = process.env.ODDS_API_KEY;
-    let oddsData = [];
-    let usedScraping = false;
-    
-    if (apiKey) {
-      const url = `${ODDS_API_BASE}/sports/${SPORT}/odds/?apiKey=${apiKey}&regions=us&markets=spreads&oddsFormat=american&dateFormat=iso`;
-      
-      try {
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
-          // Check if response is valid array
-          if (Array.isArray(data)) {
-            oddsData = data;
-            console.log(`✅ Found odds data from API for ${oddsData.length} games`);
-          } else if (data.message) {
-            console.warn('❌ Odds API error:', data.message);
-            oddsData = [];
-          }
-        } else {
-          console.warn('❌ Odds API returned error:', response.status);
-        }
-      } catch (error) {
-        console.warn('❌ Could not fetch from Odds API:', error.message);
-      }
-    } else {
-      console.warn('⚠️ ODDS_API_KEY not set');
-    }
-    
-    // If API failed or returned no data, use Puppeteer scraping
-    if (oddsData.length === 0) {
-      console.log('📡 Falling back to Puppeteer scraping for spreads...');
-      
-      // Try OddsShark first, then Covers as fallback
-      let spreadGames = await scrapeOddsSharkWithPuppeteer();
-      
-      if (spreadGames.length === 0) {
-        console.log('📡 OddsShark failed, trying Covers...');
-        spreadGames = await scrapeCoversWithPuppeteer();
-      }
-      
-      if (spreadGames.length > 0) {
-        console.log(`✅ Using Puppeteer-scraped spreads for ${spreadGames.length} games`);
-        return matchScrapedSpreadsToGames(games, spreadGames);
-      } else {
-        console.warn('⚠️ Puppeteer scraping also failed, continuing without spreads');
-      }
-    }
-    
-    // Combine games with odds (from API)
-    return games.map(game => ({
-      id: game.id.toString(),
-      home_team: game.home_team.full_name,
-      away_team: game.visitor_team.full_name,
-      commence_time: game.status || game.date,
-      bookmakers: findOddsForGame(game, oddsData)
-    }));
-  } catch (error) {
-    console.error('Error fetching NBA games with spreads:', error);
-    return [];
-  }
-}
-
-/**
- * Find odds data for a specific game
- */
-function findOddsForGame(game, oddsData) {
-  if (!oddsData || oddsData.length === 0) return [];
-  
-  // Try to match by team names
-  const homeTeam = game.home_team.full_name;
-  const awayTeam = game.visitor_team.full_name;
-  
-  const matchingOdds = oddsData.find(odds => 
-    (odds.home_team === homeTeam && odds.away_team === awayTeam) ||
-    (odds.home_team.includes(game.home_team.name) && odds.away_team.includes(game.visitor_team.name))
-  );
-  
-  return matchingOdds?.bookmakers || [];
-}
-
-/**
- * Format game data with spread information
+ * Format a game object with spread information
  */
 export function formatGameWithSpread(game) {
   try {
@@ -919,6 +884,144 @@ export function formatGameWithSpread(game) {
     console.error('Error formatting game with spread:', error);
     return null;
   }
+}
+
+/**
+ * Get NBA games with spreads for a specific date
+ */
+export async function getNBAGamesWithSpreads(date = null) {
+  try {
+    // Try The Odds API first (most reliable)
+    const apiKey = process.env.ODDS_API_KEY;
+    
+    if (apiKey) {
+      const url = `${ODDS_API_BASE}/sports/${SPORT}/odds/?apiKey=${apiKey}&regions=us&markets=spreads&oddsFormat=american&dateFormat=iso`;
+      
+      try {
+        console.log('🔑 Using Odds API for games and spreads...');
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          // Check if response is valid array
+          if (Array.isArray(data) && data.length > 0) {
+            console.log(`✅ Found odds data from API for ${data.length} games`);
+            // Format the games before returning
+            const formattedGames = data.map(formatGameWithSpread).filter(g => g !== null);
+            return formattedGames;
+          }
+        } else {
+          console.warn(`Odds API returned: ${response.status} ${response.statusText}`);
+        }
+      } catch (apiError) {
+        console.error('Odds API error:', apiError.message);
+      }
+    } else {
+      console.log('⚠️  No ODDS_API_KEY found in environment');
+    }
+    
+    // Fallback: Try getting games from BallDontLie first
+    let games = await getNBAGamesFromBallDontLie(date);
+    
+    // If BallDontLie fails, use Puppeteer to scrape ESPN
+    if (games.length === 0) {
+      console.log('📡 BallDontLie failed, using Puppeteer to scrape ESPN...');
+      const espnGames = await scrapeESPNWithPuppeteer();
+      
+      if (espnGames.length > 0) {
+        // Try ActionNetwork for spreads
+        let spreadGames = await scrapeActionNetworkOdds();
+        
+        if (spreadGames.length === 0) {
+          console.log('📡 ActionNetwork failed, trying Covers...');
+          spreadGames = await scrapeCoversWithPuppeteer();
+        }
+        
+        // Match spreads to games
+        const gamesWithSpreads = espnGames.map(game => {
+          const match = spreadGames.find(cg => {
+            const awayMatch = cg.awayTeam.toLowerCase().includes(game.awayTeam.toLowerCase()) ||
+                             game.awayTeam.toLowerCase().includes(cg.awayTeam.toLowerCase());
+            const homeMatch = cg.homeTeam.toLowerCase().includes(game.homeTeam.toLowerCase()) ||
+                             game.homeTeam.toLowerCase().includes(cg.homeTeam.toLowerCase());
+            return awayMatch && homeMatch;
+          });
+          
+          if (match) {
+            console.log(`  ✅ Matched spreads: ${game.awayTeam} @ ${game.homeTeam} - ${match.awaySpread}/${match.homeSpread}`);
+          }
+          
+          return {
+            id: game.id,
+            home_team: game.homeTeam,
+            away_team: game.awayTeam,
+            commence_time: new Date().toISOString(),
+            bookmakers: match ? [{
+              title: 'Scraped (Covers)',
+              markets: [{
+                key: 'spreads',
+                outcomes: [
+                  { name: game.homeTeam, point: match.homeSpread },
+                  { name: game.awayTeam, point: match.awaySpread }
+                ]
+              }]
+            }] : []
+          };
+        });
+        
+        return gamesWithSpreads;
+      }
+      
+      console.warn('⚠️ Puppeteer scraping failed');
+      return [];
+    }
+    
+    // If we get here, no spreads were found - try manual spreads as last resort
+    const manualGames = loadManualSpreads(date);
+    if (manualGames && manualGames.length > 0) {
+      console.log('📋 Using manual spreads from file');
+      // Convert manual spreads format to match API format
+      return manualGames.map(game => ({
+        id: `manual_${game.home_team}_${game.away_team}`,
+        home_team: game.home_team,
+        away_team: game.away_team,
+        commence_time: new Date().toISOString(),
+        bookmakers: [{
+          title: 'Manual Entry',
+          markets: [{
+            key: 'spreads',
+            outcomes: [
+              { name: game.home_team, point: game.homeSpread },
+              { name: game.away_team, point: game.awaySpread }
+            ]
+          }]
+        }]
+      }));
+    }
+    
+    console.error('❌ All methods failed to retrieve games with spreads');
+    return [];
+  } catch (error) {
+    console.error('Error fetching NBA games with spreads:', error);
+    return [];
+  }
+}
+
+/**
+ * Find odds data for a specific game
+ */
+function findOddsForGame(game, oddsData) {
+  if (!oddsData || oddsData.length === 0) return [];
+  
+  // Try to match by team names
+  const homeTeam = game.home_team.full_name;
+  const awayTeam = game.visitor_team.full_name;
+  
+  const matchingOdds = oddsData.find(odds => 
+    (odds.home_team === homeTeam && odds.away_team === awayTeam) ||
+    (odds.home_team.includes(game.home_team.name) && odds.away_team.includes(game.visitor_team.name))
+  );
+  
+  return matchingOdds?.bookmakers || [];
 }
 
 /**
