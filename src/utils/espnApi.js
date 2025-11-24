@@ -1009,16 +1009,38 @@ export async function fetchAllInjuryReports() {
               const firstIndex = secondPart.indexOf(lastNameCandidate);
               const secondIndex = secondPart.indexOf(lastNameCandidate, firstIndex + 1);
               if (secondIndex > 0) {
-                // Split before the second occurrence
-                const splitIndex = secondPart.lastIndexOf(' ', secondIndex - 1);
-                if (splitIndex > 0) {
-                  abbreviated = secondPart.substring(0, splitIndex);
-                  lastName = secondPart.substring(splitIndex + 1);
+                // Extract the part between the two last name occurrences
+                // Format examples:
+                // "Lively IIDereck Lively II" -> between occurrences: " IIDereck "
+                // "Williams IIIRobert Williams III" -> between occurrences: " IIIRobert "
+                const between = secondPart.substring(firstIndex + lastNameCandidate.length, secondIndex);
+                
+                // Look for a lowercase-uppercase boundary (indicates concatenated names)
+                // e.g., "IIDereck" has "k" followed by "D" = WRONG, should be "II" + "Dereck"
+                // The pattern is: suffix (II, III) immediately followed by first name (Dereck, Robert)
+                const nameMatch = between.match(/([A-Z]+)([A-Z][a-z]+)/);
+                if (nameMatch) {
+                  // nameMatch[1] is the suffix, nameMatch[2] is the first name
+                  const firstName = nameMatch[2];
+                  cleanPlayerName = firstName + ' ' + secondPart.substring(secondIndex);
                 } else {
-                  // Fallback
-                  abbreviated = secondPart.substring(0, secondIndex);
-                  lastName = secondPart.substring(secondIndex);
+                  // Fallback: just use everything from the second occurrence
+                  cleanPlayerName = secondPart.substring(secondIndex);
                 }
+                
+                cleanPlayerName = cleanPlayerName.trim();
+                
+                // Skip the complex parsing and use the full name directly
+                if (cleanPlayerName && status) {
+                  tableInjuries.push({
+                    player: cleanPlayerName,
+                    status: status,
+                    description: injury || 'Injury',
+                    position: position,
+                    updated: updated
+                  });
+                }
+                return; // Skip to next row
               } else {
                 // Fallback to last space
                 const lastSpaceIndex = secondPart.lastIndexOf(' ');
@@ -1034,8 +1056,22 @@ export async function fetchAllInjuryReports() {
 
             // Extract first name from abbreviated part (last capitalized sequence)
             // Handle multi-letter abbreviations like RJ, AJ, JJ, etc.
-            const firstNameMatch = abbreviated.match(/([A-Z]{1,3}[a-z'-]*)$/);
-            if (firstNameMatch) {
+            // But exclude suffixes like II, III, IV, Jr, Sr
+            const suffixPattern = /^(II|III|IV|Jr\.?|Sr\.?)$/;
+            let firstNameMatch = abbreviated.match(/([A-Z]{1,3}[a-z'-]*)$/);
+            
+            // If the match is a suffix, look for the previous word
+            if (firstNameMatch && suffixPattern.test(firstNameMatch[1])) {
+              // This is a suffix, get the word before it
+              const beforeSuffix = abbreviated.substring(0, firstNameMatch.index).trim();
+              firstNameMatch = beforeSuffix.match(/([A-Z]{1,3}[a-z'-]*)$/);
+              if (firstNameMatch) {
+                const firstName = firstNameMatch[1];
+                cleanPlayerName = firstName + ' ' + lastName;
+              } else {
+                cleanPlayerName = lastName;
+              }
+            } else if (firstNameMatch) {
               const firstName = firstNameMatch[1];
               cleanPlayerName = firstName + ' ' + lastName;
             } else {
