@@ -544,28 +544,6 @@ async function showUserStats(interaction) {
     });
   }
 
-  // Performance indicators
-  if (totalGames >= 5) {
-    let performanceText = '';
-    if (stats.winPercentage >= 60) {
-      performanceText = '⭐⭐⭐ Elite Handicapper!';
-    } else if (stats.winPercentage >= 55) {
-      performanceText = '⭐⭐ Sharp Better';
-    } else if (stats.winPercentage >= 50) {
-      performanceText = '⭐ Above Average';
-    } else if (stats.winPercentage >= 45) {
-      performanceText = '📊 Learning the Ropes';
-    } else {
-      performanceText = '🎯 Keep Grinding!';
-    }
-    
-    embed.addFields({
-      name: '🎖️ Performance Level',
-      value: performanceText,
-      inline: false
-    });
-  }
-
   const backButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('pats_stats_back')
