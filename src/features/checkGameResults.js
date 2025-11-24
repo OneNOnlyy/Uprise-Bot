@@ -64,10 +64,8 @@ async function checkAndUpdateGameResults() {
     let updatedCount = 0;
     
     for (const sessionGame of session.games) {
-      // Skip if already has final result
-      if (sessionGame.result && sessionGame.result.status === 'Final') {
-        continue;
-      }
+      // Always update live games, only skip if already marked as Final
+      const skipUpdate = sessionGame.result && sessionGame.result.status === 'Final';
       
       // Try to match with CBS Sports data first (using abbreviations)
       const awayAbbr = getTeamAbbreviation(sessionGame.awayTeam);
@@ -81,7 +79,7 @@ async function checkAndUpdateGameResults() {
         console.log(`📊 [CBS] ${sessionGame.awayTeam} @ ${sessionGame.homeTeam}`);
         console.log(`   Status: "${cbsGame.status}", Away: ${cbsGame.awayScore}, Home: ${cbsGame.homeScore}`);
         
-        if (cbsGame.isFinal) {
+        if (cbsGame.isFinal && !skipUpdate) {
           console.log(`✅ [CBS] Game Final: ${sessionGame.awayTeam} ${cbsGame.awayScore} @ ${sessionGame.homeTeam} ${cbsGame.homeScore}`);
           
           const result = {
@@ -93,7 +91,7 @@ async function checkAndUpdateGameResults() {
           
           updateGameResult(session.id, sessionGame.id, result);
           updatedCount++;
-        } else if (cbsGame.isLive) {
+        } else if (cbsGame.isLive && !skipUpdate) {
           console.log(`🏀 [CBS] Game in progress: ${sessionGame.awayTeam} ${cbsGame.awayScore} @ ${sessionGame.homeTeam} ${cbsGame.homeScore} - ${cbsGame.status}`);
           
           const liveResult = {
@@ -104,6 +102,9 @@ async function checkAndUpdateGameResults() {
           };
           
           updateGameResult(session.id, sessionGame.id, liveResult);
+          updatedCount++; // Count live updates too
+        } else if (skipUpdate) {
+          console.log(`⏭️ [CBS] Skipping ${sessionGame.awayTeam} @ ${sessionGame.homeTeam} - already marked Final`);
         }
         
         continue; // Skip BallDontLie check if CBS had data
@@ -169,6 +170,7 @@ async function checkAndUpdateGameResults() {
             };
             
             updateGameResult(session.id, sessionGame.id, liveResult);
+            updatedCount++; // Count BallDontLie live updates too
           }
         } else {
           console.log(`🏀 [BallDontLie] Game in progress: ${sessionGame.awayTeam} @ ${sessionGame.homeTeam} - ${liveGame.status} (scores not available yet)`);
@@ -227,15 +229,15 @@ async function checkAndUpdateGameResults() {
 /**
  * Schedule game result checking
  * Only runs during NBA game hours (8 AM - 11 PM Pacific Time)
- * Checks every 5 minutes during this window
+ * Checks every 1 minute during this window for live score updates
  */
 export function scheduleGameResultChecking() {
-  // Check every 5 minutes during game hours (8 AM - 11 PM PT)
-  // Cron: '*/5 8-23 * * *' means every 5 minutes between 8 AM and 11 PM
-  const cronSchedule = '*/5 8-23 * * *';
+  // Check every 1 minute during game hours (8 AM - 11 PM PT)
+  // Cron: '*/1 8-23 * * *' means every 1 minute between 8 AM and 11 PM
+  const cronSchedule = '*/1 8-23 * * *';
   
   console.log('📅 Scheduling game result checking...');
-  console.log('⏰ Will check every 5 minutes during NBA hours (8 AM - 11 PM PT)');
+  console.log('⏰ Will check every 1 minute during NBA hours (8 AM - 11 PM PT)');
   
   cron.schedule(cronSchedule, () => {
     const now = new Date();
