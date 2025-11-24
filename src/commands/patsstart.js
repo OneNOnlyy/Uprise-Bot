@@ -60,8 +60,9 @@ export async function execute(interaction) {
     console.log(`✅ Created PATS session ${session.id} with ${games.length} games`);
     
     // Prefetch matchup info for all games to warm up the cache
+    // Use session.games which has the correct camelCase properties (homeTeam, awayTeam)
     // This runs in the background and doesn't block the announcement
-    prefetchMatchupInfo(games).catch(err => {
+    prefetchMatchupInfo(session.games).catch(err => {
       console.error('[PATS] Error prefetching matchup info:', err);
     });
 
