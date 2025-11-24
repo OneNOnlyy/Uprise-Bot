@@ -271,7 +271,7 @@ export async function fetchAndCacheInjuryReports() {
 }
 
 /**
- * Start automated injury report updates (runs every minute)
+ * Start automated injury report updates (runs every 5 minutes)
  */
 export function startInjuryReportUpdates() {
   console.log('[Cache] Starting automated injury report updates...');
@@ -281,8 +281,8 @@ export function startInjuryReportUpdates() {
     console.error('[Cache] Initial injury report fetch failed:', error.message);
   });
   
-  // Set up cron job to run every minute
-  cron.schedule('* * * * *', async () => {
+  // Set up cron job to run every 5 minutes
+  cron.schedule('*/5 * * * *', async () => {
     try {
       await fetchAndCacheInjuryReports();
       console.log('[Cache] Injury reports updated successfully');
@@ -291,5 +291,5 @@ export function startInjuryReportUpdates() {
     }
   });
   
-  console.log('[Cache] Injury report updates scheduled (every minute)');
+  console.log('[Cache] Injury report updates scheduled (every 5 minutes)');
 }
