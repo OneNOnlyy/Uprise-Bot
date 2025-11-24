@@ -725,13 +725,11 @@ export async function getTeamInfo(teamName) {
         const teamAbbr = team.abbreviation;
         const cbsInjuries = getInjuriesForTeam(teamAbbr, cachedInjuryReports);
         
-        if (cbsInjuries.length > injuries.length) {
-          console.log(`[ESPN] CBS Sports cache has ${cbsInjuries.length} injuries vs current ${injuries.length} - using CBS data`);
-          injuries = cbsInjuries; // Replace with comprehensive CBS data
-        } else if (cbsInjuries.length > 0) {
-          console.log(`[ESPN] CBS Sports cache has ${cbsInjuries.length} injuries, keeping current ${injuries.length} from ESPN`);
+        if (cbsInjuries.length > 0) {
+          console.log(`[ESPN] Using CBS Sports injury data: ${cbsInjuries.length} injuries (primary source)`);
+          injuries = cbsInjuries; // Use comprehensive CBS data as primary source
         } else {
-          console.log(`[ESPN] No CBS injuries found for ${teamAbbr} in cache`);
+          console.log(`[ESPN] No CBS injuries found for ${teamAbbr}, keeping ESPN data (${injuries.length} injuries)`);
         }
       } else {
         console.log(`[ESPN] No cached CBS injury reports available`);
@@ -930,11 +928,15 @@ export async function fetchAllInjuryReports() {
     const injuryReports = new Map(); // teamAbbr -> injuries array
 
     // CBS Sports organizes injuries in tables, one per team
+    console.log(`[CBS] Found ${$('table').length} total tables on the page`);
     $('table').each((tableIndex, table) => {
       const $table = $(table);
       const rows = $table.find('tr');
 
-      if (rows.length < 2) return; // Skip empty tables
+      if (rows.length < 2) {
+        console.log(`[CBS] Skipping table ${tableIndex} - only ${rows.length} rows (likely empty)`);
+        return; // Skip empty tables
+      }
 
       const tableInjuries = [];
       let teamAbbr = null;
@@ -951,9 +953,76 @@ export async function fetchAllInjuryReports() {
           const status = $(cells[4]).text().trim();
 
           // Extract clean player name (CBS often duplicates like "L. KennardLuke Kennard")
-          // Simple approach: take everything after the first space
+          // Parse the concatenated name format
           const spaceIndex = playerName.indexOf(' ');
-          let cleanPlayerName = spaceIndex >= 0 ? playerName.substring(spaceIndex + 1) : playerName;
+          let cleanPlayerName;
+          if (spaceIndex >= 0) {
+            const firstPart = playerName.substring(0, spaceIndex);
+            const secondPart = playerName.substring(spaceIndex + 1);
+
+            // Split the concatenated part - find the separator by looking for repeated last names
+            const words = secondPart.split(/\s+/);
+            const wordCount = {};
+            words.forEach(word => {
+              wordCount[word] = (wordCount[word] || 0) + 1;
+            });
+            
+            // Find the most frequent word (likely the last name)
+            let lastNameCandidate = null;
+            let maxCount = 0;
+            for (const word in wordCount) {
+              if (wordCount[word] > maxCount) {
+                maxCount = wordCount[word];
+                lastNameCandidate = word;
+              }
+            }
+            
+            let abbreviated, lastName;
+            if (lastNameCandidate && maxCount > 1) {
+              // Find the second occurrence of the last name
+              const firstIndex = secondPart.indexOf(lastNameCandidate);
+              const secondIndex = secondPart.indexOf(lastNameCandidate, firstIndex + 1);
+              if (secondIndex > 0) {
+                // Split before the second occurrence
+                const splitIndex = secondPart.lastIndexOf(' ', secondIndex - 1);
+                if (splitIndex > 0) {
+                  abbreviated = secondPart.substring(0, splitIndex);
+                  lastName = secondPart.substring(splitIndex + 1);
+                } else {
+                  // Fallback
+                  abbreviated = secondPart.substring(0, secondIndex);
+                  lastName = secondPart.substring(secondIndex);
+                }
+              } else {
+                // Fallback to last space
+                const lastSpaceIndex = secondPart.lastIndexOf(' ');
+                abbreviated = secondPart.substring(0, lastSpaceIndex);
+                lastName = secondPart.substring(lastSpaceIndex + 1);
+              }
+            } else {
+              // Fallback to last space
+              const lastSpaceIndex = secondPart.lastIndexOf(' ');
+              abbreviated = secondPart.substring(0, lastSpaceIndex);
+              lastName = secondPart.substring(lastSpaceIndex + 1);
+            }
+
+            // Extract first name from abbreviated part (last capitalized word)
+            const firstNameMatch = abbreviated.match(/([A-Z][^A-Z]*)$/);
+            if (firstNameMatch) {
+              const firstName = firstNameMatch[1];
+              cleanPlayerName = firstName + ' ' + lastName;
+            } else {
+              // Fallback: use the lastName if parsing fails
+              cleanPlayerName = lastName;
+            }
+          } else {
+            cleanPlayerName = playerName;
+          }
+
+          // Debug: log raw names that contain "Williams"
+          if (cleanPlayerName.includes('Williams')) {
+            console.log(`[CBS] Raw player name: "${playerName}" -> "${cleanPlayerName}"`);
+          }
 
           // For cases like "Finney-SmithDorian Finney-Smith", extract the proper name
           if (cleanPlayerName.includes(' ')) {
@@ -977,35 +1046,35 @@ export async function fetchAllInjuryReports() {
             if (!teamAbbr) {
               // Common team abbreviations that appear in player names
               const teamPatterns = {
-                'LAL': ['LeBron', 'Davis', 'James', 'AD', 'Anthony Davis'],
-                'BOS': ['Tatum', 'Brown', 'Jr.Jaren Jackson', 'Jr.JJ', 'White', 'Porzingis'],
-                'MIL': ['Antetokounmpo', 'Giannis', 'Lillard', 'Middleton'],
-                'DEN': ['Jokic', 'Nikola', 'Murray', 'Jamal', 'Gordon'],
-                'PHI': ['Embiid', 'Joel', 'Maxey', 'Tyrese', 'Harden'],
-                'LAC': ['Kawhi', 'Leonard', 'Paul', 'Jameson', 'George'],
-                'OKC': ['SGA', 'Shai', 'Gilgeous-Alexander', 'Jalen Williams'],
-                'DAL': ['Luka', 'Doncic', 'Irving', 'Kyrie', 'Saraf', 'Thomas', 'Finney-Smith'],
-                'NYK': ['Randle', 'Julius', 'Brunson', 'Jalen Brunson', 'McBride', 'Shamet'],
-                'PHO': ['Booker', 'Devin', 'Durant', 'Kevin', 'Beal'],
-                'MIA': ['Butler', 'Jimmy', 'Rozier', 'Terry', 'Herro'],
-                'ATL': ['Trae', 'Young', 'Hunter', 'Dejounte', 'Murray'],
-                'GSW': ['Curry', 'Stephen', 'Klay', 'Thompson', 'Green'],
-                'SAS': ['Wembanyama', 'Victor', 'Vassell', 'Devin'],
-                'UTA': ['Markkanen', 'Lauri', 'Sexton', 'Collin', 'George'],
-                'MEM': ['Morant', 'Ja', 'Kennard', 'Luke', 'Bane', 'Travers', 'Jackson'],
-                'POR': ['Lillard', 'Damian', 'Jr.Jerami Grant', 'Simons', 'Anfernee', 'Clingan'],
-                'SAC': ['Sabonis', 'Domantas', 'Fox', 'DeAaron', 'Murray'],
-                'CHA': ['Ball', 'Lamelo', 'Jr.Miles Bridges', 'Rozier', 'Murray-Boyles'],
-                'WAS': ['Beal', 'Bradley', 'Jr.Kyle Kuzma', 'Porzingis', 'Bagley III'],
-                'IND': ['Haliburton', 'Tyrese', 'Nembhard', 'Andrew', 'Turner'],
-                'ORL': ['Banchero', 'Paolo', 'Wagner', 'Franz', 'Carter Jr.'],
-                'CHI': ['DeRozan', 'DeMar', 'Vucevic', 'Nikola', 'Jr.Zach LaVine'],
-                'DET': ['Cunningham', 'Cade', 'Durant', 'Jr.Jalen Duren', 'Bogdanovic', 'Klintman', 'Miller'],
-                'BKN': ['Irving', 'Kyrie', 'Bridges', 'Mikal', 'Claxton'],
-                'NOP': ['Jr.Zion Williamson', 'Jr.Jonas Valanciunas', 'Jr.Trey Murphy', 'Jr.Larry Nance', 'Jones'],
-                'TOR': ['VanVleet', 'Fred', 'Jr.Pascal Siakam', 'Jr.Gary Trent', 'Jr.O.G. Anunoby'],
-                'MIN': ['Edwards', 'Anthony', 'Gobert', 'Rudy', 'McDaniels', 'Shannon Jr.', 'McLaughlin'],
-                'CLE': ['Garland', 'Darius', 'Allen', 'Jarrett', 'Mobley', 'Fleming', 'Niang']
+                'LAL': ['LeBron', 'Davis', 'James', 'AD', 'Anthony Davis', 'LeBron James', 'Anthony Davis'],
+                'BOS': ['Tatum', 'Brown', 'Jr.Jaren Jackson', 'Jr.JJ', 'White', 'Porzingis', 'Jayson Tatum', 'Jaylen Brown'],
+                'MIL': ['Antetokounmpo', 'Giannis', 'Lillard', 'Middleton', 'Giannis Antetokounmpo', 'Damian Lillard', 'Khris Middleton'],
+                'DEN': ['Jokic', 'Nikola Jokic', 'Murray', 'Jamal Murray', 'Gordon', 'Aaron Gordon', 'Braun', 'Christian Braun', 'Strawther', 'Julian Strawther'],
+                'PHI': ['Embiid', 'Joel Embiid', 'Maxey', 'Tyrese Maxey', 'Harden', 'James Harden', 'Edgecombe', 'VJ Edgecombe', 'Bona', 'Adem Bona'],
+                'LAC': ['Kawhi', 'Leonard', 'Paul', 'Jameson', 'George', 'Kawhi Leonard', 'Paul George', 'Jameson Crowder', 'Niang', 'Georges Niang', 'Kessler', 'Walker Kessler'],
+                'OKC': ['SGA', 'Shai', 'Gilgeous-Alexander', 'Jalen Williams', 'Shai Gilgeous-Alexander', 'Wiggins', 'Aaron Wiggins', 'Williams', 'Kenrich Williams'],
+                'DAL': ['Luka', 'Doncic', 'Irving', 'Kyrie', 'Saraf', 'Thomas', 'Finney-Smith', 'Luka Doncic', 'Kyrie Irving', 'Lively II', 'Dereck Lively', 'Nembhard', 'Ryan Nembhard', 'Williams', 'Brandon Williams', 'Eason', 'Tari Eason'],
+                'NYK': ['Randle', 'Julius', 'Brunson', 'Jalen Brunson', 'McBride', 'Shamet', 'Julius Randle', 'Anunoby', 'OG Anunoby'],
+                'PHO': ['Booker', 'Devin', 'Durant', 'Kevin', 'Beal', 'Devin Booker', 'Kevin Durant', 'Bradley Beal', 'Huerter', 'Kevin Huerter', 'Terry', 'Dalen Terry', 'Williams', 'Patrick Williams'],
+                'MIA': ['Butler', 'Jimmy Butler', 'Rozier', 'Terry Rozier', 'Herro', 'Tyler Herro', 'Nikola Jovic', 'Jovic', 'Wiggins', 'Andrew Wiggins'],
+                'ATL': ['Trae', 'Young', 'Hunter', 'Dejounte', 'Murray', 'Trae Young', 'Dejounte Murray', 'De\'Andre Hunter'],
+                'GSW': ['Curry', 'Stephen', 'Klay', 'Thompson', 'Green', 'Stephen Curry', 'Klay Thompson', 'Draymond Green', 'Horford', 'Al Horford', 'Kuminga', 'Jonathan Kuminga', 'Williams', 'Grant Williams', 'Kalkbrenner', 'Ryan Kalkbrenner'],
+                'SAS': ['Wembanyama', 'Victor', 'Vassell', 'Devin', 'Victor Wembanyama', 'Devin Vassell'],
+                'UTA': ['Markkanen', 'Lauri', 'Sexton', 'Collin', 'George', 'Lauri Markkanen', 'Collin Sexton'],
+                'MEM': ['Morant', 'Ja Morant', 'Kennard', 'Luke Kennard', 'Bane', 'Desmond Bane', 'Travers', 'Luke Travers', 'Jackson', 'Quenton Jackson', 'Livingston', 'Chris Livingston', 'Porter Jr.', 'Craig Porter Jr.', 'Furphy', 'Johnny Furphy', 'Nesmith', 'Aaron Nesmith', 'Poeltl', 'Jakob Poeltl'],
+                'POR': ['Lillard', 'Damian', 'Jr.Jerami Grant', 'Simons', 'Anfernee', 'Clingan', 'Damian Lillard', 'Anfernee Simons', 'Shaedon Sharpe', 'Sharpe', 'Williams III', 'Robert Williams III', 'Henderson', 'Scoot Henderson'],
+                'SAC': ['Sabonis', 'Domantas', 'Fox', 'DeAaron', 'Murray', 'Domantas Sabonis', 'DeAaron Fox'],
+                'CHA': ['Ball', 'Lamelo', 'Jr.Miles Bridges', 'Rozier', 'Murray-Boyles', 'Lamelo Ball', 'Miles Bridges'],
+                'WAS': ['Beal', 'Bradley', 'Jr.Kyle Kuzma', 'Porzingis', 'Bagley III', 'Bradley Beal', 'Kristaps Porzingis', 'Fleming', 'Rasheer Fleming', 'Marvin Bagley', 'Allen', 'Grayson Allen', 'Dunn', 'Ryan Dunn', 'Johnson', 'Tre Johnson', 'Middleton', 'Khris Middleton'],
+                'IND': ['Haliburton', 'Tyrese', 'Nembhard', 'Andrew', 'Turner', 'Tyrese Haliburton', 'Andrew Nembhard', 'Myles Turner', 'Lively II', 'Dereck Lively'],
+                'ORL': ['Banchero', 'Paolo', 'Wagner', 'Franz', 'Carter Jr.', 'Paolo Banchero', 'Franz Wagner', 'Wendell Carter', 'Suggs', 'Jalen Suggs'],
+                'CHI': ['DeRozan', 'DeMar', 'Vucevic', 'Nikola', 'Jr.Zach LaVine', 'DeMar DeRozan', 'Nikola Vucevic', 'Zach LaVine'],
+                'DET': ['Cunningham', 'Cade', 'Durant', 'Jr.Jalen Duren', 'Bogdanovic', 'Klintman', 'Miller', 'Cade Cunningham', 'Jalen Duren', 'Jaden Ivey', 'Ivey', 'Bobi Klintman', 'LeVert', 'Caris LeVert', 'Jones Jr.', 'Derrick Jones Jr.'],
+                'BKN': ['Irving', 'Kyrie', 'Bridges', 'Mikal', 'Claxton', 'Kyrie Irving', 'Mikal Bridges'],
+                'NOP': ['Jr.Zion Williamson', 'Jr.Jonas Valanciunas', 'Jr.Trey Murphy', 'Jr.Larry Nance', 'Jones', 'Herbert Jones', 'Poole', 'Jordan Poole', 'Matkovic', 'Karlo Matkovic'],
+                'TOR': ['VanVleet', 'Fred', 'Jr.Pascal Siakam', 'Jr.Gary Trent', 'Jr.O.G. Anunoby', 'Fred VanVleet', 'Pascal Siakam', 'OG Anunoby'],
+                'MIN': ['Edwards', 'Anthony', 'Gobert', 'Rudy', 'McDaniels', 'Shannon Jr.', 'McLaughlin', 'Anthony Edwards', 'Rudy Gobert', 'Terrence Shannon', 'Jordan McLaughlin', 'Harper', 'Dylan Harper', 'Castle', 'Stephon Castle'],
+                'CLE': ['Garland', 'Darius', 'Allen', 'Jarrett', 'Mobley', 'Fleming', 'Niang', 'Darius Garland', 'Jarrett Allen', 'Evan Mobley']
               };
 
               // Check if any known player names match this team
@@ -1055,13 +1124,24 @@ export async function fetchAllInjuryReports() {
 
       // If we still don't have a team abbreviation, skip this table
       if (!teamAbbr) {
-        console.log(`[CBS] Could not identify team for table ${tableIndex} with ${tableInjuries.length} injuries`);
+        // Skip unidentified tables silently
         return;
       }
 
-      // Store injuries for this team
-      injuryReports.set(teamAbbr, tableInjuries);
-      console.log(`[CBS] Found ${tableInjuries.length} injuries for ${teamAbbr} in table ${tableIndex}`);
+      // Store injuries for this team (accumulate if team already exists)
+      if (injuryReports.has(teamAbbr)) {
+        const existingInjuries = injuryReports.get(teamAbbr);
+        injuryReports.set(teamAbbr, [...existingInjuries, ...tableInjuries]);
+        console.log(`[CBS] Added ${tableInjuries.length} more injuries for ${teamAbbr} in table ${tableIndex} (total: ${existingInjuries.length + tableInjuries.length})`);
+      } else {
+        injuryReports.set(teamAbbr, tableInjuries);
+        console.log(`[CBS] Found ${tableInjuries.length} injuries for ${teamAbbr} in table ${tableIndex}`);
+      }
+
+      // Debug: log first player for verification
+      if (tableInjuries.length > 0) {
+        console.log(`[CBS] Table ${tableIndex} (${teamAbbr}): first player "${tableInjuries[0].player}"`);
+      }
     });
 
     console.log(`[CBS] Total teams with injury reports: ${injuryReports.size}`);
