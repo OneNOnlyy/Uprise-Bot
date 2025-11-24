@@ -318,6 +318,7 @@ export async function showDashboard(interaction) {
     let losses = 0;
     let pushes = 0;
     let pending = 0;
+    let completedGames = 0; // Track actual number of completed games (not win/loss count)
     
     // Sort picks by game commence time to match the order elsewhere
     const sortedPicks = [...userPicks].sort((a, b) => {
@@ -345,6 +346,8 @@ export async function showDashboard(interaction) {
       
       // Check if game has result
       if (game.result && game.result.status === 'Final') {
+        completedGames++; // Count actual completed games (not win/loss points)
+        
         const homeScore = game.result.homeScore;
         const awayScore = game.result.awayScore;
         
@@ -411,7 +414,7 @@ export async function showDashboard(interaction) {
     if (wins > 0 || losses > 0 || pushes > 0) {
       embed.addFields({
         name: '📊 Current Record',
-        value: `**${wins}-${losses}-${pushes}** (${wins + losses + pushes} complete, ${pending} pending)`,
+        value: `**${wins}-${losses}-${pushes}** (${completedGames} complete, ${pending} pending)`,
         inline: false
       });
     }
