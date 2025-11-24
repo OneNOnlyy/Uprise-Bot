@@ -508,18 +508,22 @@ async function showUserStats(interaction) {
     inline: true
   });
 
-  // Double-Down Stats (Overall - only show if used at least once in history)
-  if (stats.doubleDownsUsed > 0) {
-    const ddRecord = `${stats.doubleDownWins}-${stats.doubleDownLosses}-${stats.doubleDownPushes || 0}`;
+  // Double-Down Stats (show if ever used)
+  const ddTotal = (stats.doubleDownWins || 0) + (stats.doubleDownLosses || 0) + (stats.doubleDownPushes || 0);
+  if (ddTotal > 0 || (stats.doubleDownsUsed || 0) > 0) {
+    const ddRecord = `${stats.doubleDownWins || 0}-${stats.doubleDownLosses || 0}-${stats.doubleDownPushes || 0}`;
+    const ddGamesDecided = (stats.doubleDownWins || 0) + (stats.doubleDownLosses || 0);
+    const ddWinRate = ddGamesDecided > 0 ? ((stats.doubleDownWins || 0) / ddGamesDecided * 100).toFixed(1) : '0.0';
+    
     embed.addFields({
-      name: '💰 Double Down Stats (All-Time)',
+      name: '💰 Double Down Record',
       value: [
-        `**Used:** ${stats.doubleDownsUsed} times`,
         `**Record:** ${ddRecord}`,
-        `**Win Rate:** ${stats.doubleDownWinRate.toFixed(1)}%`,
-        stats.doubleDownWinRate >= 60 ? '🔥 Hot Hand!' : stats.doubleDownWinRate >= 50 ? '✅ Profitable' : '📉 Risky'
-      ].join('\n'),
-      inline: false
+        `**Win Rate:** ${ddWinRate}%`,
+        `**Used:** ${stats.doubleDownsUsed || 0} times`,
+        ddWinRate >= 60 ? '🔥 Hot Hand!' : ddWinRate >= 50 ? '✅ Profitable' : ddGamesDecided > 0 ? '📉 Risky' : ''
+      ].filter(Boolean).join('\n'),
+      inline: true
     });
   }
 
