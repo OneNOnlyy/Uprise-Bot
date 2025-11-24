@@ -711,9 +711,21 @@ async function showEveryonesPicks(interaction, gameIndex = 0) {
   // Build embed for this game
   const awayAbbrev = getTeamAbbreviation(game.awayTeam);
   const homeAbbrev = getTeamAbbreviation(game.homeTeam);
+  
+  // Add score information if available
+  let scoreInfo = '';
+  if (game.result) {
+    if (game.result.status === 'Final') {
+      scoreInfo = `\n**Score: ${awayAbbrev} ${game.result.awayScore} @ ${homeAbbrev} ${game.result.homeScore} (Final)**`;
+    } else if (game.result.isLive) {
+      const status = game.result.status || 'Live';
+      scoreInfo = `\n**Score: ${awayAbbrev} ${game.result.awayScore} @ ${homeAbbrev} ${game.result.homeScore} (${status})**`;
+    }
+  }
+  
   const embed = new EmbedBuilder()
     .setTitle('👥 Everyone\'s Picks')
-    .setDescription(`**${awayAbbrev}** @ **${homeAbbrev}**\nGame ${gameIndex + 1} of ${sortedGames.length}`)
+    .setDescription(`**${awayAbbrev}** @ **${homeAbbrev}**\nGame ${gameIndex + 1} of ${sortedGames.length}${scoreInfo}`)
     .setColor(0x5865F2)
     .setTimestamp();
 
@@ -734,14 +746,39 @@ async function showEveryonesPicks(interaction, gameIndex = 0) {
       const ddTag = pick.isDoubleDown ? ' 💰' : '';
       const userMention = `<@${userId}>`;
       
+      // Determine if this pick won/lost/pending
+      let resultEmoji = '';
+      if (game.result && game.result.status === 'Final') {
+        // Calculate if pick won against the spread
+        const homeScore = game.result.homeScore;
+        const awayScore = game.result.awayScore;
+        
+        let pickWon = false;
+        if (pick.pick === 'home') {
+          pickWon = (homeScore + homeSpread) > awayScore;
+        } else {
+          pickWon = (awayScore + awaySpread) > homeScore;
+        }
+        
+        // Check for push (exact tie with spread)
+        const isPush = (pick.pick === 'home' && (homeScore + homeSpread) === awayScore) ||
+                       (pick.pick === 'away' && (awayScore + awaySpread) === homeScore);
+        
+        if (isPush) {
+          resultEmoji = ' 🟡'; // Push
+        } else {
+          resultEmoji = pickWon ? ' ✅' : ' ❌';
+        }
+      }
+      
       if (pick.pick === 'home') {
         homePicks++;
         const spread = homeSpread > 0 ? `+${homeSpread}` : homeSpread;
-        homePickDetails.push(`${userMention} (${spread})${ddTag}`);
+        homePickDetails.push(`${userMention} (${spread})${ddTag}${resultEmoji}`);
       } else {
         awayPicks++;
         const spread = awaySpread > 0 ? `+${awaySpread}` : awaySpread;
-        awayPickDetails.push(`${userMention} (${spread})${ddTag}`);
+        awayPickDetails.push(`${userMention} (${spread})${ddTag}${resultEmoji}`);
       }
     }
 
