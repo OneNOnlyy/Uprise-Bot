@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import fetch from 'node-fetch';
 import { getActiveSession, updateGameResult, getUserPicks, updateLeaderboardCache, closePATSSession } from '../utils/patsData.js';
+import { fetchCBSSportsScores, getTeamAbbreviation } from '../utils/oddsApi.js';
 
 const BALLDONTLIE_API = 'https://api.balldontlie.io/v1';
 
@@ -44,27 +45,72 @@ async function checkAndUpdateGameResults() {
 
     console.log('🔍 Checking game results...');
     
-    // Fetch current game data for session date AND next day (timezone handling)
+    // Try CBS Sports first (more reliable for live scores)
+    console.log('📡 Fetching from CBS Sports...');
+    const cbsGames = await fetchCBSSportsScores(session.date);
+    
+    // Also fetch from BallDontLie as backup
     const sessionDate = new Date(session.date);
     const nextDay = new Date(sessionDate);
     nextDay.setDate(nextDay.getDate() + 1);
     
     const liveGamesToday = await fetchGameData(session.date);
     const liveGamesTomorrow = await fetchGameData(nextDay.toISOString().split('T')[0]);
-    const liveGames = [...liveGamesToday, ...liveGamesTomorrow];
+    const ballDontLieGames = [...liveGamesToday, ...liveGamesTomorrow];
     
-    console.log(`📥 Fetched ${liveGames.length} games from BallDontLie (${liveGamesToday.length} today + ${liveGamesTomorrow.length} tomorrow)`);
+    console.log(`📥 Fetched ${cbsGames.length} games from CBS Sports`);
+    console.log(`📥 Fetched ${ballDontLieGames.length} games from BallDontLie (${liveGamesToday.length} today + ${liveGamesTomorrow.length} tomorrow)`);
     
     let updatedCount = 0;
     
     for (const sessionGame of session.games) {
-      // Skip if already has result
-      if (sessionGame.result) {
+      // Skip if already has final result
+      if (sessionGame.result && sessionGame.result.status === 'Final') {
         continue;
       }
       
-      // Find matching live game
-      const liveGame = liveGames.find(lg => {
+      // Try to match with CBS Sports data first (using abbreviations)
+      const awayAbbr = getTeamAbbreviation(sessionGame.awayTeam);
+      const homeAbbr = getTeamAbbreviation(sessionGame.homeTeam);
+      
+      const cbsGame = cbsGames.find(cg => 
+        cg.awayTeam === awayAbbr && cg.homeTeam === homeAbbr
+      );
+      
+      if (cbsGame && cbsGame.awayScore !== null && cbsGame.homeScore !== null) {
+        console.log(`📊 [CBS] ${sessionGame.awayTeam} @ ${sessionGame.homeTeam}`);
+        console.log(`   Status: "${cbsGame.status}", Away: ${cbsGame.awayScore}, Home: ${cbsGame.homeScore}`);
+        
+        if (cbsGame.isFinal) {
+          console.log(`✅ [CBS] Game Final: ${sessionGame.awayTeam} ${cbsGame.awayScore} @ ${sessionGame.homeTeam} ${cbsGame.homeScore}`);
+          
+          const result = {
+            homeScore: cbsGame.homeScore,
+            awayScore: cbsGame.awayScore,
+            winner: cbsGame.homeScore > cbsGame.awayScore ? 'home' : 'away',
+            status: 'Final'
+          };
+          
+          updateGameResult(session.id, sessionGame.id, result);
+          updatedCount++;
+        } else if (cbsGame.isLive) {
+          console.log(`🏀 [CBS] Game in progress: ${sessionGame.awayTeam} ${cbsGame.awayScore} @ ${sessionGame.homeTeam} ${cbsGame.homeScore} - ${cbsGame.status}`);
+          
+          const liveResult = {
+            homeScore: cbsGame.homeScore,
+            awayScore: cbsGame.awayScore,
+            status: cbsGame.status,
+            isLive: true
+          };
+          
+          updateGameResult(session.id, sessionGame.id, liveResult);
+        }
+        
+        continue; // Skip BallDontLie check if CBS had data
+      }
+      
+      // Fallback to BallDontLie if CBS doesn't have the game
+      const liveGame = ballDontLieGames.find(lg => {
         const homeMatch = lg.home_team.full_name === sessionGame.homeTeam || 
                          lg.home_team.name === sessionGame.homeTeam;
         const awayMatch = lg.visitor_team.full_name === sessionGame.awayTeam || 
@@ -73,17 +119,12 @@ async function checkAndUpdateGameResults() {
       });
       
       if (!liveGame) {
-        console.log(`❓ No match found for: ${sessionGame.awayTeam} @ ${sessionGame.homeTeam}`);
-        // Debug: show what teams we're looking for vs what we have
-        if (liveGames.length > 0) {
-          const sampleGame = liveGames[0];
-          console.log(`   Sample API team format: "${sampleGame.visitor_team.full_name}" (full_name) or "${sampleGame.visitor_team.name}" (name)`);
-        }
+        console.log(`❓ No match found in CBS or BallDontLie for: ${sessionGame.awayTeam} @ ${sessionGame.homeTeam}`);
         continue;
       }
       
       // Debug: log the game status
-      console.log(`📊 ${sessionGame.awayTeam} @ ${sessionGame.homeTeam}`);
+      console.log(`📊 [BallDontLie] ${sessionGame.awayTeam} @ ${sessionGame.homeTeam}`);
       console.log(`   Status: "${liveGame.status}", Home: ${liveGame.home_team_score}, Away: ${liveGame.visitor_team_score}`);
       
       // Check if game is final (BallDontLie may use different status strings)
@@ -97,7 +138,7 @@ async function checkAndUpdateGameResults() {
         const awayScore = liveGame.visitor_team_score;
         
         if (homeScore !== null && awayScore !== null) {
-          console.log(`✅ Game Final: ${sessionGame.awayTeam} ${awayScore} @ ${sessionGame.homeTeam} ${homeScore}`);
+          console.log(`✅ [BallDontLie] Game Final: ${sessionGame.awayTeam} ${awayScore} @ ${sessionGame.homeTeam} ${homeScore}`);
           
           // Update result in session
           const result = {
@@ -116,7 +157,7 @@ async function checkAndUpdateGameResults() {
         const awayScore = liveGame.visitor_team_score;
         
         if (homeScore !== null && awayScore !== null) {
-          console.log(`🏀 Game in progress: ${sessionGame.awayTeam} ${awayScore} @ ${sessionGame.homeTeam} ${homeScore} - ${liveGame.status}`);
+          console.log(`🏀 [BallDontLie] Game in progress: ${sessionGame.awayTeam} ${awayScore} @ ${sessionGame.homeTeam} ${homeScore} - ${liveGame.status}`);
           
           // Update live score in session (don't overwrite final results)
           if (!sessionGame.result || sessionGame.result.status !== 'Final') {
@@ -130,7 +171,7 @@ async function checkAndUpdateGameResults() {
             updateGameResult(session.id, sessionGame.id, liveResult);
           }
         } else {
-          console.log(`🏀 Game in progress: ${sessionGame.awayTeam} @ ${sessionGame.homeTeam} - ${liveGame.status} (scores not available yet)`);
+          console.log(`🏀 [BallDontLie] Game in progress: ${sessionGame.awayTeam} @ ${sessionGame.homeTeam} - ${liveGame.status} (scores not available yet)`);
         }
       }
     }
