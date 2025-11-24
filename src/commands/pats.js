@@ -392,14 +392,9 @@ export async function showDashboard(interaction) {
         if (game.result.status === 'Final') {
           scoreText = ` - ${awayAbbrev} ${game.result.awayScore} @ ${homeAbbrev} ${game.result.homeScore}`;
         } else if (game.result.isLive) {
-          // Clean up status - avoid showing timestamps, only show meaningful game status
-          let statusDisplay = '';
-          const status = game.result.status;
-          if (status && !status.includes('T') && !status.includes('Z') && status.length < 20) {
-            // Only show status if it's not a timestamp and is reasonably short
-            statusDisplay = ` (${status})`;
-          }
-          scoreText = ` - ${awayAbbrev} ${game.result.awayScore} @ ${homeAbbrev} ${game.result.homeScore}${statusDisplay}`;
+          // Show live status with score
+          const status = game.result.status || 'Live';
+          scoreText = ` - ${awayAbbrev} ${game.result.awayScore} @ ${homeAbbrev} ${game.result.homeScore} (${status})`;
         }
       }
       
