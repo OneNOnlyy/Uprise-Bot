@@ -67,6 +67,26 @@ const TEAM_ABBREVIATIONS = {
   'Washington Wizards': 'WAS'
 };
 
+// ESPN API uses slightly different abbreviations - map them to our standard ones
+const ESPN_TO_STANDARD_ABBR = {
+  'SA': 'SAS',      // San Antonio
+  'UTAH': 'UTA',    // Utah
+  'GS': 'GSW',      // Golden State
+  'NO': 'NOP',      // New Orleans
+  'NY': 'NYK',      // New York
+  'WSH': 'WAS'      // Washington
+};
+
+// Reverse mapping: our abbreviations to ESPN's
+const STANDARD_TO_ESPN_ABBR = {
+  'SAS': 'SA',
+  'UTA': 'UTAH',
+  'GSW': 'GS',
+  'NOP': 'NO',
+  'NYK': 'NY',
+  'WAS': 'WSH'
+};
+
 /**
  * Get team abbreviation from full team name
  * @param {string} fullName - Full team name (e.g., "Boston Celtics")
@@ -951,6 +971,10 @@ export async function fetchCBSSportsScores(date = null) {
         const awayScore = parseInt(awayCompetitor.score) || 0;
         const homeScore = parseInt(homeCompetitor.score) || 0;
         
+        // Normalize ESPN abbreviations to our standard ones
+        const normalizedAwayTeam = ESPN_TO_STANDARD_ABBR[awayTeam] || awayTeam;
+        const normalizedHomeTeam = ESPN_TO_STANDARD_ABBR[homeTeam] || homeTeam;
+        
         // Get status
         const statusType = competition.status.type.name;
         const statusDetail = competition.status.type.detail;
@@ -973,8 +997,8 @@ export async function fetchCBSSportsScores(date = null) {
 
         games.push({
           id: event.id,
-          awayTeam,
-          homeTeam,
+          awayTeam: normalizedAwayTeam,
+          homeTeam: normalizedHomeTeam,
           awayScore,
           homeScore,
           status,
@@ -982,7 +1006,7 @@ export async function fetchCBSSportsScores(date = null) {
           isLive
         });
 
-        console.log(`  ✅ ${awayTeam} ${awayScore} @ ${homeTeam} ${homeScore} (${status})`);
+        console.log(`  ✅ ${normalizedAwayTeam} ${awayScore} @ ${normalizedHomeTeam} ${homeScore} (${status})`);
 
       } catch (error) {
         console.error(`Error parsing event:`, error.message);
