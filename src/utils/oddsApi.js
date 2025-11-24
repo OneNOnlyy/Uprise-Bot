@@ -819,7 +819,20 @@ export function formatGameWithSpread(game) {
   try {
     const homeTeam = game.home_team;
     const awayTeam = game.away_team;
+    
+    // Validate commence_time before creating Date
+    if (!game.commence_time) {
+      console.error(`Missing commence_time for game: ${awayTeam} @ ${homeTeam}`);
+      return null;
+    }
+    
     const commenceTime = new Date(game.commence_time);
+    
+    // Validate the date is valid
+    if (isNaN(commenceTime.getTime())) {
+      console.error(`Invalid commence_time for game: ${awayTeam} @ ${homeTeam} (${game.commence_time})`);
+      return null;
+    }
     
     // Get spread from first bookmaker (usually most reliable)
     const spreadMarket = game.bookmakers?.[0]?.markets?.find(m => m.key === 'spreads');
@@ -1029,7 +1042,8 @@ function findOddsForGame(game, oddsData) {
  */
 export async function getFormattedGamesForDate(date = null) {
   const games = await getNBAGamesWithSpreads(date);
-  return games.map(formatGameWithSpread).filter(g => g !== null);
+  // Games are already formatted by getNBAGamesWithSpreads, just return them
+  return games;
 }
 
 /**
