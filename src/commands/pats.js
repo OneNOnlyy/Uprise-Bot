@@ -124,51 +124,51 @@ export async function handleDashboardButton(interaction) {
       const session = getActiveSession();
       if (session) {
         try {
-          console.log('🔄 Refreshing dashboard - fetching fresh CBS scores...');
-          const cbsGames = await fetchCBSSportsScores(session.date);
+          console.log('🔄 Refreshing dashboard - fetching fresh scores...');
+          const espnGames = await fetchCBSSportsScores(session.date);
           
           let updatedCount = 0;
           for (const sessionGame of session.games) {
-            // Match with CBS Sports data using abbreviations
+            // Match with ESPN data using abbreviations
             const awayAbbr = getTeamAbbreviation(sessionGame.awayTeam);
             const homeAbbr = getTeamAbbreviation(sessionGame.homeTeam);
             
-            const cbsGame = cbsGames.find(cg => 
-              cg.awayTeam === awayAbbr && cg.homeTeam === homeAbbr
+            const espnGame = espnGames.find(eg => 
+              eg.awayTeam === awayAbbr && eg.homeTeam === homeAbbr
             );
             
-            if (cbsGame && cbsGame.awayScore !== null && cbsGame.homeScore !== null) {
-              // If CBS says game is live, always update
-              if (cbsGame.isLive) {
+            if (espnGame && espnGame.awayScore !== null && espnGame.homeScore !== null) {
+              // If ESPN says game is live, always update
+              if (espnGame.isLive) {
                 const liveResult = {
-                  homeScore: cbsGame.homeScore,
-                  awayScore: cbsGame.awayScore,
-                  status: cbsGame.status,
+                  homeScore: espnGame.homeScore,
+                  awayScore: espnGame.awayScore,
+                  status: espnGame.status,
                   isLive: true
                 };
-                updateGameResult(session.id, sessionGame.id, liveResult);
-                updatedCount++;
-              } else if (cbsGame.isFinal) {
-                // Only mark as final if not already final
-                if (!sessionGame.result || sessionGame.result.status !== 'Final') {
-                  const result = {
-                    homeScore: cbsGame.homeScore,
-                    awayScore: cbsGame.awayScore,
-                    winner: cbsGame.homeScore > cbsGame.awayScore ? 'home' : 'away',
-                    status: 'Final'
-                  };
-                  updateGameResult(session.id, sessionGame.id, result);
-                  updatedCount++;
-                }
+                const updated = updateGameResult(session.id, sessionGame.id, liveResult);
+                if (updated !== false) updatedCount++;
+              } else if (espnGame.isFinal) {
+                // Mark as final
+                const result = {
+                  homeScore: espnGame.homeScore,
+                  awayScore: espnGame.awayScore,
+                  winner: espnGame.homeScore > espnGame.awayScore ? 'home' : 'away',
+                  status: 'Final'
+                };
+                const updated = updateGameResult(session.id, sessionGame.id, result);
+                if (updated !== false) updatedCount++;
               }
             }
           }
           
           if (updatedCount > 0) {
-            console.log(`✅ Updated ${updatedCount} games with fresh CBS scores`);
+            console.log(`✅ Updated ${updatedCount} games with fresh scores`);
+          } else {
+            console.log('ℹ️ No score updates needed');
           }
         } catch (error) {
-          console.error('❌ Error fetching fresh CBS scores for refresh:', error);
+          console.error('❌ Error fetching fresh scores for refresh:', error);
         }
       }
       
