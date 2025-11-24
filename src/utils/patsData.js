@@ -58,9 +58,10 @@ export function createPATSSession(date, games, participants) {
     date: date,
     games: games.map(game => ({
       id: game.id,
-      homeTeam: game.homeTeam,
-      awayTeam: game.awayTeam,
-      commenceTime: game.commenceTime,
+      // Handle both camelCase (homeTeam) and snake_case (home_team) from different sources
+      homeTeam: game.homeTeam || game.home_team,
+      awayTeam: game.awayTeam || game.away_team,
+      commenceTime: game.commenceTime || game.commence_time,
       homeSpread: game.homeSpread || 0,
       awaySpread: game.awaySpread || 0,
       favored: game.favored || null,
