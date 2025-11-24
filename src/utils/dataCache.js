@@ -6,6 +6,7 @@
 
 import { getNBAGamesWithSpreads } from './oddsApi.js';
 import { getMatchupInfo, getTeamInfo } from './espnApi.js';
+import * as cron from 'node-cron';
 
 // Cache storage
 const cache = {
@@ -280,7 +281,6 @@ export function startInjuryReportUpdates() {
   });
   
   // Set up cron job to run every minute
-  const cron = require('node-cron');
   cron.schedule('* * * * *', async () => {
     try {
       await fetchAndCacheInjuryReports();
