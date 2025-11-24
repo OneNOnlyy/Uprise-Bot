@@ -493,6 +493,69 @@ export function closePATSSession(sessionId, gameResults) {
 }
 
 /**
+ * Reopen a closed PATS session
+ */
+export function reopenPATSSession(sessionId) {
+  const data = readPATSData();
+  
+  // Find session in history
+  const sessionIndex = data.history.findIndex(s => s.id === sessionId);
+  
+  if (sessionIndex === -1) {
+    return { success: false, error: 'Session not found in history' };
+  }
+  
+  // Check if there's already an active session
+  if (data.activeSessions.length > 0) {
+    return { success: false, error: 'Cannot reopen: there is already an active session' };
+  }
+  
+  const session = data.history[sessionIndex];
+  
+  // Revert user stats for this session
+  session.participants.forEach(userId => {
+    if (!data.users[userId]) return;
+    
+    const userResult = session.results?.[userId];
+    if (userResult) {
+      // Revert wins/losses/pushes
+      data.users[userId].totalWins -= userResult.wins;
+      data.users[userId].totalLosses -= userResult.losses;
+      data.users[userId].totalPushes -= userResult.pushes;
+      
+      // Revert double-down stats
+      if (userResult.doubleDownStats) {
+        data.users[userId].doubleDownWins -= userResult.doubleDownStats.wins || 0;
+        data.users[userId].doubleDownLosses -= userResult.doubleDownStats.losses || 0;
+        data.users[userId].doubleDownPushes -= userResult.doubleDownStats.pushes || 0;
+      }
+      
+      // Check if user used double-down in this session
+      const picks = session.picks[userId] || [];
+      const hasDoubleDown = picks.some(p => p.isDoubleDown);
+      if (hasDoubleDown) {
+        data.users[userId].doubleDownsUsed -= 1;
+      }
+    }
+    
+    // Decrement session count
+    data.users[userId].sessions -= 1;
+  });
+  
+  // Restore session to active
+  session.status = 'active';
+  delete session.results;
+  delete session.closedAt;
+  
+  // Move back to active sessions
+  data.activeSessions.push(session);
+  data.history.splice(sessionIndex, 1);
+  
+  writePATSData(data);
+  return { success: true, session };
+}
+
+/**
  * Get leaderboard
  */
 export function getLeaderboard() {

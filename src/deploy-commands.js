@@ -10,6 +10,7 @@ import * as patsCommand from './commands/pats.js';
 import * as patsleaderboardCommand from './commands/patsleaderboard.js';
 import * as patsendCommand from './commands/patsend.js';
 import * as patshistoryCommand from './commands/patshistory.js';
+import * as patsreopenCommand from './commands/patsreopen.js';
 import * as patsaddplayerCommand from './commands/patsaddplayer.js';
 import * as patseditplayerCommand from './commands/patseditplayer.js';
 import * as patsviewplayerCommand from './commands/patsviewplayer.js';
@@ -28,6 +29,7 @@ const commands = [
   patsleaderboardCommand.data.toJSON(),
   patsendCommand.data.toJSON(),
   patshistoryCommand.data.toJSON(),
+  patsreopenCommand.data.toJSON(),
   patsaddplayerCommand.data.toJSON(),
   patseditplayerCommand.data.toJSON(),
   patsviewplayerCommand.data.toJSON(),
