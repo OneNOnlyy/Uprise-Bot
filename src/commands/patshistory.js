@@ -122,9 +122,17 @@ export async function handleGameSelect(interaction) {
  */
 async function showHistoryOverview(interaction) {
   const data = readPATSData();
-  const allSessions = [...data.history].sort((a, b) => 
-    new Date(b.closedAt) - new Date(a.closedAt)
-  );
+  
+  // Include both active and closed sessions
+  const allSessions = [
+    ...data.activeSessions.map(s => ({ ...s, isActive: true })),
+    ...data.history.map(s => ({ ...s, isActive: false }))
+  ].sort((a, b) => {
+    // Sort by closedAt for closed sessions, or by creation date for active
+    const dateA = a.closedAt ? new Date(a.closedAt) : new Date(a.date);
+    const dateB = b.closedAt ? new Date(b.closedAt) : new Date(b.date);
+    return dateB - dateA;
+  });
 
   const embed = new EmbedBuilder()
     .setTitle('📜 Complete PATS History')
@@ -141,11 +149,9 @@ async function showHistoryOverview(interaction) {
   // Show last 15 sessions in overview
   const recentSessions = allSessions.slice(0, 15);
   const sessionList = recentSessions.map((session, index) => {
-    const date = new Date(session.closedAt).toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    });
+    const dateStr = session.closedAt 
+      ? new Date(session.closedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : `${session.date} (Active)`;
     const participantCount = session.participants.length;
     const gameCount = session.games.length;
     
@@ -155,7 +161,8 @@ async function showHistoryOverview(interaction) {
       totalPicks += session.picks[userId].length;
     }
     
-    return `**${index + 1}. ${date}** - ${participantCount} players • ${gameCount} games • ${totalPicks} picks`;
+    const statusEmoji = session.isActive ? '🟢' : '⚫';
+    return `${statusEmoji} **${index + 1}. ${dateStr}** - ${participantCount} players • ${gameCount} games • ${totalPicks} picks`;
   }).join('\n');
 
   embed.addFields({
@@ -191,13 +198,13 @@ async function showHistoryOverview(interaction) {
 
   // Create dropdown to select a specific session
   const sessionOptions = recentSessions.slice(0, 25).map((session, index) => {
-    const date = new Date(session.closedAt).toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric'
-    });
+    const dateStr = session.closedAt
+      ? new Date(session.closedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : `${session.date} (Active)`;
+    const statusLabel = session.isActive ? '🟢 Active' : 'Closed';
     return {
-      label: `${date} - ${session.participants.length} players`,
-      description: `${session.games.length} games • Session ID: ${session.id.slice(0, 8)}`,
+      label: `${dateStr} - ${session.participants.length} players`,
+      description: `${statusLabel} • ${session.games.length} games • ID: ${session.id.toString().slice(0, 8)}`,
       value: session.id
     };
   });
@@ -220,7 +227,15 @@ async function showHistoryOverview(interaction) {
  */
 async function showSessionDetail(interaction, sessionId) {
   const data = readPATSData();
-  const session = data.history.find(s => s.id === sessionId);
+  
+  // Check both active and history
+  let session = data.history.find(s => s.id === sessionId);
+  let isActive = false;
+  
+  if (!session) {
+    session = data.activeSessions.find(s => s.id === sessionId);
+    isActive = true;
+  }
 
   if (!session) {
     await interaction.editReply({
@@ -231,21 +246,29 @@ async function showSessionDetail(interaction, sessionId) {
     return;
   }
 
+  const statusEmoji = isActive ? '🟢' : '⚫';
+  const statusText = isActive ? 'Active' : 'Closed';
+  
   const embed = new EmbedBuilder()
-    .setTitle(`📋 Session Details - ${session.date}`)
-    .setDescription(`Session ID: \`${session.id}\``)
-    .setColor(0x5865F2)
-    .setTimestamp(new Date(session.closedAt));
+    .setTitle(`${statusEmoji} Session Details - ${session.date}`)
+    .setDescription(`Session ID: \`${session.id}\`\nStatus: **${statusText}**`)
+    .setColor(isActive ? 0x00FF00 : 0x5865F2)
+    .setTimestamp(session.closedAt ? new Date(session.closedAt) : null);
 
   // Session info
+  const infoFields = [
+    `**Date:** ${session.date}`,
+    `**Games:** ${session.games.length}`,
+    `**Participants:** ${session.participants.length}`
+  ];
+  
+  if (session.closedAt) {
+    infoFields.splice(1, 0, `**Closed:** ${new Date(session.closedAt).toLocaleString('en-US')}`);
+  }
+  
   embed.addFields({
     name: '📅 Session Info',
-    value: [
-      `**Date:** ${session.date}`,
-      `**Closed:** ${new Date(session.closedAt).toLocaleString('en-US')}`,
-      `**Games:** ${session.games.length}`,
-      `**Participants:** ${session.participants.length}`
-    ].join('\n'),
+    value: infoFields.join('\n'),
     inline: true
   });
 
@@ -373,7 +396,12 @@ async function showSessionDetail(interaction, sessionId) {
  */
 async function showUserSessionDetail(interaction, sessionId, userId) {
   const data = readPATSData();
-  const session = data.history.find(s => s.id === sessionId);
+  
+  // Check both active and history
+  let session = data.history.find(s => s.id === sessionId);
+  if (!session) {
+    session = data.activeSessions.find(s => s.id === sessionId);
+  }
 
   if (!session) {
     await interaction.editReply({
@@ -539,7 +567,12 @@ async function showUserSessionDetail(interaction, sessionId, userId) {
  */
 async function showGameDetail(interaction, sessionId, gameId) {
   const data = readPATSData();
-  const session = data.history.find(s => s.id === sessionId);
+  
+  // Check both active and history
+  let session = data.history.find(s => s.id === sessionId);
+  if (!session) {
+    session = data.activeSessions.find(s => s.id === sessionId);
+  }
 
   if (!session) {
     await interaction.editReply({
