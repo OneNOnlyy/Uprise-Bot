@@ -133,9 +133,17 @@ export async function handleDashboardButton(interaction) {
             const awayAbbr = getTeamAbbreviation(sessionGame.awayTeam);
             const homeAbbr = getTeamAbbreviation(sessionGame.homeTeam);
             
+            console.log(`🔍 Looking for match: ${awayAbbr} @ ${homeAbbr}`);
+            
             const espnGame = espnGames.find(eg => 
               eg.awayTeam === awayAbbr && eg.homeTeam === homeAbbr
             );
+            
+            if (espnGame) {
+              console.log(`  ✅ Found ESPN game: ${espnGame.awayTeam} @ ${espnGame.homeTeam} - ${espnGame.awayScore} @ ${espnGame.homeScore}`);
+            } else {
+              console.log(`  ❌ No ESPN match found for ${awayAbbr} @ ${homeAbbr}`);
+            }
             
             if (espnGame && espnGame.awayScore !== null && espnGame.homeScore !== null) {
               // If ESPN says game is live, always update
