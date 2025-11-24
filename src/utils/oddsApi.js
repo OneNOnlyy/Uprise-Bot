@@ -27,7 +27,7 @@ const __dirname = path.dirname(__filename);
 const ODDS_API_BASE = 'https://api.the-odds-api.com/v4';
 const SPORT = 'basketball_nba';
 const BALLDONTLIE_API = 'https://api.balldontlie.io/v1';
-const CBS_SCOREBOARD_URL = 'https://www.cbssports.com/nba/scoreboard/';
+const CBS_SCOREBOARD_URL = 'https://www.cbssports.com/nba/scoreboard/?layout=compact';
 const CBS_GAMETRACKER_URL = 'https://www.cbssports.com/nba/gametracker/live/';
 const MANUAL_SPREADS_FILE = path.join(__dirname, '../../data/manual-spreads.json');
 
@@ -919,7 +919,7 @@ export async function fetchCBSSportsScores(date = null) {
     const dateStr = date ? new Date(date).toISOString().split('T')[0].replace(/-/g, '') : new Date().toISOString().split('T')[0].replace(/-/g, '');
     const url = CBS_SCOREBOARD_URL;
 
-    console.log(`🏀 Fetching scores from CBS Sports for ${dateStr}...`);
+    console.log(`🏀 Fetching scores from CBS Sports compact layout...`);
 
     // Use native https.get for reliable fetching
     const html = await new Promise((resolve, reject) => {
@@ -948,149 +948,59 @@ export async function fetchCBSSportsScores(date = null) {
     });
 
     const $ = cheerio.load(html);
-
-    // Extract game IDs from embedded script
-    let gameIds = [];
-    $('script').each((i, script) => {
-      const scriptContent = $(script).html();
-      if (scriptContent && scriptContent.includes('live-app-params')) {
-        const gameAbbrMatch = scriptContent.match(/"gameAbbr":"([^"]+)"/);
-        if (gameAbbrMatch) {
-          const gameAbbr = gameAbbrMatch[1];
-          gameIds = gameAbbr.split('|').filter(id => id.includes(dateStr));
-        }
-      }
-    });
-
-    console.log(`📋 Found ${gameIds.length} games for ${dateStr}`);
-
-    if (gameIds.length === 0) {
-      console.log('⚠️ No games found for this date on CBS Sports');
-      return [];
-    }
-
-    // Fetch scores for each game from gametracker pages
     const games = [];
 
-    for (const gameId of gameIds) {
+    // Parse the compact layout - much simpler structure
+    $('.in-progress-table tr, .final-table tr').each((i, row) => {
       try {
-        // Parse game ID: NBA_YYYYMMDD_AWAY@HOME
-        const parts = gameId.split('_');
-        if (parts.length < 3) continue;
-
-        const matchup = parts[2];
-        const [awayTeam, homeTeam] = matchup.split('@');
-
-        // Fetch game details
-        const gametrackerUrl = `${CBS_GAMETRACKER_URL}${gameId}`;
-        const gameHtml = await new Promise((resolve, reject) => {
-          const makeRequest = (urlToFetch) => {
-            const gameRequest = https.get(urlToFetch, {
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-              },
-              timeout: 8000
-            }, (res) => {
-              // Handle redirects
-              if (res.statusCode === 301 || res.statusCode === 302) {
-                if (res.headers.location) {
-                  console.log(`  Redirecting to: ${res.headers.location}`);
-                  makeRequest(res.headers.location);
-                  return;
-                }
-              }
-              
-              let data = '';
-              res.on('data', (chunk) => data += chunk);
-              res.on('end', () => {
-                if (res.statusCode === 200) {
-                  resolve(data);
-                } else {
-                  reject(new Error(`HTTP ${res.statusCode}`));
-                }
-              });
-            });
-
-            gameRequest.on('error', reject);
-            gameRequest.on('timeout', () => {
-              gameRequest.destroy();
-              reject(new Error('Request timeout'));
-            });
-          };
-          
-          makeRequest(gametrackerUrl);
-        });
-
-        const $game = cheerio.load(gameHtml);
-
-        // Extract scores - CBS uses various selectors
-        let awayScore = null;
-        let homeScore = null;
-        let status = 'Scheduled';
-
-        // Try to find scores in the HTML
-        const scoreElements = $game('[class*="score"]').toArray();
-        const scores = scoreElements
-          .map(el => $game(el).text().trim())
-          .filter(text => /^\d+$/.test(text))
-          .map(text => parseInt(text, 10));
-
-        if (scores.length >= 2) {
-          awayScore = scores[0];
-          homeScore = scores[1];
-        }
-
-        // Determine game status more accurately
-        // Check for INPROGRESS-status class which indicates live game
-        const isInProgress = $game('body').attr('class')?.includes('INPROGRESS-status') || false;
-
-        // Check for FINAL-status class
-        const isGameFinal = $game('body').attr('class')?.includes('FINAL-status') || false;
-
-        // Look for combined status like "3rd 9:53" in the HTML
-        let combinedStatus = '';
-        const bodyText = $game('body').text();
-        const timeMatch = bodyText.match(/(\d+(?:st|nd|rd|th))\s+(\d+:\d+)/);
-        if (timeMatch) {
-          combinedStatus = `${timeMatch[1]} ${timeMatch[2]}`;
-        }
-
-        // Determine status based on game state
-        if (isGameFinal) {
-          status = 'Final';
-        } else if (isInProgress && combinedStatus) {
-          // Use the combined status like "3rd 9:53"
-          status = combinedStatus;
-        } else if (isInProgress) {
-          status = 'Live';
-        } else {
-          status = 'Scheduled';
-        }
-
-        // Determine if game is final or live
-        const isFinal = status === 'Final';
-        const isLive = (isInProgress || (awayScore !== null && homeScore !== null)) && !isFinal;
-
+        const $row = $(row);
+        
+        // Skip header rows
+        if ($row.find('th').length > 0) return;
+        
+        // Get team abbreviations and scores
+        const cells = $row.find('td');
+        if (cells.length < 3) return;
+        
+        // First cell has away team and score
+        const awayText = $(cells[0]).text().trim();
+        const awayMatch = awayText.match(/([A-Z]{2,3})\s+(\d+)/);
+        
+        // Second cell has home team and score  
+        const homeText = $(cells[1]).text().trim();
+        const homeMatch = homeText.match(/([A-Z]{2,3})\s+(\d+)/);
+        
+        if (!awayMatch || !homeMatch) return;
+        
+        const awayTeam = awayMatch[1];
+        const awayScore = parseInt(awayMatch[2]);
+        const homeTeam = homeMatch[1];
+        const homeScore = parseInt(homeMatch[2]);
+        
+        // Third cell has status
+        const statusText = $(cells[2]).text().trim();
+        
+        // Determine if final or live
+        const isFinal = statusText.toLowerCase().includes('final');
+        const isLive = !isFinal && (statusText.includes('Q') || statusText.includes(':') || statusText.toLowerCase().includes('half'));
+        
         games.push({
-          id: gameId,
+          id: `NBA_${dateStr}_${awayTeam}@${homeTeam}`,
           awayTeam,
           homeTeam,
           awayScore,
           homeScore,
-          status,
+          status: isFinal ? 'Final' : (isLive ? statusText : 'Scheduled'),
           isFinal,
           isLive
         });
-
-        console.log(`  ✅ ${awayTeam} ${awayScore || '-'} @ ${homeTeam} ${homeScore || '-'} (${status})`);
-
-        // Small delay to avoid overwhelming CBS servers
-        await new Promise(resolve => setTimeout(resolve, 300));
-
+        
+        console.log(`  ✅ ${awayTeam} ${awayScore} @ ${homeTeam} ${homeScore} (${isFinal ? 'Final' : statusText})`);
+        
       } catch (error) {
-        console.error(`Error fetching game ${gameId}:`, error.message);
+        console.warn(`Error parsing row ${i}:`, error.message);
       }
-    }
+    });
 
     console.log(`✅ Fetched ${games.length} games with scores from CBS Sports`);
     return games;
