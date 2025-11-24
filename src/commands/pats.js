@@ -493,21 +493,6 @@ async function showUserStats(interaction) {
     inline: true
   });
 
-  // Streaks
-  const streakText = stats.currentStreak > 0 
-    ? `${stats.currentStreak} ${stats.streakType === 'win' ? '🔥' : '❄️'}` 
-    : 'None';
-  
-  embed.addFields({
-    name: '🔥 Streaks',
-    value: [
-      `**Current:** ${streakText}`,
-      `**Best Win Streak:** ${stats.bestStreak} 🏆`,
-      stats.streakType === 'win' && stats.currentStreak >= 3 ? '**On Fire!** 🔥🔥🔥' : null
-    ].filter(Boolean).join('\n'),
-    inline: true
-  });
-
   // Double-Down Stats (show if ever used)
   const ddTotal = (stats.doubleDownWins || 0) + (stats.doubleDownLosses || 0) + (stats.doubleDownPushes || 0);
   if (ddTotal > 0 || (stats.doubleDownsUsed || 0) > 0) {
@@ -520,9 +505,8 @@ async function showUserStats(interaction) {
       value: [
         `**Record:** ${ddRecord}`,
         `**Win Rate:** ${ddWinRate}%`,
-        `**Used:** ${stats.doubleDownsUsed || 0} times`,
-        ddWinRate >= 60 ? '🔥 Hot Hand!' : ddWinRate >= 50 ? '✅ Profitable' : ddGamesDecided > 0 ? '📉 Risky' : ''
-      ].filter(Boolean).join('\n'),
+        `**Used:** ${stats.doubleDownsUsed || 0} times`
+      ].join('\n'),
       inline: true
     });
   }
