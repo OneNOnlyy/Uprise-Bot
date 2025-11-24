@@ -84,16 +84,16 @@ export async function execute(interaction) {
       .setFooter({ text: '🎯 Make your picks before tip-off!' })
       .setTimestamp();
 
-    // Add game list
-    const gamesList = games.slice(0, 10).map(game => {
+    // Add game list using session.games which has properly formatted data
+    const gamesList = session.games.slice(0, 10).map(game => {
       const favoredTeam = game.favored === 'home' ? game.homeTeam : game.awayTeam;
       const spread = game.favored === 'home' ? game.homeSpread : game.awaySpread;
-      return `**✈️ ${game.awayTeam}** @ **${game.homeTeam}**\n🎯 ${favoredTeam} ${spread}\n🕐 ${game.timeString}`;
+      return `**✈️ ${game.awayTeam}** @ **${game.homeTeam}**\n🎯 ${favoredTeam} ${spread}\n🕐 ${game.timeString || 'TBD'}`;
     }).join('\n\n');
     
     embed.addFields({
       name: '🏀 Today\'s Games',
-      value: gamesList + (games.length > 10 ? `\n\n*...and ${games.length - 10} more*` : ''),
+      value: gamesList + (session.games.length > 10 ? `\n\n*...and ${session.games.length - 10} more*` : ''),
       inline: false
     });
 
