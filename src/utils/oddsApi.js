@@ -65,6 +65,15 @@ const TEAM_ABBREVIATIONS = {
 };
 
 /**
+ * Get team abbreviation from full team name
+ * @param {string} fullName - Full team name (e.g., "Boston Celtics")
+ * @returns {string} - Team abbreviation (e.g., "BOS") or original name if not found
+ */
+export function getTeamAbbreviation(fullName) {
+  return TEAM_ABBREVIATIONS[fullName] || fullName;
+}
+
+/**
  * Load manual spreads from JSON file
  */
 function loadManualSpreads(date = null) {

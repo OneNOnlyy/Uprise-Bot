@@ -6,6 +6,7 @@ import {
   ButtonStyle
 } from 'discord.js';
 import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory } from '../utils/patsData.js';
+import { getTeamAbbreviation } from '../utils/oddsApi.js';
 
 /**
  * FAIL-SAFE: Fix spreads where one is 0 but the other isn't (they should be inverse)
@@ -280,10 +281,20 @@ export async function showDashboard(interaction) {
       
       let scoreText = '';
       if (game.result) {
+        const awayAbbrev = getTeamAbbreviation(game.awayTeam);
+        const homeAbbrev = getTeamAbbreviation(game.homeTeam);
+        
         if (game.result.status === 'Final') {
-          scoreText = ` - ${game.awayTeam} ${game.result.awayScore} @ ${game.homeTeam} ${game.result.homeScore}`;
+          scoreText = ` - ${awayAbbrev} ${game.result.awayScore} @ ${homeAbbrev} ${game.result.homeScore}`;
         } else if (game.result.isLive) {
-          scoreText = ` - ${game.awayTeam} ${game.result.awayScore} @ ${game.homeTeam} ${game.result.homeScore} (${game.result.status})`;
+          // Clean up status - avoid showing timestamps, only show meaningful game status
+          let statusDisplay = '';
+          const status = game.result.status;
+          if (status && !status.includes('T') && !status.includes('Z') && status.length < 20) {
+            // Only show status if it's not a timestamp and is reasonably short
+            statusDisplay = ` (${status})`;
+          }
+          scoreText = ` - ${awayAbbrev} ${game.result.awayScore} @ ${homeAbbrev} ${game.result.homeScore}${statusDisplay}`;
         }
       }
       
@@ -416,7 +427,9 @@ async function showUserStats(interaction) {
     
     // Add double-down info if used in current session
     if (sessionStats.doubleDownGame) {
-      sessionDetails.push(`**💰 Double Down:**  ${sessionStats.doubleDownGame.awayTeam} @ ${sessionStats.doubleDownGame.homeTeam}`);
+      const awayAbbrev = getTeamAbbreviation(sessionStats.doubleDownGame.awayTeam);
+      const homeAbbrev = getTeamAbbreviation(sessionStats.doubleDownGame.homeTeam);
+      sessionDetails.push(`**💰 Double Down:**  ${awayAbbrev} @ ${homeAbbrev}`);
     }
     
     embed.addFields({
@@ -596,9 +609,11 @@ async function showEveryonesPicks(interaction, gameIndex = 0) {
   }
 
   // Build embed for this game
+  const awayAbbrev = getTeamAbbreviation(game.awayTeam);
+  const homeAbbrev = getTeamAbbreviation(game.homeTeam);
   const embed = new EmbedBuilder()
     .setTitle('👥 Everyone\'s Picks')
-    .setDescription(`**${game.awayTeam}** @ **${game.homeTeam}**\nGame ${gameIndex + 1} of ${sortedGames.length}`)
+    .setDescription(`**${awayAbbrev}** @ **${homeAbbrev}**\nGame ${gameIndex + 1} of ${sortedGames.length}`)
     .setColor(0x5865F2)
     .setTimestamp();
 
