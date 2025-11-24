@@ -1032,8 +1032,9 @@ export async function fetchAllInjuryReports() {
               lastName = secondPart.substring(lastSpaceIndex + 1);
             }
 
-            // Extract first name from abbreviated part (last capitalized word)
-            const firstNameMatch = abbreviated.match(/([A-Z][^A-Z]*)$/);
+            // Extract first name from abbreviated part (last capitalized sequence)
+            // Handle multi-letter abbreviations like RJ, AJ, JJ, etc.
+            const firstNameMatch = abbreviated.match(/([A-Z]{1,3}[a-z'-]*)$/);
             if (firstNameMatch) {
               const firstName = firstNameMatch[1];
               cleanPlayerName = firstName + ' ' + lastName;
