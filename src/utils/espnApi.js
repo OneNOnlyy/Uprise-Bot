@@ -927,13 +927,17 @@ export async function fetchAllInjuryReports() {
     const $ = cheerio.load(html);
     const injuryReports = new Map(); // teamAbbr -> injuries array
 
-    // CBS ID to NBA abbreviation mapping (from team logo URLs)
-    const CBS_ID_TO_ABBR = {
-      '333': 'MEM', '334': 'BOS', '335': 'NOP', '336': 'CHI', '337': 'CLE', '338': 'DAL',
-      '339': 'DEN', '340': 'DET', '341': 'GSW', '342': 'HOU', '343': 'IND', '344': 'LAC',
-      '345': 'ATL', '346': 'MIA', '347': 'MIL', '348': 'MIN', '349': 'BKN', '350': 'NYK',
-      '351': 'ORL', '352': 'PHI', '353': 'PHO', '354': 'POR', '355': 'SAC', '356': 'SAS',
-      '358': 'TOR', '359': 'UTA', '360': 'MEM', '361': 'WAS', '448283': 'CHA', '1628527': 'OKC'
+    // CBS team name to NBA abbreviation mapping (includes all CBS variations)
+    const CBS_NAME_TO_ABBR = {
+      'Atlanta': 'ATL', 'Boston': 'BOS', 'Brooklyn': 'BKN', 'Charlotte': 'CHA',
+      'Chicago': 'CHI', 'Cleveland': 'CLE', 'Dallas': 'DAL', 'Denver': 'DEN',
+      'Detroit': 'DET', 'Golden State': 'GSW', 'Golden St.': 'GSW', 'Houston': 'HOU', 
+      'Indiana': 'IND', 'LA Clippers': 'LAC', 'L.A. Clippers': 'LAC', 'LA Lakers': 'LAL', 
+      'L.A. Lakers': 'LAL', 'Memphis': 'MEM', 'Miami': 'MIA', 'Milwaukee': 'MIL', 
+      'Minnesota': 'MIN', 'New Orleans': 'NOP', 'New York': 'NYK', 'Oklahoma City': 'OKC', 
+      'Orlando': 'ORL', 'Philadelphia': 'PHI', 'Phoenix': 'PHO', 'Portland': 'POR', 
+      'Sacramento': 'SAC', 'San Antonio': 'SAS', 'Toronto': 'TOR', 'Utah': 'UTA', 
+      'Washington': 'WAS'
     };
 
     // CBS Sports organizes injuries in tables, one per team
@@ -950,22 +954,15 @@ export async function fetchAllInjuryReports() {
       const tableInjuries = [];
       let teamAbbr = null;
 
-      // Try to get team from logo in parent container
-      let $parent = $table.parent();
-      for (let i = 0; i < 5 && !teamAbbr; i++) {
-        $parent = $parent.parent();
-        if (!$parent.length) break;
-        
-        const $logo = $parent.find('img[alt="team logo"]').first();
-        if ($logo.length) {
-          const logoSrc = $logo.attr('src') || '';
-          const match = logoSrc.match(/team-logos\/(\d+)\.svg/);
-          if (match) {
-            const cbsId = match[1];
-            teamAbbr = CBS_ID_TO_ABBR[cbsId];
-            if (teamAbbr) {
-              console.log(`[CBS] Table ${tableIndex}: Identified team ${teamAbbr} from logo ID ${cbsId}`);
-            }
+      // Get team name from TeamName span - look for the closest parent with TableBase ID
+      const $tableBase = $table.closest('#TableBase, .TableBase');
+      if ($tableBase.length) {
+        const $teamName = $tableBase.find('.TeamName').first();
+        if ($teamName.length) {
+          const teamText = $teamName.text().trim();
+          teamAbbr = CBS_NAME_TO_ABBR[teamText];
+          if (teamAbbr) {
+            console.log(`[CBS] Table ${tableIndex}: Identified team ${teamAbbr} from name "${teamText}"`);
           }
         }
       }
