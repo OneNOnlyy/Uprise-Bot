@@ -157,8 +157,10 @@ export function updateGameResult(sessionId, gameId, result) {
     return false;
   }
   
-  // Check if game already has a final result (avoid overwriting final results)
-  if (game.result && game.result.status === 'Final') {
+  // Allow live score updates to override previous statuses
+  // Only prevent overwrites if BOTH existing and new are Final (confirmed final)
+  if (game.result && game.result.status === 'Final' && result.status === 'Final') {
+    // Both are final, no need to update
     return false;
   }
   
