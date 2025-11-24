@@ -64,9 +64,6 @@ async function checkAndUpdateGameResults() {
     let updatedCount = 0;
     
     for (const sessionGame of session.games) {
-      // Always update live games, only skip if already marked as Final
-      const skipUpdate = sessionGame.result && sessionGame.result.status === 'Final';
-      
       // Try to match with CBS Sports data first (using abbreviations)
       const awayAbbr = getTeamAbbreviation(sessionGame.awayTeam);
       const homeAbbr = getTeamAbbreviation(sessionGame.homeTeam);
@@ -79,19 +76,8 @@ async function checkAndUpdateGameResults() {
         console.log(`📊 [CBS] ${sessionGame.awayTeam} @ ${sessionGame.homeTeam}`);
         console.log(`   Status: "${cbsGame.status}", Away: ${cbsGame.awayScore}, Home: ${cbsGame.homeScore}`);
         
-        if (cbsGame.isFinal && !skipUpdate) {
-          console.log(`✅ [CBS] Game Final: ${sessionGame.awayTeam} ${cbsGame.awayScore} @ ${sessionGame.homeTeam} ${cbsGame.homeScore}`);
-          
-          const result = {
-            homeScore: cbsGame.homeScore,
-            awayScore: cbsGame.awayScore,
-            winner: cbsGame.homeScore > cbsGame.awayScore ? 'home' : 'away',
-            status: 'Final'
-          };
-          
-          updateGameResult(session.id, sessionGame.id, result);
-          updatedCount++;
-        } else if (cbsGame.isLive && !skipUpdate) {
+        // If CBS says game is live, always update (even if previously marked Final by mistake)
+        if (cbsGame.isLive) {
           console.log(`🏀 [CBS] Game in progress: ${sessionGame.awayTeam} ${cbsGame.awayScore} @ ${sessionGame.homeTeam} ${cbsGame.homeScore} - ${cbsGame.status}`);
           
           const liveResult = {
@@ -102,9 +88,24 @@ async function checkAndUpdateGameResults() {
           };
           
           updateGameResult(session.id, sessionGame.id, liveResult);
-          updatedCount++; // Count live updates too
-        } else if (skipUpdate) {
-          console.log(`⏭️ [CBS] Skipping ${sessionGame.awayTeam} @ ${sessionGame.homeTeam} - already marked Final`);
+          updatedCount++; // Count live updates
+        } else if (cbsGame.isFinal) {
+          // Only mark as final if not already final
+          if (!sessionGame.result || sessionGame.result.status !== 'Final') {
+            console.log(`✅ [CBS] Game Final: ${sessionGame.awayTeam} ${cbsGame.awayScore} @ ${sessionGame.homeTeam} ${cbsGame.homeScore}`);
+            
+            const result = {
+              homeScore: cbsGame.homeScore,
+              awayScore: cbsGame.awayScore,
+              winner: cbsGame.homeScore > cbsGame.awayScore ? 'home' : 'away',
+              status: 'Final'
+            };
+            
+            updateGameResult(session.id, sessionGame.id, result);
+            updatedCount++;
+          } else {
+            console.log(`⏭️ [CBS] ${sessionGame.awayTeam} @ ${sessionGame.homeTeam} already marked Final`);
+          }
         }
         
         continue; // Skip BallDontLie check if CBS had data
