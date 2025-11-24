@@ -910,103 +910,90 @@ export async function getFormattedGamesForDate(date = null) {
 }
 
 /**
- * Fetch live scores from CBS Sports scoreboard
+ * Fetch live scores from ESPN API (much more reliable than CBS scraping)
  * @param {string} date - Date in YYYY-MM-DD format (optional, defaults to today)
  * @returns {Array} Array of games with scores
  */
 export async function fetchCBSSportsScores(date = null) {
   try {
     const dateStr = date ? new Date(date).toISOString().split('T')[0].replace(/-/g, '') : new Date().toISOString().split('T')[0].replace(/-/g, '');
-    const url = CBS_SCOREBOARD_URL;
+    
+    // Use ESPN's scoreboard API - much more reliable
+    const espnUrl = `http://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateStr}`;
+    
+    console.log(`🏀 Fetching scores from ESPN API for ${dateStr}...`);
 
-    console.log(`🏀 Fetching scores from CBS Sports compact layout...`);
+    const response = await fetch(espnUrl);
+    
+    if (!response.ok) {
+      console.error(`ESPN API fetch failed: ${response.status}`);
+      return [];
+    }
 
-    // Use native https.get for reliable fetching
-    const html = await new Promise((resolve, reject) => {
-      const request = https.get(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        },
-        timeout: 10000
-      }, (res) => {
-        let data = '';
-        res.on('data', (chunk) => data += chunk);
-        res.on('end', () => {
-          if (res.statusCode === 200) {
-            resolve(data);
-          } else {
-            reject(new Error(`HTTP ${res.statusCode}`));
-          }
-        });
-      });
-
-      request.on('error', reject);
-      request.on('timeout', () => {
-        request.destroy();
-        reject(new Error('Request timeout'));
-      });
-    });
-
-    const $ = cheerio.load(html);
+    const data = await response.json();
     const games = [];
 
-    // Parse the compact layout - much simpler structure
-    $('.in-progress-table tr, .final-table tr').each((i, row) => {
+    if (!data.events || data.events.length === 0) {
+      console.log('⚠️ No games found for this date');
+      return [];
+    }
+
+    for (const event of data.events) {
       try {
-        const $row = $(row);
+        const competition = event.competitions[0];
+        const homeCompetitor = competition.competitors.find(c => c.homeAway === 'home');
+        const awayCompetitor = competition.competitors.find(c => c.homeAway === 'away');
         
-        // Skip header rows
-        if ($row.find('th').length > 0) return;
+        if (!homeCompetitor || !awayCompetitor) continue;
+
+        const awayTeam = awayCompetitor.team.abbreviation;
+        const homeTeam = homeCompetitor.team.abbreviation;
+        const awayScore = parseInt(awayCompetitor.score) || 0;
+        const homeScore = parseInt(homeCompetitor.score) || 0;
         
-        // Get team abbreviations and scores
-        const cells = $row.find('td');
-        if (cells.length < 3) return;
+        // Get status
+        const statusType = competition.status.type.name;
+        const statusDetail = competition.status.type.detail;
+        const statusShort = competition.status.type.shortDetail;
         
-        // First cell has away team and score
-        const awayText = $(cells[0]).text().trim();
-        const awayMatch = awayText.match(/([A-Z]{2,3})\s+(\d+)/);
+        let status = 'Scheduled';
+        let isFinal = false;
+        let isLive = false;
         
-        // Second cell has home team and score  
-        const homeText = $(cells[1]).text().trim();
-        const homeMatch = homeText.match(/([A-Z]{2,3})\s+(\d+)/);
-        
-        if (!awayMatch || !homeMatch) return;
-        
-        const awayTeam = awayMatch[1];
-        const awayScore = parseInt(awayMatch[2]);
-        const homeTeam = homeMatch[1];
-        const homeScore = parseInt(homeMatch[2]);
-        
-        // Third cell has status
-        const statusText = $(cells[2]).text().trim();
-        
-        // Determine if final or live
-        const isFinal = statusText.toLowerCase().includes('final');
-        const isLive = !isFinal && (statusText.includes('Q') || statusText.includes(':') || statusText.toLowerCase().includes('half'));
-        
+        if (statusType === 'STATUS_FINAL') {
+          status = 'Final';
+          isFinal = true;
+        } else if (statusType === 'STATUS_IN_PROGRESS') {
+          // Use the short detail which has format like "3rd 6:59"
+          status = statusShort || statusDetail;
+          isLive = true;
+        } else if (statusType === 'STATUS_SCHEDULED') {
+          status = 'Scheduled';
+        }
+
         games.push({
-          id: `NBA_${dateStr}_${awayTeam}@${homeTeam}`,
+          id: event.id,
           awayTeam,
           homeTeam,
           awayScore,
           homeScore,
-          status: isFinal ? 'Final' : (isLive ? statusText : 'Scheduled'),
+          status,
           isFinal,
           isLive
         });
-        
-        console.log(`  ✅ ${awayTeam} ${awayScore} @ ${homeTeam} ${homeScore} (${isFinal ? 'Final' : statusText})`);
-        
-      } catch (error) {
-        console.warn(`Error parsing row ${i}:`, error.message);
-      }
-    });
 
-    console.log(`✅ Fetched ${games.length} games with scores from CBS Sports`);
+        console.log(`  ✅ ${awayTeam} ${awayScore} @ ${homeTeam} ${homeScore} (${status})`);
+
+      } catch (error) {
+        console.error(`Error parsing event:`, error.message);
+      }
+    }
+
+    console.log(`✅ Fetched ${games.length} games from ESPN API`);
     return games;
 
   } catch (error) {
-    console.error('Error fetching CBS Sports scores:', error);
+    console.error('Error fetching scores:', error);
     return [];
   }
 }
