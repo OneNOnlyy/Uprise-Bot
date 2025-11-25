@@ -981,55 +981,83 @@ export async function showRoleSelection(interaction) {
  * Show user selection menu
  */
 export async function showUserSelection(interaction) {
-  const config = getSessionConfig(interaction.user.id);
-  
-  // Get all members (limited to 25 for select menu)
-  const members = await interaction.guild.members.fetch();
-  const users = members
-    .filter(member => !member.user.bot)
-    .map(member => ({
-      label: member.user.username,
-      value: member.id,
-      description: member.displayName !== member.user.username ? member.displayName : undefined
-    }))
-    .slice(0, 25);
-  
-  const selectedCount = config.specificUsers.length;
-  
-  const embed = new EmbedBuilder()
-    .setTitle('👤 Select Users')
-    .setDescription(`Choose users to participate in this session.\n**Currently selected:** ${selectedCount} user${selectedCount === 1 ? '' : 's'}`)
-    .setColor('#5865F2')
-    .setFooter({ text: 'Select multiple users, then click Done' });
-  
-  const selectMenu = new StringSelectMenuBuilder()
-    .setCustomId('schedule_select_user')
-    .setPlaceholder('Select users')
-    .setMinValues(1)
-    .setMaxValues(Math.min(users.length, 25))
-    .addOptions(users);
-  
-  const row = new ActionRowBuilder().addComponents(selectMenu);
-  
-  const buttons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('schedule_users_done')
-        .setLabel('Done')
-        .setEmoji('✅')
-        .setStyle(ButtonStyle.Success)
-        .setDisabled(selectedCount === 0),
-      new ButtonBuilder()
-        .setCustomId('schedule_config_participants')
-        .setLabel('Back')
-        .setEmoji('⬅️')
-        .setStyle(ButtonStyle.Secondary)
-    );
-  
-  await interaction.editReply({
-    embeds: [embed],
-    components: [row, buttons]
-  });
+  try {
+    const config = getSessionConfig(interaction.user.id);
+    
+    // Check if guild is available
+    if (!interaction.guild) {
+      await interaction.editReply({
+        content: '❌ This command must be used in a server.',
+        embeds: [],
+        components: []
+      });
+      return;
+    }
+    
+    // Get all members (limited to 25 for select menu)
+    const members = await interaction.guild.members.fetch();
+    const users = members
+      .filter(member => !member.user.bot)
+      .map(member => ({
+        label: member.user.username,
+        value: member.id,
+        description: member.displayName !== member.user.username ? member.displayName : undefined
+      }))
+      .slice(0, 25);
+    
+    if (users.length === 0) {
+      await interaction.editReply({
+        content: '❌ No users found in this server.',
+        embeds: [],
+        components: []
+      });
+      return;
+    }
+    
+    const selectedCount = config.specificUsers.length;
+    
+    const embed = new EmbedBuilder()
+      .setTitle('👤 Select Users')
+      .setDescription(`Choose users to participate in this session.\n**Currently selected:** ${selectedCount} user${selectedCount === 1 ? '' : 's'}`)
+      .setColor('#5865F2')
+      .setFooter({ text: 'Select multiple users, then click Done' });
+    
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId('schedule_select_user')
+      .setPlaceholder('Select users')
+      .setMinValues(1)
+      .setMaxValues(Math.min(users.length, 25))
+      .addOptions(users);
+    
+    const row = new ActionRowBuilder().addComponents(selectMenu);
+    
+    const buttons = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('schedule_users_done')
+          .setLabel('Done')
+          .setEmoji('✅')
+          .setStyle(ButtonStyle.Success)
+          .setDisabled(selectedCount === 0),
+        new ButtonBuilder()
+          .setCustomId('schedule_config_participants')
+          .setLabel('Back')
+          .setEmoji('⬅️')
+          .setStyle(ButtonStyle.Secondary)
+      );
+    
+    await interaction.editReply({
+      embeds: [embed],
+      components: [row, buttons]
+    });
+  } catch (error) {
+    console.error('Error in showUserSelection:', error);
+    await interaction.editReply({
+      content: '❌ Error loading users. Please try again.',
+      embeds: [],
+      components: []
+    });
+  }
 }
 
 /**
