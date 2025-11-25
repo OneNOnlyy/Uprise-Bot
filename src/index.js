@@ -124,8 +124,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
           interaction.customId.startsWith('pats_stats_') ||
           interaction.customId.startsWith('pats_view_history') ||
           interaction.customId.startsWith('pats_history_') ||
-          interaction.customId.startsWith('pats_help_')) {
+          interaction.customId.startsWith('pats_help_') ||
+          interaction.customId.startsWith('pats_no_session_')) {
         await patsCommand.handleDashboardButton(interaction);
+      }
+      // Handle player selection dropdown
+      else if (interaction.customId === 'pats_player_select') {
+        await patsCommand.handlePlayerSelection(interaction);
       }
       // Handle everyone's picks navigation
       else if (interaction.customId.startsWith('pats_everyone_picks_nav_')) {

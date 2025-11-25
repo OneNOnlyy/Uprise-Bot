@@ -3,7 +3,8 @@ import {
   EmbedBuilder, 
   ActionRowBuilder, 
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  StringSelectMenuBuilder
 } from 'discord.js';
 import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory, updateGameResult } from '../utils/patsData.js';
 import { getTeamAbbreviation, fetchCBSSportsScores } from '../utils/oddsApi.js';
@@ -114,9 +115,29 @@ export async function handleDashboardButton(interaction) {
       await interaction.deferUpdate();
       await showEveryonesPicks(interaction);
     } else if (interaction.customId === 'pats_dashboard_stats') {
-      // Show user stats
+      // Show statistics menu
+      await interaction.deferUpdate();
+      await showStatsMenu(interaction);
+    } else if (interaction.customId === 'pats_no_session_stats_menu') {
+      // Show statistics menu when no session
+      await interaction.deferUpdate();
+      await showStatsMenu(interaction);
+    } else if (interaction.customId === 'pats_no_session_help') {
+      // Show help menu when no session
+      await interaction.deferUpdate();
+      await showHelpMenu(interaction);
+    } else if (interaction.customId === 'pats_stats_menu_my_stats') {
+      // Show user's own stats
       await interaction.deferUpdate();
       await showUserStats(interaction);
+    } else if (interaction.customId === 'pats_stats_menu_other_stats') {
+      // Show player selection for viewing other stats
+      await interaction.deferUpdate();
+      await showPlayerSelection(interaction);
+    } else if (interaction.customId === 'pats_stats_menu_back') {
+      // Return to dashboard from stats menu
+      await interaction.deferUpdate();
+      await showDashboard(interaction);
     } else if (interaction.customId === 'pats_dashboard_refresh') {
       // Fetch fresh CBS scores and update session before showing dashboard
       await interaction.deferUpdate();
@@ -198,9 +219,9 @@ export async function handleDashboardButton(interaction) {
       await interaction.deferUpdate();
       await showDashboard(interaction);
     } else if (interaction.customId === 'pats_stats_back') {
-      // Return to dashboard from stats
+      // Return to stats menu from individual stats
       await interaction.deferUpdate();
-      await showDashboard(interaction);
+      await showStatsMenu(interaction);
     } else if (interaction.customId === 'pats_view_history') {
       // Show session history
       await interaction.deferUpdate();
@@ -253,13 +274,18 @@ export async function showDashboard(interaction) {
         inline: false
       });
       
-      // Add button to view detailed stats
+      // Add buttons to view detailed stats and help
       const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId('pats_dashboard_stats')
-          .setLabel('View Full Statistics')
+          .setCustomId('pats_no_session_stats_menu')
+          .setLabel('All Statistics')
           .setStyle(ButtonStyle.Primary)
-          .setEmoji('📊')
+          .setEmoji('📊'),
+        new ButtonBuilder()
+          .setCustomId('pats_no_session_help')
+          .setLabel('Help')
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('❓')
       );
 
       await interaction.editReply({
@@ -489,7 +515,7 @@ export async function showDashboard(interaction) {
       .setDisabled(pickedCount === 0),
     new ButtonBuilder()
       .setCustomId('pats_dashboard_stats')
-      .setLabel('My Stats')
+      .setLabel('All Statistics')
       .setStyle(ButtonStyle.Success)
       .setEmoji('📊')
   );
@@ -519,15 +545,141 @@ export async function showDashboard(interaction) {
 }
 
 /**
+ * Show statistics menu - choose whose stats to view
+ */
+async function showStatsMenu(interaction) {
+  const embed = new EmbedBuilder()
+    .setTitle('📊 PATS Statistics')
+    .setDescription('**View player statistics and performance**\n\nChoose whose stats you\'d like to view:')
+    .setColor(0x5865F2)
+    .setTimestamp();
+
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_stats_menu_my_stats')
+      .setLabel('My Stats')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('👤'),
+    new ButtonBuilder()
+      .setCustomId('pats_stats_menu_other_stats')
+      .setLabel('View Other Player')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('👥'),
+    new ButtonBuilder()
+      .setCustomId('pats_stats_menu_back')
+      .setLabel('Back to Dashboard')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🏠')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [buttons]
+  });
+}
+
+/**
+ * Show player selection for viewing other player's stats
+ */
+async function showPlayerSelection(interaction) {
+  const { readPATSData } = await import('../utils/patsData.js');
+  const data = readPATSData();
+  
+  // Get all users who have played
+  const players = Object.keys(data.users)
+    .filter(userId => userId !== interaction.user.id) // Exclude current user
+    .map(userId => {
+      const user = data.users[userId];
+      return {
+        userId,
+        username: user.username || userId,
+        sessions: user.sessions || 0,
+        winRate: user.totalWins && user.totalLosses 
+          ? ((user.totalWins / (user.totalWins + user.totalLosses)) * 100).toFixed(1)
+          : '0.0'
+      };
+    })
+    .filter(p => p.sessions > 0) // Only show players with at least 1 session
+    .sort((a, b) => parseFloat(b.winRate) - parseFloat(a.winRate)); // Sort by win rate
+
+  if (players.length === 0) {
+    const embed = new EmbedBuilder()
+      .setTitle('📊 View Other Player Stats')
+      .setDescription('No other players have participated in PATS yet.')
+      .setColor(0x808080)
+      .setTimestamp();
+
+    const backButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_stats_menu_back')
+        .setLabel('Back')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️')
+    );
+
+    await interaction.editReply({
+      embeds: [embed],
+      components: [backButton]
+    });
+    return;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('📊 View Other Player Stats')
+    .setDescription('**Select a player to view their statistics:**')
+    .setColor(0x5865F2)
+    .setTimestamp();
+
+  // Create dropdown menu with players (max 25 options)
+  const options = players.slice(0, 25).map(player => ({
+    label: player.username,
+    description: `${player.sessions} sessions • ${player.winRate}% win rate`,
+    value: player.userId
+  }));
+
+  const selectMenu = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('pats_player_select')
+      .setPlaceholder('Choose a player...')
+      .addOptions(options)
+  );
+
+  const backButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_stats_menu_back')
+      .setLabel('Back')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('◀️')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [selectMenu, backButton]
+  });
+}
+
+/**
  * Show user stats page
  */
-async function showUserStats(interaction) {
-  const stats = getUserStats(interaction.user.id);
-  const sessionStats = getCurrentSessionStats(interaction.user.id);
+async function showUserStats(interaction, targetUserId = null) {
+  const userId = targetUserId || interaction.user.id;
+  const stats = getUserStats(userId);
+  const sessionStats = getCurrentSessionStats(userId);
+  
+  // Get username for display
+  let displayName = interaction.user.displayName;
+  let isOwnStats = true;
+  
+  if (targetUserId && targetUserId !== interaction.user.id) {
+    isOwnStats = false;
+    const { readPATSData } = await import('../utils/patsData.js');
+    const data = readPATSData();
+    displayName = data.users[targetUserId]?.username || targetUserId;
+  }
   
   const embed = new EmbedBuilder()
-    .setTitle('📊 Your PATS Statistics')
-    .setDescription(`**${interaction.user.displayName}'s** overall performance`)
+    .setTitle(`📊 ${isOwnStats ? 'Your' : displayName + '\'s'} PATS Statistics`)
+    .setDescription(`**${displayName}'s** overall performance`)
     .setColor(0x5865F2)
     .setTimestamp();
 
@@ -608,7 +760,7 @@ async function showUserStats(interaction) {
   const backButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('pats_stats_back')
-      .setLabel('Back to Dashboard')
+      .setLabel('Back')
       .setStyle(ButtonStyle.Secondary)
       .setEmoji('◀️'),
     new ButtonBuilder()
@@ -888,6 +1040,15 @@ export async function handleEveryonePicksNavigation(interaction) {
   await interaction.deferUpdate();
   const gameIndex = parseInt(interaction.customId.split('_').pop());
   await showEveryonesPicks(interaction, gameIndex);
+}
+
+/**
+ * Handle player selection from dropdown
+ */
+export async function handlePlayerSelection(interaction) {
+  await interaction.deferUpdate();
+  const selectedUserId = interaction.values[0];
+  await showUserStats(interaction, selectedUserId);
 }
 
 /**
