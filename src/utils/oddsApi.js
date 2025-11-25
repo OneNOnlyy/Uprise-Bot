@@ -1053,7 +1053,13 @@ export async function fetchCBSSportsScores(date = null) {
           status = statusShort || statusDetail;
           isLive = true;
         } else if (statusType === 'STATUS_SCHEDULED') {
-          status = 'Scheduled';
+          // Double-check: if scores are non-zero, game is actually in progress
+          if (awayScore > 0 || homeScore > 0) {
+            status = statusShort || statusDetail || 'In Progress';
+            isLive = true;
+          } else {
+            status = 'Scheduled';
+          }
         }
 
         games.push({
