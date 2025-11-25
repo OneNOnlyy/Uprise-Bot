@@ -932,7 +932,9 @@ export async function handleViewInjuries(interaction) {
       return;
     }
 
-    const gameId = interaction.customId.split('_')[2];
+    // Extract game ID - handle both old format (pats_injuries_ID) and new format (pats_view_injuries_ID)
+    const parts = interaction.customId.split('_');
+    const gameId = parts[parts.length - 1]; // Get the last part which is always the game ID
     const game = session.games.find(g => g.id === gameId);
     
     if (!game) {
