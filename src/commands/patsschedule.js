@@ -1,6 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
 import { getAllScheduledSessions, getScheduledSession, deleteScheduledSession, getAllTemplates, getTemplate, deleteTemplate, addScheduledSession, saveTemplate } from '../utils/sessionScheduler.js';
-import { fetchNBAGames } from '../utils/oddsApi.js';
 
 export const data = new SlashCommandBuilder()
   .setName('patsschedule')
