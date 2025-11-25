@@ -935,11 +935,17 @@ export async function handleViewInjuries(interaction) {
     // Extract game ID - handle both old format (pats_injuries_ID) and new format (pats_view_injuries_ID)
     const parts = interaction.customId.split('_');
     const gameId = parts[parts.length - 1]; // Get the last part which is always the game ID
+    
+    console.log(`[DEBUG] handleViewInjuries - customId: ${interaction.customId}`);
+    console.log(`[DEBUG] handleViewInjuries - parts: ${JSON.stringify(parts)}`);
+    console.log(`[DEBUG] handleViewInjuries - gameId: ${gameId}`);
+    console.log(`[DEBUG] handleViewInjuries - session.games: ${JSON.stringify(session.games.map(g => ({ id: g.id, teams: `${g.awayTeam} @ ${g.homeTeam}` })))}`);
+    
     const game = session.games.find(g => g.id === gameId);
     
     if (!game) {
       await interaction.followUp({
-        content: '❌ Game not found.',
+        content: `❌ Game not found. ID: ${gameId}`,
         ephemeral: true
       });
       return;
