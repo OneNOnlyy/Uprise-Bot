@@ -107,16 +107,20 @@ function initializeScheduledSessions(client) {
     try {
       // Create notification handlers
       const handlers = {
-        onAnnouncement: async () => {
+        sendAnnouncement: async () => {
           await sendSessionAnnouncement(client, session);
+          // Start the PATS session when announcement is sent
+          await startScheduledSession(client, session);
         },
-        onReminder: async () => {
+        sendReminders: async () => {
           await sendSessionReminder(client, session);
         },
-        onWarning: async () => {
+        sendWarnings: async () => {
           await sendSessionWarning(client, session);
         },
-        onStart: async () => {
+        startSession: async () => {
+          // This would be called at first game time, but now we start at announcement
+          // Keep this for backward compatibility or future use
           await startScheduledSession(client, session);
         }
       };
@@ -143,22 +147,33 @@ async function sendSessionAnnouncement(client, session) {
     const { EmbedBuilder } = await import('discord.js');
     
     const embed = new EmbedBuilder()
-      .setTitle('🏀 PATS Session Starting Soon!')
-      .setDescription(`A scheduled PATS session begins at **${firstGameTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })}**`)
+      .setTitle('🏀 PATS is Now Open!')
+      .setDescription(`Picks Against The Spread is now open! Make your picks before the first game starts at **${firstGameTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })}**`)
       .setColor('#5865F2')
       .addFields(
         {
-          name: '📅 Games',
+          name: '📅 Today\'s Games',
           value: session.gameDetails.map(g => `• ${g.matchup}`).join('\n')
         },
         {
-          name: '⏰ Time',
+          name: '📋 How to Play',
+          value: '1️⃣ Use `/pats` to see games and odds\n2️⃣ Pick teams you think will cover the spread\n3️⃣ Make all picks before each game starts!'
+        },
+        {
+          name: '⏰ First Game',
           value: firstGameTime.toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })
         }
       );
     
+    let content = null;
+    if (session.participantType === 'role' && session.roleId) {
+      content = `<@&${session.roleId}> PATS is now open!`;
+    } else if (session.participantType === 'users' && session.specificUsers?.length > 0) {
+      content = session.specificUsers.map(id => `<@${id}>`).join(' ') + ' PATS is now open!';
+    }
+    
     await channel.send({
-      content: session.participantType === 'role' ? `<@&${session.roleId}>` : null,
+      content: content,
       embeds: [embed]
     });
     
@@ -282,12 +297,57 @@ async function sendSessionWarning(client, session) {
 async function startScheduledSession(client, session) {
   try {
     const channel = await client.channels.fetch(session.channelId);
-    if (!channel) return;
+    if (!channel) {
+      console.error(`Channel ${session.channelId} not found for session ${session.id}`);
+      return;
+    }
     
-    // Call /patsstart programmatically
-    // TODO: Implement programmatic session start
+    const guild = await client.guilds.fetch(session.guildId);
+    if (!guild) {
+      console.error(`Guild ${session.guildId} not found for session ${session.id}`);
+      return;
+    }
     
-    console.log(`🏀 Auto-started session ${session.id}`);
+    // Get the date for this session
+    const sessionDate = new Date(session.firstGameTime);
+    const dateStr = sessionDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    // Import the patsstart command
+    const patsstartCommand = await import('./commands/patsstart.js');
+    
+    // Create a mock interaction object that patsstart expects
+    const mockInteraction = {
+      user: { id: client.user.id, username: 'Uprise Bot' },
+      guild: guild,
+      guildId: session.guildId,
+      channelId: session.channelId,
+      channel: channel,
+      options: {
+        getString: (name) => {
+          if (name === 'date') return dateStr;
+          return null;
+        }
+      },
+      replied: false,
+      deferred: false,
+      reply: async (options) => {
+        // Send the reply to the channel
+        await channel.send(options);
+        mockInteraction.replied = true;
+      },
+      editReply: async (options) => {
+        // For scheduled sessions, just send as new message
+        await channel.send(options);
+      },
+      followUp: async (options) => {
+        await channel.send(options);
+      }
+    };
+    
+    // Execute the patsstart command
+    await patsstartCommand.execute(mockInteraction);
+    
+    console.log(`🏀 Auto-started PATS session ${session.id} for ${dateStr}`);
   } catch (error) {
     console.error(`Error starting session ${session.id}:`, error);
   }
