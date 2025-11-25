@@ -1,5 +1,5 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { loadPATSData, savePATSData } = require('./patsData.js');
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { loadPATSData, savePATSData } from './patsData.js';
 
 /**
  * Get default notification preferences for a new user
