@@ -1055,7 +1055,7 @@ export async function fetchAllInjuryReports() {
                 // Skip the complex parsing and use the full name directly
                 if (cleanPlayerName && status) {
                   tableInjuries.push({
-                    player: cleanPlayerName,
+                    player: fixPlayerName(cleanPlayerName),
                     status: status,
                     description: injury || 'Injury',
                     position: position,
@@ -1127,7 +1127,7 @@ export async function fetchAllInjuryReports() {
 
           if (cleanPlayerName && status) {
             tableInjuries.push({
-              player: cleanPlayerName,
+              player: fixPlayerName(cleanPlayerName),
               status: status,
               description: injury || 'Injury',
               position: position,
