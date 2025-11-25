@@ -4,7 +4,7 @@ const { loadPATSData, savePATSData } = require('./patsData.js');
 /**
  * Get default notification preferences for a new user
  */
-function getDefaultPreferences() {
+export function getDefaultPreferences() {
     return {
         dmNotifications: {
             announcements: true,
@@ -20,7 +20,7 @@ function getDefaultPreferences() {
  * @param {string} userId - Discord user ID
  * @returns {object} User preferences object
  */
-function getUserPreferences(userId) {
+export function getUserPreferences(userId) {
     const data = loadPATSData();
     
     // Initialize user if doesn't exist
@@ -54,7 +54,7 @@ function getUserPreferences(userId) {
  * @param {string} category - Preference category (e.g., 'announcements', 'reminders')
  * @param {boolean} value - New value
  */
-function setUserPreference(userId, category, value) {
+export function setUserPreference(userId, category, value) {
     const data = loadPATSData();
     
     if (!data.users[userId]) {
@@ -86,7 +86,7 @@ function setUserPreference(userId, category, value) {
  * Show user settings menu
  * @param {Interaction} interaction - Discord interaction
  */
-async function showSettingsMenu(interaction) {
+export async function showSettingsMenu(interaction) {
     const userId = interaction.user.id;
     const prefs = getUserPreferences(userId);
     
@@ -166,7 +166,7 @@ async function showSettingsMenu(interaction) {
  * Handle toggle button interactions
  * @param {Interaction} interaction - Discord interaction
  */
-async function handleToggle(interaction) {
+export async function handleToggle(interaction) {
     const userId = interaction.user.id;
     const customId = interaction.customId;
     
@@ -199,16 +199,7 @@ async function handleToggle(interaction) {
  * @param {string} notificationType - Type of notification ('announcements', 'reminders', 'warnings', 'gameLocks')
  * @returns {boolean} Whether user should receive this notification
  */
-function shouldNotifyUser(userId, notificationType) {
+export function shouldNotifyUser(userId, notificationType) {
     const prefs = getUserPreferences(userId);
     return prefs.dmNotifications[notificationType] === true;
 }
-
-module.exports = {
-    getDefaultPreferences,
-    getUserPreferences,
-    setUserPreference,
-    showSettingsMenu,
-    handleToggle,
-    shouldNotifyUser
-};
