@@ -31,8 +31,8 @@ export async function execute(interaction) {
 
     // Get date parameter or use today
     const dateParam = interaction.options.getString('date');
-    const targetDate = dateParam ? new Date(dateParam) : new Date();
-    const dateStr = targetDate.toISOString().split('T')[0];
+    // Use the date string directly to avoid timezone conversion issues
+    const dateStr = dateParam || new Date().toISOString().split('T')[0];
     
     // Fetch games for the session - this is the ONLY time we call Odds API
     // This conserves our 500 API calls/month limit

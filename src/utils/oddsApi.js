@@ -918,8 +918,32 @@ export async function getNBAGamesWithSpreads(date = null) {
           // Check if response is valid array
           if (Array.isArray(data) && data.length > 0) {
             console.log(`✅ Found odds data from API for ${data.length} games`);
-            // Format the games before returning
-            const formattedGames = data.map(formatGameWithSpread).filter(g => g !== null);
+            
+            // Format the games before filtering
+            let formattedGames = data.map(formatGameWithSpread).filter(g => g !== null);
+            
+            // If a specific date was requested, filter games to only that date
+            if (date) {
+              const targetDate = date; // Already in YYYY-MM-DD format
+              formattedGames = formattedGames.filter(game => {
+                // Get the game's date in YYYY-MM-DD format (Pacific Time)
+                const gameDate = new Date(game.commenceTime);
+                const gameDateStr = gameDate.toLocaleString('en-US', { 
+                  year: 'numeric', 
+                  month: '2-digit', 
+                  day: '2-digit',
+                  timeZone: 'America/Los_Angeles'
+                });
+                // Convert MM/DD/YYYY to YYYY-MM-DD
+                const [month, day, year] = gameDateStr.split(',')[0].split('/');
+                const formattedGameDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                
+                return formattedGameDate === targetDate;
+              });
+              
+              console.log(`📅 Filtered to ${formattedGames.length} games for ${date}`);
+            }
+            
             return formattedGames;
           }
         } else {
