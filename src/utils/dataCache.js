@@ -25,7 +25,7 @@ const cache = {
 // Cache settings
 const MATCHUP_CACHE_DURATION = 60 * 1000; // 1 minute for matchup info
 const TEAM_CACHE_DURATION = 60 * 1000; // 1 minute for team info (ESPN scrapes)
-const INJURY_CACHE_DURATION = 60 * 1000; // 1 minute for injury reports
+const INJURY_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes for injury reports
 const CACHE_VERSION = 'v2'; // Increment when injury fetching logic changes
 
 /**
@@ -271,7 +271,7 @@ export async function fetchAndCacheInjuryReports() {
 }
 
 /**
- * Start automated injury report updates (runs every 5 minutes)
+ * Start automated injury report updates (runs every 2 minutes)
  */
 export function startInjuryReportUpdates() {
   console.log('[Cache] Starting automated injury report updates...');
@@ -281,8 +281,8 @@ export function startInjuryReportUpdates() {
     console.error('[Cache] Initial injury report fetch failed:', error.message);
   });
   
-  // Set up cron job to run every 5 minutes
-  cron.schedule('*/5 * * * *', async () => {
+  // Set up cron job to run every 2 minutes
+  cron.schedule('*/2 * * * *', async () => {
     try {
       await fetchAndCacheInjuryReports();
       console.log('[Cache] Injury reports updated successfully');
@@ -291,5 +291,5 @@ export function startInjuryReportUpdates() {
     }
   });
   
-  console.log('[Cache] Injury report updates scheduled (every 5 minutes)');
+  console.log('[Cache] Injury report updates scheduled (every 2 minutes)');
 }

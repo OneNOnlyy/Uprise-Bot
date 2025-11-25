@@ -596,23 +596,14 @@ async function showPlayerSelection(interaction) {
   const data = readPATSData();
   
   // Get all users who have played
-  const players = Object.keys(data.users)
+  const playerIds = Object.keys(data.users)
     .filter(userId => userId !== interaction.user.id) // Exclude current user
-    .map(userId => {
+    .filter(userId => {
       const user = data.users[userId];
-      return {
-        userId,
-        username: user.username || userId,
-        sessions: user.sessions || 0,
-        winRate: user.totalWins && user.totalLosses 
-          ? ((user.totalWins / (user.totalWins + user.totalLosses)) * 100).toFixed(1)
-          : '0.0'
-      };
-    })
-    .filter(p => p.sessions > 0) // Only show players with at least 1 session
-    .sort((a, b) => parseFloat(b.winRate) - parseFloat(a.winRate)); // Sort by win rate
+      return (user.sessions || 0) > 0; // Only show players with at least 1 session
+    });
 
-  if (players.length === 0) {
+  if (playerIds.length === 0) {
     const embed = new EmbedBuilder()
       .setTitle('📊 View Other Player Stats')
       .setDescription('No other players have participated in PATS yet.')
@@ -633,6 +624,34 @@ async function showPlayerSelection(interaction) {
     });
     return;
   }
+
+  // Fetch Discord usernames from guild
+  const players = [];
+  for (const userId of playerIds) {
+    const user = data.users[userId];
+    let displayName = user.username || userId;
+    
+    // Try to fetch actual Discord username
+    try {
+      const member = await interaction.guild.members.fetch(userId);
+      displayName = member.user.username;
+    } catch (error) {
+      // User might have left the server, use stored username or ID
+      console.log(`[PATS] Could not fetch member ${userId}:`, error.message);
+    }
+    
+    players.push({
+      userId,
+      username: displayName,
+      sessions: user.sessions || 0,
+      winRate: user.totalWins && user.totalLosses 
+        ? ((user.totalWins / (user.totalWins + user.totalLosses)) * 100).toFixed(1)
+        : '0.0'
+    });
+  }
+
+  // Sort by win rate
+  players.sort((a, b) => parseFloat(b.winRate) - parseFloat(a.winRate));
 
   const embed = new EmbedBuilder()
     .setTitle('📊 View Other Player Stats')
