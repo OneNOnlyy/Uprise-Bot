@@ -16,6 +16,7 @@ import * as patseditplayerCommand from './commands/patseditplayer.js';
 import * as patsviewplayerCommand from './commands/patsviewplayer.js';
 import * as patsdeleteplayerCommand from './commands/patsdeleteplayer.js';
 import * as patsrefreshspreadsCommand from './commands/patsrefreshspreads.js';
+import * as patsscheduleCommand from './commands/patsschedule.js';
 
 dotenv.config();
 
@@ -36,6 +37,7 @@ const commands = [
   patsviewplayerCommand.data.toJSON(),
   patsdeleteplayerCommand.data.toJSON(),
   patsrefreshspreadsCommand.data.toJSON(),
+  patsscheduleCommand.data.toJSON(),
 ];
 
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);

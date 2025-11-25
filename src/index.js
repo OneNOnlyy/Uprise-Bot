@@ -22,6 +22,9 @@ import * as patseditplayerCommand from './commands/patseditplayer.js';
 import * as patsviewplayerCommand from './commands/patsviewplayer.js';
 import * as patsdeleteplayerCommand from './commands/patsdeleteplayer.js';
 import * as patsrefreshspreadsCommand from './commands/patsrefreshspreads.js';
+import * as patsscheduleCommand from './commands/patsschedule.js';
+import { showSettingsMenu, handleToggle } from './utils/userPreferences.js';
+import { ensureUser } from './utils/patsData.js';
 
 dotenv.config();
 
@@ -51,6 +54,7 @@ client.commands.set(patseditplayerCommand.data.name, patseditplayerCommand);
 client.commands.set(patsviewplayerCommand.data.name, patsviewplayerCommand);
 client.commands.set(patsdeleteplayerCommand.data.name, patsdeleteplayerCommand);
 client.commands.set(patsrefreshspreadsCommand.data.name, patsrefreshspreadsCommand);
+client.commands.set(patsscheduleCommand.data.name, patsscheduleCommand);
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`✅ Uprise Bot is ready! Logged in as ${readyClient.user.tag}`);
@@ -119,8 +123,29 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // Handle PATS interactions (select menus, buttons)
   if (interaction.customId && interaction.customId.startsWith('pats_')) {
     try {
+      // Update username on every interaction
+      if (interaction.user) {
+        const data = await import('./utils/patsData.js').then(m => m.loadPATSData());
+        ensureUser(data, interaction.user.id, interaction.user.username);
+        await import('./utils/patsData.js').then(m => m.savePATSData(data));
+      }
+      
+      // Handle settings toggle buttons
+      if (interaction.customId.startsWith('pats_toggle_') || interaction.customId === 'pats_settings_back') {
+        if (interaction.customId === 'pats_settings_back') {
+          await interaction.deferUpdate();
+          await patsCommand.showDashboard(interaction);
+        } else {
+          await handleToggle(interaction);
+        }
+      }
+      // Handle settings menu buttons
+      else if (interaction.customId === 'pats_dashboard_settings' || interaction.customId === 'pats_no_session_settings') {
+        await interaction.deferUpdate();
+        await showSettingsMenu(interaction);
+      }
       // Handle dashboard buttons (including stats and history)
-      if (interaction.customId.startsWith('pats_dashboard_') || 
+      else if (interaction.customId.startsWith('pats_dashboard_') || 
           interaction.customId.startsWith('pats_stats_') ||
           interaction.customId.startsWith('pats_view_history') ||
           interaction.customId.startsWith('pats_history_') ||
@@ -219,6 +244,64 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     } catch (error) {
       console.error('Error handling history interaction:', error);
+      const errorMessage = { 
+        content: '❌ There was an error processing your request!', 
+        ephemeral: true 
+      };
+      
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(errorMessage);
+      } else {
+        await interaction.reply(errorMessage);
+      }
+    }
+  }
+  
+  // Handle schedule interactions
+  if (interaction.customId && interaction.customId.startsWith('schedule_')) {
+    try {
+      if (interaction.customId === 'schedule_new_session') {
+        await interaction.deferUpdate();
+        await interaction.editReply({
+          content: '🚧 Date selection menu coming soon!',
+          embeds: [],
+          components: []
+        });
+      }
+      else if (interaction.customId === 'schedule_view_sessions') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showScheduledSessions(interaction);
+      }
+      else if (interaction.customId === 'schedule_templates') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showTemplatesMenu(interaction);
+      }
+      else if (interaction.customId === 'schedule_back_main') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.execute(interaction);
+      }
+      else if (interaction.customId === 'schedule_cancel') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.cancelMenu(interaction);
+      }
+      else if (interaction.customId.startsWith('schedule_manage_')) {
+        const sessionId = interaction.customId.replace('schedule_manage_', '');
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showSessionManager(interaction, sessionId);
+      }
+      else if (interaction.customId.startsWith('schedule_delete_')) {
+        const sessionId = interaction.customId.replace('schedule_delete_', '');
+        await interaction.deferUpdate();
+        const { deleteScheduledSession } = await import('./utils/sessionScheduler.js');
+        deleteScheduledSession(sessionId);
+        await interaction.editReply({
+          content: '✅ Session deleted successfully!',
+          embeds: [],
+          components: []
+        });
+      }
+    } catch (error) {
+      console.error('Error handling schedule interaction:', error);
       const errorMessage = { 
         content: '❌ There was an error processing your request!', 
         ephemeral: true 

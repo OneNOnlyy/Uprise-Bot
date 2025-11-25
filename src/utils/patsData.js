@@ -48,6 +48,65 @@ export function writePATSData(data) {
 }
 
 /**
+ * Create a new user object with default values
+ * @param {string} userId - Discord user ID
+ * @param {string} username - Discord username (optional)
+ * @returns {object} New user object
+ */
+function createNewUser(userId, username = null) {
+  return {
+    userId,
+    username: username || null,
+    totalWins: 0,
+    totalLosses: 0,
+    totalPushes: 0,
+    sessions: 0,
+    doubleDownsUsed: 0,
+    doubleDownWins: 0,
+    doubleDownLosses: 0,
+    doubleDownPushes: 0,
+    preferences: {
+      dmNotifications: {
+        announcements: true,
+        reminders: true,
+        warnings: true,
+        gameLocks: false
+      }
+    }
+  };
+}
+
+/**
+ * Ensure user exists and update username
+ * @param {object} data - PATS data object
+ * @param {string} userId - Discord user ID
+ * @param {string} username - Discord username (optional)
+ * @returns {object} User object
+ */
+function ensureUser(data, userId, username = null) {
+  if (!data.users[userId]) {
+    data.users[userId] = createNewUser(userId, username);
+  } else if (username && data.users[userId].username !== username) {
+    // Update username if it changed
+    data.users[userId].username = username;
+  }
+  
+  // Ensure preferences exist (for existing users created before this feature)
+  if (!data.users[userId].preferences) {
+    data.users[userId].preferences = {
+      dmNotifications: {
+        announcements: true,
+        reminders: true,
+        warnings: true,
+        gameLocks: false
+      }
+    };
+  }
+  
+  return data.users[userId];
+}
+
+/**
  * Create a new PATS session
  */
 export function createPATSSession(date, games, participants) {
@@ -250,16 +309,7 @@ export function updateGameResult(sessionId, gameId, result) {
     
     if (!pick) {
       // User didn't make a pick for this game - add a loss
-      if (!data.users[userId]) {
-        data.users[userId] = { 
-          totalWins: 0, 
-          totalLosses: 0, 
-          sessions: 0,
-          doubleDownsUsed: 0,
-          doubleDownWins: 0,
-          doubleDownLosses: 0
-        };
-      }
+      ensureUser(data, userId);
       data.users[userId].totalLosses += 1;
       continue;
     }
@@ -313,18 +363,7 @@ export function updateGameResult(sessionId, gameId, result) {
     console.log(`[PATS] ========================================`);
     
     // Initialize user if doesn't exist
-    if (!data.users[userId]) {
-      data.users[userId] = { 
-        totalWins: 0, 
-        totalLosses: 0,
-        totalPushes: 0,
-        sessions: 0,
-        doubleDownsUsed: 0,
-        doubleDownWins: 0,
-        doubleDownLosses: 0,
-        doubleDownPushes: 0
-      };
-    }
+    ensureUser(data, userId);
     
     // Update overall stats - check for push first
     const adjustedHomeScore = homeScore + homeSpread;
@@ -404,18 +443,7 @@ export function closePATSSession(sessionId, gameResults) {
         const picks = session.picks[userId];
         const pick = picks.find(p => p.gameId === result.gameId);
         
-        if (!data.users[userId]) {
-          data.users[userId] = { 
-            totalWins: 0, 
-            totalLosses: 0,
-            totalPushes: 0,
-            sessions: 0,
-            doubleDownsUsed: 0,
-            doubleDownWins: 0,
-            doubleDownLosses: 0,
-            doubleDownPushes: 0
-          };
-        }
+        ensureUser(data, userId);
         
         if (!pick) {
           // Missed pick - add loss to overall stats
@@ -489,18 +517,7 @@ export function closePATSSession(sessionId, gameResults) {
     let missedPicks = 0;
     
     // Initialize user if doesn't exist
-    if (!data.users[userId]) {
-      data.users[userId] = { 
-        totalWins: 0, 
-        totalLosses: 0,
-        totalPushes: 0,
-        sessions: 0,
-        doubleDownsUsed: 0,
-        doubleDownWins: 0,
-        doubleDownLosses: 0,
-        doubleDownPushes: 0
-      };
-    }
+    ensureUser(data, userId);
     
     // Check each game in the session
     session.games.forEach(game => {
@@ -972,6 +989,7 @@ export function addPlayer(userId, username, initialStats = {}) {
   }
   
   data.users[userId] = {
+    userId,
     username: username,
     totalWins: initialStats.totalWins || 0,
     totalLosses: initialStats.totalLosses || 0,
@@ -981,6 +999,14 @@ export function addPlayer(userId, username, initialStats = {}) {
     doubleDownWins: initialStats.doubleDownWins || 0,
     doubleDownLosses: initialStats.doubleDownLosses || 0,
     doubleDownPushes: initialStats.doubleDownPushes || 0,
+    preferences: {
+      dmNotifications: {
+        announcements: true,
+        reminders: true,
+        warnings: true,
+        gameLocks: false
+      }
+    },
     addedAt: new Date().toISOString(),
     addedBy: 'admin'
   };
@@ -1066,3 +1092,7 @@ export function deletePlayer(userId) {
   return true;
 }
 
+// Export helper functions and aliases
+export const loadPATSData = readPATSData;
+export const savePATSData = writePATSData;
+export { ensureUser, createNewUser };

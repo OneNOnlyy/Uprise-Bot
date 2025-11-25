@@ -285,7 +285,12 @@ export async function showDashboard(interaction) {
           .setCustomId('pats_no_session_help')
           .setLabel('Help')
           .setStyle(ButtonStyle.Secondary)
-          .setEmoji('❓')
+          .setEmoji('❓'),
+        new ButtonBuilder()
+          .setCustomId('pats_no_session_settings')
+          .setLabel('Settings')
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('⚙️')
       );
 
       await interaction.editReply({
@@ -535,6 +540,11 @@ export async function showDashboard(interaction) {
       .setCustomId('pats_dashboard_help')
       .setLabel('Help')
       .setEmoji('❓')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('pats_dashboard_settings')
+      .setLabel('Settings')
+      .setEmoji('⚙️')
       .setStyle(ButtonStyle.Secondary)
   );
 
