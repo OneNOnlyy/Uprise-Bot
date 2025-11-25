@@ -689,6 +689,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.deferUpdate();
         await patsscheduleCommand.cancelMenu(interaction);
       }
+      else if (interaction.customId === 'schedule_dismiss') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.dismissMenu(interaction);
+      }
       else if (interaction.customId.startsWith('schedule_manage_')) {
         const sessionId = interaction.customId.replace('schedule_manage_', '');
         await interaction.deferUpdate();

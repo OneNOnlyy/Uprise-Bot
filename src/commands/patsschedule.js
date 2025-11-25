@@ -463,6 +463,17 @@ export async function cancelMenu(interaction) {
 }
 
 /**
+ * Dismiss the scheduling success message
+ */
+export async function dismissMenu(interaction) {
+  await interaction.editReply({
+    embeds: [],
+    components: [],
+    content: '✅ Session scheduled successfully!'
+  });
+}
+
+/**
  * Show date selection menu
  */
 export async function showDateSelection(interaction) {
@@ -1477,7 +1488,7 @@ export async function createScheduledSession(interaction) {
           .setEmoji('📆')
           .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
-          .setCustomId('schedule_cancel')
+          .setCustomId('schedule_dismiss')
           .setLabel('Done')
           .setEmoji('✅')
           .setStyle(ButtonStyle.Success)
