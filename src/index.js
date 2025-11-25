@@ -262,8 +262,53 @@ client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (interaction.customId === 'schedule_new_session') {
         await interaction.deferUpdate();
+        await patsscheduleCommand.showDateSelection(interaction);
+      }
+      else if (interaction.customId.startsWith('schedule_date_')) {
+        const selectedDate = interaction.customId.replace('schedule_date_', '');
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showGameSelection(interaction, selectedDate);
+      }
+      else if (interaction.customId.startsWith('schedule_toggle_game_')) {
+        // Toggle game selection
+        const parts = interaction.customId.replace('schedule_toggle_game_', '').split('_');
+        const selectedDate = parts.slice(0, -1).join('_');
+        const gameIndex = parseInt(parts[parts.length - 1]);
+        
+        patsscheduleCommand.toggleGameSelection(interaction.user.id, selectedDate, gameIndex);
+        
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showGameSelection(interaction, selectedDate);
+      }
+      else if (interaction.customId.startsWith('schedule_selectall_')) {
+        const selectedDate = interaction.customId.replace('schedule_selectall_', '');
+        patsscheduleCommand.selectAllGames(interaction.user.id);
+        
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showGameSelection(interaction, selectedDate);
+      }
+      else if (interaction.customId.startsWith('schedule_deselectall_')) {
+        const selectedDate = interaction.customId.replace('schedule_deselectall_', '');
+        patsscheduleCommand.deselectAllGames(interaction.user.id);
+        
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showGameSelection(interaction, selectedDate);
+      }
+      else if (interaction.customId.startsWith('schedule_continue_config_')) {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showConfigurationMenu(interaction);
+      }
+      else if (interaction.customId.startsWith('schedule_config_')) {
+        await interaction.deferUpdate();
+        await interaction.followUp({
+          content: '🚧 Channel/Participant/Notification configuration coming next!',
+          ephemeral: true
+        });
+      }
+      else if (interaction.customId === 'schedule_create_session') {
+        await interaction.deferUpdate();
         await interaction.editReply({
-          content: '🚧 Date selection menu coming soon!',
+          content: '🚧 Session creation and confirmation coming next!',
           embeds: [],
           components: []
         });
