@@ -1197,23 +1197,71 @@ export async function fetchCBSSportsScores(date = null) {
 
 /**
  * Fetch active roster (non-injured players) for a team from ESPN API
- * @param {string} teamAbbr - Team abbreviation (e.g., 'LAL', 'BOS')
+ * @param {string} teamAbbr - Team abbreviation (e.g., 'LAL', 'BOS') or full team name
  * @returns {Array} Array of active players with basic info
  */
 export async function getTeamActiveRoster(teamAbbr) {
   try {
+    // If we received a full team name, convert it to abbreviation
+    let abbr = teamAbbr;
+    
+    // Check if it's a full team name (contains spaces or is longer than 3 chars)
+    if (teamAbbr && (teamAbbr.includes(' ') || teamAbbr.length > 3)) {
+      // Try to extract abbreviation from full name
+      const teamNameMap = {
+        'Atlanta Hawks': 'ATL',
+        'Boston Celtics': 'BOS',
+        'Brooklyn Nets': 'BKN',
+        'Charlotte Hornets': 'CHA',
+        'Chicago Bulls': 'CHI',
+        'Cleveland Cavaliers': 'CLE',
+        'Dallas Mavericks': 'DAL',
+        'Denver Nuggets': 'DEN',
+        'Detroit Pistons': 'DET',
+        'Golden State Warriors': 'GSW',
+        'Houston Rockets': 'HOU',
+        'Indiana Pacers': 'IND',
+        'LA Clippers': 'LAC',
+        'Los Angeles Clippers': 'LAC',
+        'LA Lakers': 'LAL',
+        'Los Angeles Lakers': 'LAL',
+        'Memphis Grizzlies': 'MEM',
+        'Miami Heat': 'MIA',
+        'Milwaukee Bucks': 'MIL',
+        'Minnesota Timberwolves': 'MIN',
+        'New Orleans Pelicans': 'NOP',
+        'New York Knicks': 'NYK',
+        'Oklahoma City Thunder': 'OKC',
+        'Orlando Magic': 'ORL',
+        'Philadelphia 76ers': 'PHI',
+        'Phoenix Suns': 'PHX',
+        'Portland Trail Blazers': 'POR',
+        'Sacramento Kings': 'SAC',
+        'San Antonio Spurs': 'SAS',
+        'Toronto Raptors': 'TOR',
+        'Utah Jazz': 'UTA',
+        'Washington Wizards': 'WAS'
+      };
+      
+      abbr = teamNameMap[teamAbbr];
+      if (!abbr) {
+        console.error(`Could not find abbreviation for team: ${teamAbbr}`);
+        return [];
+      }
+    }
+    
     // Convert our standard abbreviations to ESPN format if needed
-    const espnAbbr = STANDARD_TO_ESPN_ABBR[teamAbbr] || teamAbbr;
+    const espnAbbr = STANDARD_TO_ESPN_ABBR[abbr] || abbr;
     
     // ESPN roster API endpoint
     const espnUrl = `http://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${espnAbbr.toLowerCase()}/roster`;
     
-    console.log(`👥 Fetching roster for ${teamAbbr} from ESPN API...`);
+    console.log(`👥 Fetching roster for ${abbr} from ESPN API...`);
 
     const response = await fetch(espnUrl);
     
     if (!response.ok) {
-      console.error(`ESPN Roster API failed: ${response.status}`);
+      console.error(`ESPN Roster API failed: ${response.status} for ${espnUrl}`);
       return [];
     }
 
@@ -1243,7 +1291,7 @@ export async function getTeamActiveRoster(teamAbbr) {
       }
     }
 
-    console.log(`✅ Fetched ${players.length} active players for ${teamAbbr}`);
+    console.log(`✅ Fetched ${players.length} active players for ${abbr}`);
     return players;
 
   } catch (error) {
