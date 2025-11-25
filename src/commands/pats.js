@@ -533,13 +533,21 @@ async function showUserStats(interaction) {
 
   // Overall stats
   const totalGames = stats.totalWins + stats.totalLosses;
+  
+  // Calculate average picks per session correctly
+  // Total actual picks = wins + losses + pushes (but need to account for double downs counting as 2 in wins/losses)
+  // Better approach: count actual games from total, accounting for double down inflation
+  const ddCount = (stats.doubleDownWins || 0) + (stats.doubleDownLosses || 0);
+  const actualPickCount = totalGames + stats.totalPushes - ddCount; // Remove the extra point from double downs
+  const avgPicksPerSession = stats.sessions > 0 ? (actualPickCount / stats.sessions).toFixed(1) : '0';
+  
   embed.addFields({
     name: '🏆 Overall Record',
     value: [
       `**Record:** ${stats.totalWins}-${stats.totalLosses}-${stats.totalPushes}`,
       `**Win Rate:** ${stats.winPercentage.toFixed(1)}%`,
       `**Sessions Played:** ${stats.sessions}`,
-      `**Avg Per Session:** ${totalGames > 0 ? (totalGames / stats.sessions).toFixed(1) : '0'} picks`
+      `**Avg Per Session:** ${avgPicksPerSession} picks`
     ].join('\n'),
     inline: true
   });
