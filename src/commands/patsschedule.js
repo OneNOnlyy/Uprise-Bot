@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from 'discord.js';
 import { getAllScheduledSessions, getScheduledSession, deleteScheduledSession, getAllTemplates, getTemplate, deleteTemplate, addScheduledSession, saveTemplate } from '../utils/sessionScheduler.js';
-import { getNBAGamesWithSpreads } from '../utils/oddsApi.js';
+import { getESPNGamesForDate } from '../utils/oddsApi.js';
 
 // Store in-progress session configurations (userId -> config)
 const sessionConfigs = new Map();
@@ -41,7 +41,17 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   await interaction.deferReply({ ephemeral: true });
-  await showMainMenu(interaction);
+  
+  try {
+    await showMainMenu(interaction);
+  } catch (error) {
+    console.error('Error in patsschedule execute:', error);
+    await interaction.editReply({
+      content: '❌ An error occurred. Please try again.',
+      embeds: [],
+      components: []
+    });
+  }
 }
 
 /**
@@ -382,126 +392,139 @@ export async function showDateSelection(interaction) {
     components: []
   });
   
-  // Fetch next 7 days of games
-  const today = new Date();
-  const datesWithGames = [];
-  
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(today);
-    date.setDate(date.getDate() + i);
-    const dateStr = date.toISOString().split('T')[0];
+  try {
+    // Fetch next 7 days of games IN PARALLEL for speed
+    const today = new Date();
+    const datePromises = [];
     
-    try {
-      const games = await getNBAGamesWithSpreads(dateStr);
-      if (games && games.length > 0) {
-        datesWithGames.push({
-          date: dateStr,
-          dateObj: date,
-          gameCount: games.length,
-          games: games
-        });
-      }
-    } catch (error) {
-      console.error(`Error fetching games for ${dateStr}:`, error);
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      datePromises.push(
+        getESPNGamesForDate(dateStr)
+          .then(games => ({
+            date: dateStr,
+            dateObj: date,
+            gameCount: games ? games.length : 0,
+            games: games || []
+          }))
+          .catch(error => {
+            console.error(`Error fetching games for ${dateStr}:`, error);
+            return null;
+          })
+      );
     }
-  }
-  
-  if (datesWithGames.length === 0) {
-    const embed = new EmbedBuilder()
-      .setTitle('📆 No Games Available')
-      .setDescription('No NBA games found in the next 7 days.')
-      .setColor('#808080');
     
-    const backButton = new ActionRowBuilder()
+    // Wait for all promises to resolve
+    const results = await Promise.all(datePromises);
+    const datesWithGames = results.filter(r => r !== null && r.gameCount > 0);
+    
+    if (datesWithGames.length === 0) {
+      const embed = new EmbedBuilder()
+        .setTitle('📆 No Games Available')
+        .setDescription('No NBA games found in the next 7 days.')
+        .setColor('#808080');
+      
+      const backButton = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('schedule_back_main')
+            .setLabel('Back')
+            .setEmoji('⬅️')
+            .setStyle(ButtonStyle.Secondary)
+        );
+      
+      await interaction.editReply({
+        embeds: [embed],
+        components: [backButton]
+      });
+      return;
+    }
+    
+    // Build the embed with available dates
+    const dateEmbed = new EmbedBuilder()
+      .setTitle('📆 Select Date for PATS Session')
+      .setDescription('Choose a date with NBA games:')
+      .setColor('#5865F2');
+    
+    datesWithGames.forEach((dateInfo) => {
+      const dayName = dateInfo.dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      const isToday = dateInfo.dateObj.toDateString() === today.toDateString();
+      const isTomorrow = dateInfo.dateObj.toDateString() === new Date(today.getTime() + 86400000).toDateString();
+      
+      let label = dayName;
+      if (isToday) label = `Today - ${dayName}`;
+      else if (isTomorrow) label = `Tomorrow - ${dayName}`;
+      
+      dateEmbed.addFields({
+        name: label,
+        value: `🎮 ${dateInfo.gameCount} game${dateInfo.gameCount === 1 ? '' : 's'}`,
+        inline: true
+      });
+    });
+    
+    // Create buttons for dates (max 5 per row, 2 rows = 10 buttons)
+    const buttonRows = [];
+    let currentRow = new ActionRowBuilder();
+    
+    datesWithGames.slice(0, 10).forEach((dateInfo, index) => {
+      if (index > 0 && index % 5 === 0) {
+        buttonRows.push(currentRow);
+        currentRow = new ActionRowBuilder();
+      }
+      
+      const dayName = dateInfo.dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      const isToday = dateInfo.dateObj.toDateString() === today.toDateString();
+      const isTomorrow = dateInfo.dateObj.toDateString() === new Date(today.getTime() + 86400000).toDateString();
+      
+      let buttonLabel = dayName;
+      if (isToday) buttonLabel = 'Today';
+      else if (isTomorrow) buttonLabel = 'Tomorrow';
+      else buttonLabel = dateInfo.dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      
+      currentRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`schedule_date_${dateInfo.date}`)
+          .setLabel(`${buttonLabel} (${dateInfo.gameCount})`)
+          .setStyle(ButtonStyle.Primary)
+      );
+    });
+    
+    if (currentRow.components.length > 0) {
+      buttonRows.push(currentRow);
+    }
+    
+    // Add navigation buttons
+    const navRow = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()
           .setCustomId('schedule_back_main')
           .setLabel('Back')
           .setEmoji('⬅️')
-          .setStyle(ButtonStyle.Secondary)
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId('schedule_cancel')
+          .setLabel('Cancel')
+          .setEmoji('❌')
+          .setStyle(ButtonStyle.Danger)
       );
     
+    buttonRows.push(navRow);
+    
     await interaction.editReply({
-      embeds: [embed],
-      components: [backButton]
+      embeds: [dateEmbed],
+      components: buttonRows
     });
-    return;
-  }
-  
-  // Build the embed with available dates
-  const dateEmbed = new EmbedBuilder()
-    .setTitle('📆 Select Date for PATS Session')
-    .setDescription('Choose a date with NBA games:')
-    .setColor('#5865F2');
-  
-  datesWithGames.forEach((dateInfo) => {
-    const dayName = dateInfo.dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    const isToday = dateInfo.dateObj.toDateString() === today.toDateString();
-    const isTomorrow = dateInfo.dateObj.toDateString() === new Date(today.getTime() + 86400000).toDateString();
-    
-    let label = dayName;
-    if (isToday) label = `Today - ${dayName}`;
-    else if (isTomorrow) label = `Tomorrow - ${dayName}`;
-    
-    dateEmbed.addFields({
-      name: label,
-      value: `🎮 ${dateInfo.gameCount} game${dateInfo.gameCount === 1 ? '' : 's'}`,
-      inline: true
+  } catch (error) {
+    console.error('Error in showDateSelection:', error);
+    await interaction.editReply({
+      content: '❌ Error loading dates. Please try again.',
+      embeds: [],
+      components: []
     });
-  });
-  
-  // Create buttons for dates (max 5 per row, 2 rows = 10 buttons)
-  const buttonRows = [];
-  let currentRow = new ActionRowBuilder();
-  
-  datesWithGames.slice(0, 10).forEach((dateInfo, index) => {
-    if (index > 0 && index % 5 === 0) {
-      buttonRows.push(currentRow);
-      currentRow = new ActionRowBuilder();
-    }
-    
-    const dayName = dateInfo.dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    const isToday = dateInfo.dateObj.toDateString() === today.toDateString();
-    const isTomorrow = dateInfo.dateObj.toDateString() === new Date(today.getTime() + 86400000).toDateString();
-    
-    let buttonLabel = dayName;
-    if (isToday) buttonLabel = 'Today';
-    else if (isTomorrow) buttonLabel = 'Tomorrow';
-    else buttonLabel = dateInfo.dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    
-    currentRow.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`schedule_date_${dateInfo.date}`)
-        .setLabel(`${buttonLabel} (${dateInfo.gameCount})`)
-        .setStyle(ButtonStyle.Primary)
-    );
-  });
-  
-  if (currentRow.components.length > 0) {
-    buttonRows.push(currentRow);
   }
-  
-  // Add navigation buttons
-  const navRow = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('schedule_back_main')
-        .setLabel('Back')
-        .setEmoji('⬅️')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('schedule_cancel')
-        .setLabel('Cancel')
-        .setEmoji('❌')
-        .setStyle(ButtonStyle.Danger)
-    );
-  
-  buttonRows.push(navRow);
-  
-  await interaction.editReply({
-    embeds: [dateEmbed],
-    components: buttonRows
-  });
 }
 
 /**
@@ -833,5 +856,364 @@ export function deselectAllGames(userId) {
   config.selectedGameIndices = [];
 }
 
+/**
+ * Show channel selection menu
+ */
+export async function showChannelSelection(interaction) {
+  const channels = interaction.guild.channels.cache
+    .filter(ch => ch.type === ChannelType.GuildText)
+    .sort((a, b) => a.position - b.position)
+    .map(ch => ({
+      label: ch.name,
+      value: ch.id,
+      description: ch.topic ? ch.topic.substring(0, 100) : 'No description'
+    }))
+    .slice(0, 25); // Max 25 options
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📍 Select Channel')
+    .setDescription('Choose the channel where the PATS session will be announced:')
+    .setColor('#5865F2');
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('schedule_select_channel')
+    .setPlaceholder('Select a channel')
+    .addOptions(channels);
+  
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+  
+  const backButton = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_back_to_config')
+        .setLabel('Back to Configuration')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row, backButton]
+  });
+}
+
+/**
+ * Show participant type selection
+ */
+export async function showParticipantTypeSelection(interaction) {
+  const embed = new EmbedBuilder()
+    .setTitle('👥 Select Participant Type')
+    .setDescription('Who should be included in this PATS session?')
+    .setColor('#5865F2');
+  
+  const buttons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_participants_role')
+        .setLabel('Specific Role')
+        .setEmoji('👥')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('schedule_participants_users')
+        .setLabel('Specific Users')
+        .setEmoji('👤')
+        .setStyle(ButtonStyle.Primary)
+    );
+  
+  const backButton = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_back_to_config')
+        .setLabel('Back to Configuration')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [buttons, backButton]
+  });
+}
+
+/**
+ * Show role selection menu
+ */
+export async function showRoleSelection(interaction) {
+  const roles = interaction.guild.roles.cache
+    .filter(role => !role.managed && role.id !== interaction.guild.id) // Exclude @everyone and bot roles
+    .sort((a, b) => b.position - a.position)
+    .map(role => ({
+      label: role.name,
+      value: role.id,
+      description: `${role.members.size} member${role.members.size === 1 ? '' : 's'}`
+    }))
+    .slice(0, 25); // Max 25 options
+  
+  const embed = new EmbedBuilder()
+    .setTitle('👥 Select Role')
+    .setDescription('Choose the role whose members will participate:')
+    .setColor('#5865F2');
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('schedule_select_role')
+    .setPlaceholder('Select a role')
+    .addOptions(roles);
+  
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+  
+  const backButton = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_config_participants')
+        .setLabel('Back')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row, backButton]
+  });
+}
+
+/**
+ * Show user selection menu
+ */
+export async function showUserSelection(interaction) {
+  const config = getSessionConfig(interaction.user.id);
+  
+  // Get all members (limited to 25 for select menu)
+  const members = await interaction.guild.members.fetch();
+  const users = members
+    .filter(member => !member.user.bot)
+    .map(member => ({
+      label: member.user.username,
+      value: member.id,
+      description: member.displayName !== member.user.username ? member.displayName : undefined
+    }))
+    .slice(0, 25);
+  
+  const selectedCount = config.specificUsers.length;
+  
+  const embed = new EmbedBuilder()
+    .setTitle('👤 Select Users')
+    .setDescription(`Choose users to participate in this session.\n**Currently selected:** ${selectedCount} user${selectedCount === 1 ? '' : 's'}`)
+    .setColor('#5865F2')
+    .setFooter({ text: 'Select multiple users, then click Done' });
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('schedule_select_user')
+    .setPlaceholder('Select users')
+    .setMinValues(1)
+    .setMaxValues(Math.min(users.length, 25))
+    .addOptions(users);
+  
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+  
+  const buttons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_users_done')
+        .setLabel('Done')
+        .setEmoji('✅')
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(selectedCount === 0),
+      new ButtonBuilder()
+        .setCustomId('schedule_config_participants')
+        .setLabel('Back')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row, buttons]
+  });
+}
+
+/**
+ * Update channel in config
+ */
+export function setChannel(userId, channelId) {
+  const config = getSessionConfig(userId);
+  config.channelId = channelId;
+}
+
+/**
+ * Update participant role in config
+ */
+export function setRole(userId, roleId) {
+  const config = getSessionConfig(userId);
+  config.participantType = 'role';
+  config.roleId = roleId;
+  config.specificUsers = [];
+}
+
+/**
+ * Update participant users in config
+ */
+export function setUsers(userId, userIds) {
+  const config = getSessionConfig(userId);
+  config.participantType = 'users';
+  config.roleId = null;
+  config.specificUsers = userIds;
+}
+
+/**
+ * Create the scheduled session
+ */
+export async function createScheduledSession(interaction) {
+  const config = getSessionConfig(interaction.user.id);
+  
+  // Validate configuration
+  if (!config.selectedDate || config.selectedGameIndices.length === 0) {
+    await interaction.editReply({
+      content: '❌ Error: No games selected.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  if (!config.channelId) {
+    await interaction.editReply({
+      content: '❌ Error: No channel selected.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  if (!config.roleId && config.specificUsers.length === 0) {
+    await interaction.editReply({
+      content: '❌ Error: No participants selected.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  try {
+    const selectedGames = config.selectedGameIndices.map(i => config.games[i]);
+    const firstGame = selectedGames[0];
+    const firstGameTime = new Date(firstGame.commenceTime);
+    
+    // Calculate announcement time
+    const announcementTime = new Date(firstGameTime);
+    announcementTime.setHours(announcementTime.getHours() - config.notifications.announcement.hoursBefore);
+    
+    // Build game details
+    const gameDetails = selectedGames.map(game => ({
+      gameId: game.id,
+      matchup: `${game.awayTeam} @ ${game.homeTeam}`,
+      startTime: game.commenceTime
+    }));
+    
+    // Create session configuration
+    const sessionConfig = {
+      guildId: interaction.guildId,
+      channelId: config.channelId,
+      scheduledDate: config.selectedDate,
+      firstGameTime: firstGameTime.toISOString(),
+      games: selectedGames.map(g => g.id),
+      gameDetails: gameDetails,
+      participantType: config.participantType,
+      roleId: config.roleId,
+      specificUsers: config.specificUsers,
+      notifications: {
+        announcement: {
+          enabled: config.notifications.announcement.enabled,
+          time: announcementTime.toISOString()
+        },
+        reminder: {
+          enabled: config.notifications.reminder.enabled,
+          minutesBefore: config.notifications.reminder.minutesBefore
+        },
+        warning: {
+          enabled: config.notifications.warning.enabled,
+          minutesBefore: config.notifications.warning.minutesBefore
+        }
+      },
+      createdBy: interaction.user.id,
+      createdByUsername: interaction.user.username
+    };
+    
+    // Save the session
+    const session = addScheduledSession(sessionConfig);
+    
+    // Clear the config
+    clearSessionConfig(interaction.user.id);
+    
+    // Show success message
+    const date = new Date(config.selectedDate);
+    const dateDisplay = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    
+    const successEmbed = new EmbedBuilder()
+      .setTitle('✅ Session Scheduled Successfully!')
+      .setColor('#00FF00')
+      .addFields(
+        {
+          name: '📅 Session Details',
+          value: [
+            `**Date:** ${dateDisplay}`,
+            `**Games:** ${selectedGames.length}`,
+            `**First Game:** ${firstGame.awayTeam} @ ${firstGame.homeTeam}`,
+            `**Start Time:** ${firstGameTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}`
+          ].join('\n')
+        },
+        {
+          name: '📍 Configuration',
+          value: [
+            `**Channel:** <#${config.channelId}>`,
+            `**Participants:** ${config.participantType === 'role' ? `<@&${config.roleId}>` : `${config.specificUsers.length} user(s)`}`
+          ].join('\n')
+        },
+        {
+          name: '🔔 Notifications',
+          value: [
+            `📢 Announcement: ${config.notifications.announcement.enabled ? announcementTime.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Disabled'}`,
+            `⏰ Reminder: ${config.notifications.reminder.enabled ? `${config.notifications.reminder.minutesBefore} min before` : 'Disabled'}`,
+            `⚠️ Warning: ${config.notifications.warning.enabled ? `${config.notifications.warning.minutesBefore} min before` : 'Disabled'}`
+          ].join('\n')
+        }
+      )
+      .setFooter({ text: `Session ID: ${session.id}` });
+    
+    const buttons = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('schedule_view_sessions')
+          .setLabel('View All Scheduled')
+          .setEmoji('📋')
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId('schedule_new_session')
+          .setLabel('Schedule Another')
+          .setEmoji('📆')
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId('schedule_cancel')
+          .setLabel('Done')
+          .setEmoji('✅')
+          .setStyle(ButtonStyle.Success)
+      );
+    
+    await interaction.editReply({
+      embeds: [successEmbed],
+      components: [buttons]
+    });
+    
+  } catch (error) {
+    console.error('Error creating scheduled session:', error);
+    
+    await interaction.editReply({
+      content: '❌ Error creating session. Please try again.',
+      embeds: [],
+      components: []
+    });
+  }
+}
+
 // Export helper functions
 export { getSessionConfig, clearSessionConfig };
+

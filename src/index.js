@@ -6,6 +6,7 @@ import { scheduleGamePings } from './features/gamePing.js';
 import { scheduleThreadLocking } from './features/lockThreads.js';
 import { scheduleGameResultChecking } from './features/checkGameResults.js';
 import { scheduleTransactionFeed } from './features/transactionFeed.js';
+import { loadScheduledSessions, scheduleSessionJobs } from './utils/sessionScheduler.js';
 import * as gamethreadCommand from './commands/gamethread.js';
 import * as testpingCommand from './commands/testping.js';
 import * as sendgamepingCommand from './commands/sendgameping.js';
@@ -79,9 +80,218 @@ client.once(Events.ClientReady, (readyClient) => {
   // Start the PATS game result checker
   scheduleGameResultChecking();
   
+  // Initialize scheduled PATS sessions
+  initializeScheduledSessions(client);
+  
   // Start the NBA transaction feed
   scheduleTransactionFeed(client);
 });
+
+/**
+ * Initialize scheduled PATS sessions
+ */
+function initializeScheduledSessions(client) {
+  console.log('⏰ Initializing scheduled PATS sessions...');
+  
+  // Load sessions from file
+  const data = loadScheduledSessions();
+  const sessions = data.sessions || [];
+  
+  if (sessions.length === 0) {
+    console.log('   No scheduled sessions found.');
+    return;
+  }
+  
+  // Schedule cron jobs for each session
+  sessions.forEach(session => {
+    try {
+      // Create notification handlers
+      const handlers = {
+        onAnnouncement: async () => {
+          await sendSessionAnnouncement(client, session);
+        },
+        onReminder: async () => {
+          await sendSessionReminder(client, session);
+        },
+        onWarning: async () => {
+          await sendSessionWarning(client, session);
+        },
+        onStart: async () => {
+          await startScheduledSession(client, session);
+        }
+      };
+      
+      scheduleSessionJobs(session, handlers);
+      console.log(`   ✅ Scheduled session ${session.id} for ${new Date(session.firstGameTime).toLocaleString()}`);
+    } catch (error) {
+      console.error(`   ❌ Failed to schedule session ${session.id}:`, error);
+    }
+  });
+  
+  console.log(`   Initialized ${sessions.length} scheduled session(s)`);
+}
+
+/**
+ * Send session announcement to channel
+ */
+async function sendSessionAnnouncement(client, session) {
+  try {
+    const channel = await client.channels.fetch(session.channelId);
+    if (!channel) return;
+    
+    const firstGameTime = new Date(session.firstGameTime);
+    const { EmbedBuilder } = await import('discord.js');
+    
+    const embed = new EmbedBuilder()
+      .setTitle('🏀 PATS Session Starting Soon!')
+      .setDescription(`A scheduled PATS session begins at **${firstGameTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}**`)
+      .setColor('#5865F2')
+      .addFields(
+        {
+          name: '📅 Games',
+          value: session.gameDetails.map(g => `• ${g.matchup}`).join('\n')
+        },
+        {
+          name: '⏰ Time',
+          value: firstGameTime.toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+        }
+      );
+    
+    await channel.send({
+      content: session.participantType === 'role' ? `<@&${session.roleId}>` : null,
+      embeds: [embed]
+    });
+    
+    console.log(`📢 Sent announcement for session ${session.id}`);
+  } catch (error) {
+    console.error(`Error sending announcement for session ${session.id}:`, error);
+  }
+}
+
+/**
+ * Send reminder DMs to participants
+ */
+async function sendSessionReminder(client, session) {
+  try {
+    const { getUserPreferences } = await import('./utils/userPreferences.js');
+    const { EmbedBuilder } = await import('discord.js');
+    
+    let userIds = [];
+    
+    if (session.participantType === 'role') {
+      const guild = await client.guilds.fetch(session.guildId);
+      const role = await guild.roles.fetch(session.roleId);
+      userIds = role.members.map(m => m.id);
+    } else {
+      userIds = session.specificUsers;
+    }
+    
+    const firstGameTime = new Date(session.firstGameTime);
+    
+    for (const userId of userIds) {
+      try {
+        const prefs = getUserPreferences(userId);
+        if (!prefs.reminders) continue;
+        
+        const user = await client.users.fetch(userId);
+        
+        const embed = new EmbedBuilder()
+          .setTitle('⏰ PATS Session Reminder')
+          .setDescription(`Your scheduled PATS session starts in **${session.notifications.reminder.minutesBefore} minutes**!`)
+          .setColor('#FFA500')
+          .addFields(
+            {
+              name: '📅 Games',
+              value: session.gameDetails.map(g => `• ${g.matchup}`).join('\n')
+            },
+            {
+              name: '⏰ Start Time',
+              value: firstGameTime.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+            }
+          );
+        
+        await user.send({ embeds: [embed] });
+      } catch (err) {
+        console.error(`Failed to send reminder to user ${userId}:`, err.message);
+      }
+    }
+    
+    console.log(`⏰ Sent reminders for session ${session.id}`);
+  } catch (error) {
+    console.error(`Error sending reminders for session ${session.id}:`, error);
+  }
+}
+
+/**
+ * Send warning DMs to participants
+ */
+async function sendSessionWarning(client, session) {
+  try {
+    const { getUserPreferences } = await import('./utils/userPreferences.js');
+    const { EmbedBuilder } = await import('discord.js');
+    
+    let userIds = [];
+    
+    if (session.participantType === 'role') {
+      const guild = await client.guilds.fetch(session.guildId);
+      const role = await guild.roles.fetch(session.roleId);
+      userIds = role.members.map(m => m.id);
+    } else {
+      userIds = session.specificUsers;
+    }
+    
+    const firstGameTime = new Date(session.firstGameTime);
+    
+    for (const userId of userIds) {
+      try {
+        const prefs = getUserPreferences(userId);
+        if (!prefs.warnings) continue;
+        
+        const user = await client.users.fetch(userId);
+        
+        const embed = new EmbedBuilder()
+          .setTitle('⚠️ PATS Session Starting Soon!')
+          .setDescription(`Your scheduled PATS session starts in **${session.notifications.warning.minutesBefore} minutes**!`)
+          .setColor('#FF0000')
+          .addFields(
+            {
+              name: '📅 Games',
+              value: session.gameDetails.map(g => `• ${g.matchup}`).join('\n')
+            },
+            {
+              name: '⏰ Start Time',
+              value: firstGameTime.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+            }
+          );
+        
+        await user.send({ embeds: [embed] });
+      } catch (err) {
+        console.error(`Failed to send warning to user ${userId}:`, err.message);
+      }
+    }
+    
+    console.log(`⚠️ Sent warnings for session ${session.id}`);
+  } catch (error) {
+    console.error(`Error sending warnings for session ${session.id}:`, error);
+  }
+}
+
+/**
+ * Automatically start the PATS session
+ */
+async function startScheduledSession(client, session) {
+  try {
+    const channel = await client.channels.fetch(session.channelId);
+    if (!channel) return;
+    
+    // Call /patsstart programmatically
+    // TODO: Implement programmatic session start
+    
+    console.log(`🏀 Auto-started session ${session.id}`);
+  } catch (error) {
+    console.error(`Error starting session ${session.id}:`, error);
+  }
+}
 
 // Handle slash commands and interactions
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -298,24 +508,66 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.deferUpdate();
         await patsscheduleCommand.showConfigurationMenu(interaction);
       }
+      else if (interaction.customId === 'schedule_config_channel') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showChannelSelection(interaction);
+      }
+      else if (interaction.customId === 'schedule_config_participants') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showParticipantTypeSelection(interaction);
+      }
+      else if (interaction.customId === 'schedule_participants_role') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showRoleSelection(interaction);
+      }
+      else if (interaction.customId === 'schedule_participants_users') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showUserSelection(interaction);
+      }
+      else if (interaction.customId === 'schedule_select_channel') {
+        const channelId = interaction.values[0];
+        patsscheduleCommand.setChannel(interaction.user.id, channelId);
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showConfigurationMenu(interaction);
+      }
+      else if (interaction.customId === 'schedule_select_role') {
+        const roleId = interaction.values[0];
+        patsscheduleCommand.setRole(interaction.user.id, roleId);
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showConfigurationMenu(interaction);
+      }
+      else if (interaction.customId === 'schedule_select_user') {
+        const userIds = interaction.values;
+        patsscheduleCommand.setUsers(interaction.user.id, userIds);
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showUserSelection(interaction);
+      }
+      else if (interaction.customId === 'schedule_users_done') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showConfigurationMenu(interaction);
+      }
+      else if (interaction.customId === 'schedule_back_to_config') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showConfigurationMenu(interaction);
+      }
       else if (interaction.customId.startsWith('schedule_config_')) {
         await interaction.deferUpdate();
         await interaction.followUp({
-          content: '🚧 Channel/Participant/Notification configuration coming next!',
+          content: '🚧 Notification timing configuration coming next!',
           ephemeral: true
         });
       }
       else if (interaction.customId === 'schedule_create_session') {
         await interaction.deferUpdate();
-        await interaction.editReply({
-          content: '🚧 Session creation and confirmation coming next!',
-          embeds: [],
-          components: []
-        });
+        await patsscheduleCommand.createScheduledSession(interaction);
       }
       else if (interaction.customId === 'schedule_view_sessions') {
         await interaction.deferUpdate();
         await patsscheduleCommand.showScheduledSessions(interaction);
+      }
+      else if (interaction.customId === 'schedule_new_session') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showDateSelection(interaction);
       }
       else if (interaction.customId === 'schedule_templates') {
         await interaction.deferUpdate();

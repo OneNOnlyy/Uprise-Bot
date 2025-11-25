@@ -991,6 +991,88 @@ export async function getFormattedGamesForDate(date = null) {
 }
 
 /**
+ * Get upcoming NBA games from ESPN API for scheduling
+ * This is used by the scheduling system and doesn't require odds/spreads
+ * @param {string} date - Date in YYYY-MM-DD format (optional, defaults to today)
+ * @returns {Array} Array of games with basic info (no spreads needed)
+ */
+export async function getESPNGamesForDate(date = null) {
+  try {
+    // If date is provided in YYYY-MM-DD format, just remove hyphens
+    // Otherwise, use today's date
+    let dateStr;
+    if (date) {
+      // Remove hyphens from YYYY-MM-DD to get YYYYMMDD
+      dateStr = date.replace(/-/g, '');
+    } else {
+      // Get today in YYYYMMDD format
+      dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    }
+    
+    // Use ESPN's scoreboard API
+    const espnUrl = `http://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateStr}`;
+    
+    console.log(`🏀 Fetching games from ESPN API for ${date || 'today'} (${dateStr})...`);
+
+    const response = await fetch(espnUrl);
+    
+    if (!response.ok) {
+      console.error(`ESPN API fetch failed: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    const games = [];
+
+    if (!data.events || data.events.length === 0) {
+      return [];
+    }
+
+    for (const event of data.events) {
+      try {
+        const competition = event.competitions[0];
+        const homeCompetitor = competition.competitors.find(c => c.homeAway === 'home');
+        const awayCompetitor = competition.competitors.find(c => c.homeAway === 'away');
+        
+        if (!homeCompetitor || !awayCompetitor) continue;
+
+        const awayTeam = awayCompetitor.team.displayName; // Full name
+        const homeTeam = homeCompetitor.team.displayName; // Full name
+        const awayAbbr = awayCompetitor.team.abbreviation;
+        const homeAbbr = homeCompetitor.team.abbreviation;
+        
+        // Normalize ESPN abbreviations to our standard ones
+        const normalizedAwayAbbr = ESPN_TO_STANDARD_ABBR[awayAbbr] || awayAbbr;
+        const normalizedHomeAbbr = ESPN_TO_STANDARD_ABBR[homeAbbr] || homeAbbr;
+        
+        // Get game time
+        const commenceTime = event.date; // ISO format
+
+        games.push({
+          id: event.id,
+          awayTeam: awayTeam,
+          homeTeam: homeTeam,
+          awayAbbr: normalizedAwayAbbr,
+          homeAbbr: normalizedHomeAbbr,
+          commenceTime: commenceTime,
+          bookmakers: [] // No odds needed for scheduling
+        });
+
+      } catch (error) {
+        console.error(`Error parsing ESPN event:`, error.message);
+      }
+    }
+
+    console.log(`✅ Fetched ${games.length} games from ESPN API`);
+    return games;
+
+  } catch (error) {
+    console.error('Error fetching ESPN games:', error);
+    return [];
+  }
+}
+
+/**
  * Fetch live scores from ESPN API (much more reliable than CBS scraping)
  * @param {string} date - Date in YYYY-MM-DD format (optional, defaults to today)
  * @returns {Array} Array of games with scores
