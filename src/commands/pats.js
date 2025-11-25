@@ -535,10 +535,12 @@ async function showUserStats(interaction) {
   const totalGames = stats.totalWins + stats.totalLosses;
   
   // Calculate average picks per session correctly
-  // Total actual picks = wins + losses + pushes (but need to account for double downs counting as 2 in wins/losses)
-  // Better approach: count actual games from total, accounting for double down inflation
-  const ddCount = (stats.doubleDownWins || 0) + (stats.doubleDownLosses || 0);
-  const actualPickCount = totalGames + stats.totalPushes - ddCount; // Remove the extra point from double downs
+  // totalWins and totalLosses count double downs as 2 points
+  // But we want actual number of picks made
+  // Actual picks = (wins - extra DD wins) + (losses - extra DD losses) + pushes
+  const ddWinPoints = stats.doubleDownWins || 0; // Each DD win adds 1 extra point
+  const ddLossPoints = stats.doubleDownLosses || 0; // Each DD loss adds 1 extra point
+  const actualPickCount = totalGames + stats.totalPushes - ddWinPoints - ddLossPoints;
   const avgPicksPerSession = stats.sessions > 0 ? (actualPickCount / stats.sessions).toFixed(1) : '0';
   
   embed.addFields({
