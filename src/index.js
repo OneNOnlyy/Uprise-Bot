@@ -326,17 +326,29 @@ async function startScheduledSession(client, session) {
         getString: (name) => {
           if (name === 'date') return dateStr;
           return null;
+        },
+        getRole: (name) => {
+          // Return the role if this is a role-based session
+          if (name === 'participant_role' && session.participantType === 'role' && session.roleId) {
+            return guild.roles.cache.get(session.roleId) || null;
+          }
+          return null;
         }
       },
       replied: false,
       deferred: false,
+      deferReply: async (options) => {
+        // Mock defer - just mark as deferred
+        mockInteraction.deferred = true;
+        return Promise.resolve();
+      },
       reply: async (options) => {
         // Send the reply to the channel
         await channel.send(options);
         mockInteraction.replied = true;
       },
       editReply: async (options) => {
-        // For scheduled sessions, just send as new message
+        // For scheduled sessions, send as new message to channel
         await channel.send(options);
       },
       followUp: async (options) => {
