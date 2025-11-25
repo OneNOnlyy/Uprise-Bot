@@ -5,6 +5,22 @@ import { getCachedInjuryReports } from './dataCache.js';
 const ESPN_API_BASE = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
 const BALLDONTLIE_API = 'https://api.balldontlie.io/v1';
 
+/**
+ * Fix common player name issues from ESPN API
+ */
+function fixPlayerName(name) {
+  if (!name) return name;
+  
+  // Known name corrections
+  const corrections = {
+    'Andre Hunter': "De'Andre Hunter",
+    'DeAndre Hunter': "De'Andre Hunter",
+    'Deandre Hunter': "De'Andre Hunter"
+  };
+  
+  return corrections[name] || name;
+}
+
 // Map team names to ESPN IDs
 const TEAM_NAME_TO_ESPN_ID = {
   'Atlanta Hawks': '1',
@@ -196,7 +212,8 @@ async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
       
       if (cells.length >= 3) {
         // Column 0: Player name
-        const playerName = $(cells[0]).find('a, .AnchorLink').text().trim() || $(cells[0]).text().trim();
+        const rawPlayerName = $(cells[0]).find('a, .AnchorLink').text().trim() || $(cells[0]).text().trim();
+        const playerName = fixPlayerName(rawPlayerName);
         // Column 1: Injury/Comment
         const description = $(cells[1]).text().trim();
         // Column 2: Status
@@ -218,7 +235,8 @@ async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
     if (injuries.length === 0) {
       $('div[class*="PlayerCard"], li[class*="Athlete"], div[class*="InjuryCard"]').each((i, card) => {
         const $card = $(card);
-        const playerName = $card.find('a[class*="AthleteName"], h3, h4, span[class*="Name"]').first().text().trim();
+        const rawPlayerName = $card.find('a[class*="AthleteName"], h3, h4, span[class*="Name"]').first().text().trim();
+        const playerName = fixPlayerName(rawPlayerName);
         const status = $card.find('span[class*="Status"], div[class*="Status"]').first().text().trim();
         const description = $card.find('span[class*="Injury"], div[class*="Injury"], span[class*="Comment"]').first().text().trim();
         
@@ -431,12 +449,14 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
                 description = injury.comment;
               }
               
+              const playerName = fixPlayerName(injury.longComment || injury.athlete?.displayName || 'Unknown');
+              
               injuries.push({
-                player: injury.longComment || injury.athlete?.displayName || 'Unknown',
+                player: playerName,
                 status: injury.status || 'Out',
                 description: description
               });
-              console.log(`[Scraper] Game Summary: ${injury.longComment || injury.athlete?.displayName} - ${injury.status} (${description})`);
+              console.log(`[Scraper] Game Summary: ${playerName} - ${injury.status} (${description})`);
             }
           } else {
             console.log(`[Scraper] ✓ MATCH but no injuries array for ${teamName}`);
@@ -509,8 +529,9 @@ async function fetchInjuriesFromBallDontLie(teamName) {
           if (targetTeam.injuries && targetTeam.injuries.length > 0) {
             console.log(`[Scraper] Found injuries in scoreboard for ${teamName}`);
             for (const injury of targetTeam.injuries) {
+              const playerName = fixPlayerName(injury.athlete?.displayName || injury.athlete?.name || 'Unknown');
               injuries.push({
-                player: injury.athlete?.displayName || injury.athlete?.name || 'Unknown',
+                player: playerName,
                 status: injury.status || 'Out',
                 description: injury.details?.type || injury.type || 'Injury'
               });
@@ -598,9 +619,10 @@ async function scrapeInjuriesFromRotoWire(teamName) {
           const $row = $(row);
           
           // Try multiple selectors for player name
-          const playerName = $row.find('a').first().text().trim() || 
+          const rawPlayerName = $row.find('a').first().text().trim() || 
                             $row.find('.injury-report__player-name, [class*="player-name"]').text().trim() ||
                             $row.find('td').first().text().trim();
+          const playerName = fixPlayerName(rawPlayerName);
                             
           // Try multiple selectors for status
           const status = $row.find('.injury-report__stat, [class*="stat"]').text().trim() ||
