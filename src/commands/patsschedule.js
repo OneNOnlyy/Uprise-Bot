@@ -57,7 +57,7 @@ export async function execute(interaction) {
 /**
  * Show main menu
  */
-async function showMainMenu(interaction) {
+export async function showMainMenu(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('📅 Schedule PATS Session')
     .setDescription('Choose an option to schedule and manage PATS sessions.')
@@ -105,10 +105,18 @@ export async function showScheduledSessions(interaction) {
   const sessions = getAllScheduledSessions();
   const now = new Date();
   
-  // Filter to upcoming sessions only
+  // Separate active and upcoming sessions
+  const activeSessions = sessions.filter(s => {
+    const firstGameTime = new Date(s.firstGameTime);
+    const lastGameTime = s.gameDetails.length > 0 
+      ? new Date(s.gameDetails[s.gameDetails.length - 1].startTime)
+      : firstGameTime;
+    return now >= firstGameTime && now <= new Date(lastGameTime.getTime() + 4 * 60 * 60 * 1000); // within 4 hours after last game
+  });
+  
   const upcomingSessions = sessions.filter(s => new Date(s.firstGameTime) > now);
   
-  if (upcomingSessions.length === 0) {
+  if (activeSessions.length === 0 && upcomingSessions.length === 0) {
     const embed = new EmbedBuilder()
       .setTitle('📋 Scheduled Sessions')
       .setDescription('No scheduled sessions found.')
@@ -132,14 +140,48 @@ export async function showScheduledSessions(interaction) {
   
   // Sort by date (earliest first)
   upcomingSessions.sort((a, b) => new Date(a.firstGameTime) - new Date(b.firstGameTime));
+  activeSessions.sort((a, b) => new Date(a.firstGameTime) - new Date(b.firstGameTime));
   
   const embed = new EmbedBuilder()
     .setTitle('📋 Scheduled Sessions')
-    .setDescription(`${upcomingSessions.length} upcoming session${upcomingSessions.length === 1 ? '' : 's'}`)
     .setColor('#5865F2');
   
-  // Add each session as a field
-  upcomingSessions.slice(0, 10).forEach((session, index) => {
+  let description = '';
+  if (activeSessions.length > 0) {
+    description += `🟢 **${activeSessions.length} active session${activeSessions.length === 1 ? '' : 's'}**\n`;
+  }
+  if (upcomingSessions.length > 0) {
+    description += `⏰ **${upcomingSessions.length} upcoming session${upcomingSessions.length === 1 ? '' : 's'}**`;
+  }
+  embed.setDescription(description);
+  
+  // Add active sessions first
+  if (activeSessions.length > 0) {
+    activeSessions.slice(0, 5).forEach((session, index) => {
+      const date = new Date(session.scheduledDate);
+      const firstGame = session.gameDetails[0];
+      const channelMention = `<#${session.channelId}>`;
+      
+      const participantText = session.participantType === 'role' 
+        ? `<@&${session.roleId}>`
+        : `${session.specificUsers.length} user${session.specificUsers.length === 1 ? '' : 's'}`;
+      
+      embed.addFields({
+        name: `🟢 ACTIVE: ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`,
+        value: [
+          `🎮 **${session.games.length} games**`,
+          `⏰ First game: ${firstGame.matchup} @ ${new Date(firstGame.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })}`,
+          `📍 Channel: ${channelMention}`,
+          `👥 Participants: ${participantText}`,
+          `👤 Created by: ${session.createdByUsername || 'Unknown'}`
+        ].join('\n'),
+        inline: false
+      });
+    });
+  }
+  
+  // Add upcoming sessions
+  upcomingSessions.slice(0, 10 - activeSessions.length).forEach((session, index) => {
     const date = new Date(session.scheduledDate);
     const firstGame = session.gameDetails[0];
     const channelMention = `<#${session.channelId}>`;
@@ -149,7 +191,7 @@ export async function showScheduledSessions(interaction) {
       : `${session.specificUsers.length} user${session.specificUsers.length === 1 ? '' : 's'}`;
     
     embed.addFields({
-      name: `${index + 1}. ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`,
+      name: `${activeSessions.length + index + 1}. ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`,
       value: [
         `🎮 **${session.games.length} games**`,
         `⏰ First game: ${firstGame.matchup} @ ${new Date(firstGame.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })}`,
@@ -161,18 +203,22 @@ export async function showScheduledSessions(interaction) {
     });
   });
   
-  if (upcomingSessions.length > 10) {
-    embed.setFooter({ text: `Showing first 10 of ${upcomingSessions.length} sessions` });
+  const totalShown = Math.min(activeSessions.length + upcomingSessions.length, 10);
+  const totalSessions = activeSessions.length + upcomingSessions.length;
+  if (totalSessions > 10) {
+    embed.setFooter({ text: `Showing first ${totalShown} of ${totalSessions} sessions` });
   }
   
-  // Create manage buttons for first 5 sessions
+  // Create manage buttons - combine active and upcoming
+  const allSessions = [...activeSessions, ...upcomingSessions];
   const manageButtons = new ActionRowBuilder();
-  upcomingSessions.slice(0, 5).forEach((session, index) => {
+  allSessions.slice(0, 5).forEach((session, index) => {
+    const label = index < activeSessions.length ? `Manage 🟢${index + 1}` : `Manage ${index + 1}`;
     manageButtons.addComponents(
       new ButtonBuilder()
         .setCustomId(`schedule_manage_${session.id}`)
-        .setLabel(`Manage ${index + 1}`)
-        .setStyle(ButtonStyle.Primary)
+        .setLabel(label)
+        .setStyle(index < activeSessions.length ? ButtonStyle.Success : ButtonStyle.Primary)
     );
   });
   

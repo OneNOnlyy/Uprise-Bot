@@ -683,7 +683,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       else if (interaction.customId === 'schedule_back_main') {
         await interaction.deferUpdate();
-        await patsscheduleCommand.execute(interaction);
+        await patsscheduleCommand.showMainMenu(interaction);
       }
       else if (interaction.customId === 'schedule_cancel') {
         await interaction.deferUpdate();
