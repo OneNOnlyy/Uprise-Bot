@@ -45,7 +45,6 @@ client.commands.set(testpingCommand.data.name, testpingCommand);
 client.commands.set(sendgamepingCommand.data.name, sendgamepingCommand);
 client.commands.set(configCommand.data.name, configCommand);
 client.commands.set(patsstartCommand.data.name, patsstartCommand);
-client.commands.set(makepickCommand.data.name, makepickCommand);
 client.commands.set(patsCommand.data.name, patsCommand);
 client.commands.set(patsleaderboardCommand.data.name, patsleaderboardCommand);
 client.commands.set(patsendCommand.data.name, patsendCommand);
@@ -553,10 +552,34 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       else if (interaction.customId.startsWith('schedule_config_')) {
         await interaction.deferUpdate();
-        await interaction.followUp({
-          content: '🚧 Notification timing configuration coming next!',
-          ephemeral: true
-        });
+        const type = interaction.customId.replace('schedule_config_', '');
+        
+        if (type === 'announcement') {
+          await patsscheduleCommand.showAnnouncementEditor(interaction);
+        } else if (type === 'reminder') {
+          await patsscheduleCommand.showReminderEditor(interaction);
+        } else if (type === 'warning') {
+          await patsscheduleCommand.showWarningEditor(interaction);
+        }
+      }
+      // Handle notification time selection
+      else if (interaction.customId === 'schedule_set_announcement') {
+        await interaction.deferUpdate();
+        const hours = interaction.values[0];
+        patsscheduleCommand.setAnnouncementTime(interaction.user.id, hours);
+        await patsscheduleCommand.showConfigurationMenu(interaction);
+      }
+      else if (interaction.customId === 'schedule_set_reminder') {
+        await interaction.deferUpdate();
+        const minutes = interaction.values[0];
+        patsscheduleCommand.setReminderTime(interaction.user.id, minutes);
+        await patsscheduleCommand.showConfigurationMenu(interaction);
+      }
+      else if (interaction.customId === 'schedule_set_warning') {
+        await interaction.deferUpdate();
+        const minutes = interaction.values[0];
+        patsscheduleCommand.setWarningTime(interaction.user.id, minutes);
+        await patsscheduleCommand.showConfigurationMenu(interaction);
       }
       else if (interaction.customId === 'schedule_create_session') {
         await interaction.deferUpdate();

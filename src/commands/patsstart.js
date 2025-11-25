@@ -78,7 +78,7 @@ export async function execute(interaction) {
       )
       .addFields({
         name: '📋 How to Play',
-        value: '1️⃣ Use `/makepick` to see games and odds\n2️⃣ View injuries, records, and spreads\n3️⃣ Pick the team you think will cover the spread\n4️⃣ Check the leaderboard with `/patsleaderboard`',
+        value: '1️⃣ Use `/pats` to see games and odds\n2️⃣ View injuries, records, and spreads\n3️⃣ Pick the team you think will cover the spread\n4️⃣ Check the leaderboard with `/patsleaderboard`',
         inline: false
       })
       .setFooter({ text: '🎯 Make your picks before tip-off!' })
@@ -119,7 +119,7 @@ export async function execute(interaction) {
               .setColor(0xE03A3E)
               .addFields({
                 name: '📋 How to Participate',
-                value: `Head to ${channel} and use \`/makepick\` to make your picks!`,
+                value: `Head to ${channel} and use \`/pats\` to make your picks!`,
                 inline: false
               })
               .addFields({

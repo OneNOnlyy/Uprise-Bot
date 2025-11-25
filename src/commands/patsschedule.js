@@ -1089,6 +1089,178 @@ export function setUsers(userId, userIds) {
 }
 
 /**
+ * Show announcement timing editor
+ */
+export async function showAnnouncementEditor(interaction) {
+  const config = getSessionConfig(interaction.user.id);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📢 Edit Announcement Time')
+    .setDescription('How many hours before the first game should the announcement be sent?')
+    .setColor('#5865F2')
+    .addFields({
+      name: 'Current Setting',
+      value: `${config.notifications.announcement.hoursBefore} hours before first game`
+    });
+  
+  const options = [
+    { label: '1 hour before', value: '1' },
+    { label: '2 hours before', value: '2' },
+    { label: '3 hours before', value: '3' },
+    { label: '4 hours before', value: '4' },
+    { label: '6 hours before', value: '6' },
+    { label: '9 hours before', value: '9' },
+    { label: '12 hours before', value: '12' },
+    { label: '24 hours before', value: '24' },
+    { label: 'Disable announcement', value: '0' }
+  ];
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('schedule_set_announcement')
+    .setPlaceholder('Select announcement time')
+    .addOptions(options);
+  
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+  
+  const buttons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_back_to_config')
+        .setLabel('Back to Configuration')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row, buttons]
+  });
+}
+
+/**
+ * Show reminder timing editor
+ */
+export async function showReminderEditor(interaction) {
+  const config = getSessionConfig(interaction.user.id);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('⏰ Edit Reminder Time')
+    .setDescription('How many minutes before the first game should the reminder DM be sent?')
+    .setColor('#5865F2')
+    .addFields({
+      name: 'Current Setting',
+      value: `${config.notifications.reminder.minutesBefore} minutes before first game`
+    });
+  
+  const options = [
+    { label: '15 minutes before', value: '15' },
+    { label: '30 minutes before', value: '30' },
+    { label: '45 minutes before', value: '45' },
+    { label: '60 minutes before (1 hour)', value: '60' },
+    { label: '90 minutes before (1.5 hours)', value: '90' },
+    { label: '120 minutes before (2 hours)', value: '120' },
+    { label: 'Disable reminder', value: '0' }
+  ];
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('schedule_set_reminder')
+    .setPlaceholder('Select reminder time')
+    .addOptions(options);
+  
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+  
+  const buttons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_back_to_config')
+        .setLabel('Back to Configuration')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row, buttons]
+  });
+}
+
+/**
+ * Show warning timing editor
+ */
+export async function showWarningEditor(interaction) {
+  const config = getSessionConfig(interaction.user.id);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('⚠️ Edit Warning Time')
+    .setDescription('How many minutes before the first game should the warning DM be sent?')
+    .setColor('#5865F2')
+    .addFields({
+      name: 'Current Setting',
+      value: `${config.notifications.warning.minutesBefore} minutes before first game`
+    });
+  
+  const options = [
+    { label: '5 minutes before', value: '5' },
+    { label: '10 minutes before', value: '10' },
+    { label: '15 minutes before', value: '15' },
+    { label: '20 minutes before', value: '20' },
+    { label: '30 minutes before', value: '30' },
+    { label: 'Disable warning', value: '0' }
+  ];
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('schedule_set_warning')
+    .setPlaceholder('Select warning time')
+    .addOptions(options);
+  
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+  
+  const buttons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_back_to_config')
+        .setLabel('Back to Configuration')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row, buttons]
+  });
+}
+
+/**
+ * Update announcement timing
+ */
+export function setAnnouncementTime(userId, hours) {
+  const config = getSessionConfig(userId);
+  const hoursNum = parseInt(hours);
+  config.notifications.announcement.enabled = hoursNum > 0;
+  config.notifications.announcement.hoursBefore = hoursNum;
+}
+
+/**
+ * Update reminder timing
+ */
+export function setReminderTime(userId, minutes) {
+  const config = getSessionConfig(userId);
+  const minutesNum = parseInt(minutes);
+  config.notifications.reminder.enabled = minutesNum > 0;
+  config.notifications.reminder.minutesBefore = minutesNum;
+}
+
+/**
+ * Update warning timing
+ */
+export function setWarningTime(userId, minutes) {
+  const config = getSessionConfig(userId);
+  const minutesNum = parseInt(minutes);
+  config.notifications.warning.enabled = minutesNum > 0;
+  config.notifications.warning.minutesBefore = minutesNum;
+}
+
+/**
  * Create the scheduled session
  */
 export async function createScheduledSession(interaction) {
