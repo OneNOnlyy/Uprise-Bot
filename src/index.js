@@ -670,6 +670,52 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.deferUpdate();
         await patsscheduleCommand.showSessionManager(interaction, sessionId);
       }
+      else if (interaction.customId.startsWith('schedule_edit_channel_')) {
+        const sessionId = interaction.customId.replace('schedule_edit_channel_', '');
+        await interaction.deferUpdate();
+        await interaction.followUp({
+          content: '🚧 Channel editing coming soon! For now, delete and recreate the session.',
+          ephemeral: true
+        });
+      }
+      else if (interaction.customId.startsWith('schedule_edit_participants_')) {
+        const sessionId = interaction.customId.replace('schedule_edit_participants_', '');
+        await interaction.deferUpdate();
+        await interaction.followUp({
+          content: '🚧 Participant editing coming soon! For now, delete and recreate the session.',
+          ephemeral: true
+        });
+      }
+      else if (interaction.customId.startsWith('schedule_edit_announcement_')) {
+        const sessionId = interaction.customId.replace('schedule_edit_announcement_', '');
+        await interaction.deferUpdate();
+        await interaction.followUp({
+          content: '🚧 Notification editing coming soon! For now, delete and recreate the session.',
+          ephemeral: true
+        });
+      }
+      else if (interaction.customId.startsWith('schedule_edit_reminder_')) {
+        const sessionId = interaction.customId.replace('schedule_edit_reminder_', '');
+        await interaction.deferUpdate();
+        await interaction.followUp({
+          content: '🚧 Notification editing coming soon! For now, delete and recreate the session.',
+          ephemeral: true
+        });
+      }
+      else if (interaction.customId.startsWith('schedule_edit_warning_')) {
+        const sessionId = interaction.customId.replace('schedule_edit_warning_', '');
+        await interaction.deferUpdate();
+        await interaction.followUp({
+          content: '🚧 Notification editing coming soon! For now, delete and recreate the session.',
+          ephemeral: true
+        });
+      }
+      else if (interaction.customId.startsWith('schedule_edit_') && !interaction.customId.includes('_channel_') && !interaction.customId.includes('_participants_') && !interaction.customId.includes('_announcement_') && !interaction.customId.includes('_reminder_') && !interaction.customId.includes('_warning_')) {
+        // This is the general edit button (schedule_edit_{sessionId})
+        const sessionId = interaction.customId.replace('schedule_edit_', '');
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showSessionEditor(interaction, sessionId);
+      }
       else if (interaction.customId.startsWith('schedule_delete_')) {
         const sessionId = interaction.customId.replace('schedule_delete_', '');
         await interaction.deferUpdate();

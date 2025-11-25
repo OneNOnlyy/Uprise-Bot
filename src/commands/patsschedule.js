@@ -288,6 +288,90 @@ export async function showSessionManager(interaction, sessionId) {
 }
 
 /**
+ * Show session editor menu
+ */
+export async function showSessionEditor(interaction, sessionId) {
+  const session = getScheduledSession(sessionId);
+  
+  if (!session) {
+    await interaction.editReply({
+      content: '❌ Session not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  const date = new Date(session.scheduledDate);
+  const firstGameTime = new Date(session.firstGameTime);
+  
+  const embed = new EmbedBuilder()
+    .setTitle(`✏️ Edit Session: ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}`)
+    .setDescription('What would you like to edit?')
+    .setColor('#5865F2')
+    .addFields(
+      {
+        name: '📅 Current Configuration',
+        value: [
+          `**Games:** ${session.games.length}`,
+          `**Channel:** <#${session.channelId}>`,
+          `**Participants:** ${session.participantType === 'role' ? `<@&${session.roleId}>` : `${session.specificUsers.length} users`}`,
+          `**Announcement:** ${session.notifications.announcement.enabled ? `${session.notifications.announcement.hoursBefore}h before` : 'Disabled'}`,
+          `**Reminder:** ${session.notifications.reminder.enabled ? `${session.notifications.reminder.minutesBefore}min before` : 'Disabled'}`,
+          `**Warning:** ${session.notifications.warning.enabled ? `${session.notifications.warning.minutesBefore}min before` : 'Disabled'}`
+        ].join('\n')
+      }
+    );
+  
+  const editButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`schedule_edit_channel_${sessionId}`)
+        .setLabel('Edit Channel')
+        .setEmoji('📍')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`schedule_edit_participants_${sessionId}`)
+        .setLabel('Edit Participants')
+        .setEmoji('👥')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  const notifButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`schedule_edit_announcement_${sessionId}`)
+        .setLabel('Edit Announcement')
+        .setEmoji('📢')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`schedule_edit_reminder_${sessionId}`)
+        .setLabel('Edit Reminder')
+        .setEmoji('⏰')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`schedule_edit_warning_${sessionId}`)
+        .setLabel('Edit Warning')
+        .setEmoji('⚠️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  const backButton = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`schedule_manage_${sessionId}`)
+        .setLabel('Back')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [editButtons, notifButtons, backButton]
+  });
+}
+
+/**
  * Show templates menu
  */
 export async function showTemplatesMenu(interaction) {
