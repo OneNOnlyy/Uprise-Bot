@@ -542,7 +542,7 @@ export async function showGameSelection(interaction, selectedDate) {
   });
   
   try {
-    const games = await getNBAGamesWithSpreads(selectedDate);
+    const games = await getESPNGamesForDate(selectedDate);
     
     if (!games || games.length === 0) {
       const embed = new EmbedBuilder()
