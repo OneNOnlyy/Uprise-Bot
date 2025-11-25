@@ -387,6 +387,36 @@ export async function showDashboard(interaction) {
           statusEmoji = '❌';
           losses += pick.isDoubleDown ? 2 : 1;
         }
+      } else if (game.result && game.result.isLive) {
+        // Game is in progress - show live pick status
+        const homeScore = game.result.homeScore;
+        const awayScore = game.result.awayScore;
+        
+        const { homeSpread, awaySpread } = fixZeroSpreads(game);
+        
+        // Calculate adjusted scores
+        const adjustedHomeScore = homeScore + homeSpread;
+        const adjustedAwayScore = awayScore + awaySpread;
+        
+        // Determine current status based on which side user picked
+        let userAdjustedScore, opponentScore;
+        if (pick.pick === 'home') {
+          userAdjustedScore = adjustedHomeScore;
+          opponentScore = awayScore;
+        } else {
+          userAdjustedScore = adjustedAwayScore;
+          opponentScore = homeScore;
+        }
+        
+        // Show live status: winning, losing, or push
+        if (userAdjustedScore === opponentScore) {
+          statusEmoji = '➖'; // Push - right at the line
+        } else if (userAdjustedScore > opponentScore) {
+          statusEmoji = '📈'; // Winning - trending good
+        } else {
+          statusEmoji = '📉'; // Losing - trending bad
+        }
+        pending++;
       } else if (isLocked) {
         statusEmoji = '🔒';
         pending++;
