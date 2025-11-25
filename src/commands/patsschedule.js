@@ -152,7 +152,7 @@ export async function showScheduledSessions(interaction) {
       name: `${index + 1}. ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`,
       value: [
         `🎮 **${session.games.length} games**`,
-        `⏰ First game: ${firstGame.matchup} @ ${new Date(firstGame.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}`,
+        `⏰ First game: ${firstGame.matchup} @ ${new Date(firstGame.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })}`,
         `📍 Channel: ${channelMention}`,
         `👥 Participants: ${participantText}`,
         `👤 Created by: ${session.createdByUsername || 'Unknown'}`
@@ -239,7 +239,7 @@ export async function showSessionManager(interaction, sessionId) {
         value: [
           `**Date:** ${session.scheduledDate}`,
           `**Games:** ${session.games.length}`,
-          `**First Game:** ${new Date(firstGame.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })} (${firstGame.matchup})`,
+          `**First Game:** ${new Date(firstGame.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })} (${firstGame.matchup})`,
           `**Channel:** ${channelMention}`,
           `**Participants:** ${participantText}`
         ].join('\n')
@@ -591,6 +591,7 @@ export async function showGameSelection(interaction, selectedDate) {
       const startTime = new Date(game.commenceTime).toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
+        timeZone: 'America/Los_Angeles',
         timeZoneName: 'short'
       });
       gamesList += `${checkbox} **${game.awayTeam} @ ${game.homeTeam}** - ${startTime}\n`;
@@ -740,7 +741,7 @@ export async function showConfigurationMenu(interaction) {
         value: [
           `**Date:** ${dateDisplay}`,
           `**Games:** ${selectedGames.length} selected`,
-          `**First Game:** ${firstGame.awayTeam} @ ${firstGame.homeTeam} - ${firstGameTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}`
+          `**First Game:** ${firstGame.awayTeam} @ ${firstGame.homeTeam} - ${firstGameTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })}`
         ].join('\n')
       },
       {
@@ -756,7 +757,7 @@ export async function showConfigurationMenu(interaction) {
       {
         name: '🔔 Notifications',
         value: [
-          `📢 Announcement: ${config.notifications.announcement.enabled ? `✅ ${announcementTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} (${config.notifications.announcement.hoursBefore}h before)` : '❌ Disabled'}`,
+          `📢 Announcement: ${config.notifications.announcement.enabled ? `✅ ${announcementTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })} (${config.notifications.announcement.hoursBefore}h before)` : '❌ Disabled'}`,
           `⏰ Reminder: ${config.notifications.reminder.enabled ? `✅ ${config.notifications.reminder.minutesBefore} min before` : '❌ Disabled'}`,
           `⚠️ Warning: ${config.notifications.warning.enabled ? `✅ ${config.notifications.warning.minutesBefore} min before` : '❌ Disabled'}`
         ].join('\n')
@@ -1158,7 +1159,7 @@ export async function createScheduledSession(interaction) {
             `**Date:** ${dateDisplay}`,
             `**Games:** ${selectedGames.length}`,
             `**First Game:** ${firstGame.awayTeam} @ ${firstGame.homeTeam}`,
-            `**Start Time:** ${firstGameTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}`
+            `**Start Time:** ${firstGameTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })}`
           ].join('\n')
         },
         {

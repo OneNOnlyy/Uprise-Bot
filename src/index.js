@@ -144,7 +144,7 @@ async function sendSessionAnnouncement(client, session) {
     
     const embed = new EmbedBuilder()
       .setTitle('🏀 PATS Session Starting Soon!')
-      .setDescription(`A scheduled PATS session begins at **${firstGameTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}**`)
+      .setDescription(`A scheduled PATS session begins at **${firstGameTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })}**`)
       .setColor('#5865F2')
       .addFields(
         {
@@ -153,7 +153,7 @@ async function sendSessionAnnouncement(client, session) {
         },
         {
           name: '⏰ Time',
-          value: firstGameTime.toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+          value: firstGameTime.toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })
         }
       );
     
@@ -206,7 +206,7 @@ async function sendSessionReminder(client, session) {
             },
             {
               name: '⏰ Start Time',
-              value: firstGameTime.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+              value: firstGameTime.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })
             }
           );
         
@@ -260,7 +260,7 @@ async function sendSessionWarning(client, session) {
             },
             {
               name: '⏰ Start Time',
-              value: firstGameTime.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+              value: firstGameTime.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })
             }
           );
         
