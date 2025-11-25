@@ -1194,3 +1194,60 @@ export async function fetchCBSSportsScores(date = null) {
     return [];
   }
 }
+
+/**
+ * Fetch active roster (non-injured players) for a team from ESPN API
+ * @param {string} teamAbbr - Team abbreviation (e.g., 'LAL', 'BOS')
+ * @returns {Array} Array of active players with basic info
+ */
+export async function getTeamActiveRoster(teamAbbr) {
+  try {
+    // Convert our standard abbreviations to ESPN format if needed
+    const espnAbbr = STANDARD_TO_ESPN_ABBR[teamAbbr] || teamAbbr;
+    
+    // ESPN roster API endpoint
+    const espnUrl = `http://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${espnAbbr.toLowerCase()}/roster`;
+    
+    console.log(`👥 Fetching roster for ${teamAbbr} from ESPN API...`);
+
+    const response = await fetch(espnUrl);
+    
+    if (!response.ok) {
+      console.error(`ESPN Roster API failed: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    const players = [];
+
+    if (!data.athletes || data.athletes.length === 0) {
+      console.log('⚠️ No roster data found');
+      return [];
+    }
+
+    // ESPN groups players by position
+    for (const positionGroup of data.athletes) {
+      const position = positionGroup.position || 'N/A';
+      
+      for (const athlete of positionGroup.items || []) {
+        try {
+          players.push({
+            name: athlete.displayName || athlete.fullName,
+            number: athlete.jersey || 'N/A',
+            position: athlete.position?.abbreviation || position,
+            status: 'Active' // These are all active since they're on the roster
+          });
+        } catch (error) {
+          console.error('Error parsing player:', error.message);
+        }
+      }
+    }
+
+    console.log(`✅ Fetched ${players.length} active players for ${teamAbbr}`);
+    return players;
+
+  } catch (error) {
+    console.error('Error fetching team roster:', error);
+    return [];
+  }
+}

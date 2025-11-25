@@ -985,6 +985,11 @@ export async function handleViewInjuries(interaction) {
 
     const backButton = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
+        .setCustomId(`pats_view_roster_${gameId}`)
+        .setLabel('View Active Roster')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('👥'),
+      new ButtonBuilder()
         .setCustomId(`pats_back_to_game_${gameId}`)
         .setLabel('Back to Game')
         .setStyle(ButtonStyle.Secondary)
@@ -1099,6 +1104,11 @@ export async function handleViewMatchup(interaction) {
 
     const backButton = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
+        .setCustomId(`pats_view_roster_${gameId}`)
+        .setLabel('View Active Roster')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('👥'),
+      new ButtonBuilder()
         .setCustomId(`pats_back_to_game_${gameId}`)
         .setLabel('Back to Game')
         .setStyle(ButtonStyle.Secondary)
@@ -1114,6 +1124,127 @@ export async function handleViewMatchup(interaction) {
     console.error('Error viewing matchup:', error);
     await interaction.followUp({
       content: '❌ Error loading matchup info.',
+      ephemeral: true
+    });
+  }
+}
+
+/**
+ * Handle view active roster button
+ */
+export async function handleViewRoster(interaction) {
+  try {
+    await interaction.deferUpdate();
+
+    const session = getActiveSession();
+    if (!session) {
+      await interaction.editReply({
+        content: '❌ Session ended.',
+        components: []
+      });
+      return;
+    }
+
+    const gameId = interaction.customId.split('_')[3];
+    const game = session.games.find(g => g.id === gameId);
+    
+    if (!game) {
+      await interaction.followUp({
+        content: '❌ Game not found.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    // Fetch rosters for both teams
+    const { getTeamActiveRoster } = await import('../utils/oddsApi.js');
+    const [awayRoster, homeRoster] = await Promise.all([
+      getTeamActiveRoster(game.awayAbbr || game.awayTeam),
+      getTeamActiveRoster(game.homeAbbr || game.homeTeam)
+    ]);
+
+    const embed = new EmbedBuilder()
+      .setTitle(`👥 Active Rosters`)
+      .setDescription(`**${game.awayTeam} @ ${game.homeTeam}**\n\n*Non-injured players only*`)
+      .setColor(0x0099FF)
+      .setTimestamp();
+
+    // Add away team roster
+    if (awayRoster.length > 0) {
+      const awayPlayers = awayRoster
+        .sort((a, b) => {
+          // Sort by position, then by name
+          if (a.position !== b.position) {
+            const posOrder = { 'PG': 1, 'SG': 2, 'SF': 3, 'PF': 4, 'C': 5 };
+            return (posOrder[a.position] || 99) - (posOrder[b.position] || 99);
+          }
+          return a.name.localeCompare(b.name);
+        })
+        .map(p => `**#${p.number} ${p.name}** - ${p.position}`)
+        .join('\n');
+      
+      embed.addFields({
+        name: `✈️ ${game.awayTeam} (${awayRoster.length} players)`,
+        value: awayPlayers.substring(0, 1024), // Discord field limit
+        inline: false
+      });
+    } else {
+      embed.addFields({
+        name: `✈️ ${game.awayTeam}`,
+        value: 'No roster data available',
+        inline: false
+      });
+    }
+
+    // Add home team roster
+    if (homeRoster.length > 0) {
+      const homePlayers = homeRoster
+        .sort((a, b) => {
+          // Sort by position, then by name
+          if (a.position !== b.position) {
+            const posOrder = { 'PG': 1, 'SG': 2, 'SF': 3, 'PF': 4, 'C': 5 };
+            return (posOrder[a.position] || 99) - (posOrder[b.position] || 99);
+          }
+          return a.name.localeCompare(b.name);
+        })
+        .map(p => `**#${p.number} ${p.name}** - ${p.position}`)
+        .join('\n');
+      
+      embed.addFields({
+        name: `🏠 ${game.homeTeam} (${homeRoster.length} players)`,
+        value: homePlayers.substring(0, 1024), // Discord field limit
+        inline: false
+      });
+    } else {
+      embed.addFields({
+        name: `🏠 ${game.homeTeam}`,
+        value: 'No roster data available',
+        inline: false
+      });
+    }
+
+    const backButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pats_view_injuries_${gameId}`)
+        .setLabel('View Injuries')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🏥'),
+      new ButtonBuilder()
+        .setCustomId(`pats_back_to_game_${gameId}`)
+        .setLabel('Back to Game')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️')
+    );
+
+    await interaction.editReply({
+      embeds: [embed],
+      components: [backButton]
+    });
+
+  } catch (error) {
+    console.error('Error viewing roster:', error);
+    await interaction.followUp({
+      content: '❌ Error loading roster data.',
       ephemeral: true
     });
   }
