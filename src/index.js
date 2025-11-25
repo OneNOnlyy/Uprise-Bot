@@ -123,7 +123,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (interaction.customId.startsWith('pats_dashboard_') || 
           interaction.customId.startsWith('pats_stats_') ||
           interaction.customId.startsWith('pats_view_history') ||
-          interaction.customId.startsWith('pats_history_')) {
+          interaction.customId.startsWith('pats_history_') ||
+          interaction.customId.startsWith('pats_help_')) {
         await patsCommand.handleDashboardButton(interaction);
       }
       // Handle everyone's picks navigation

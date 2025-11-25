@@ -181,6 +181,22 @@ export async function handleDashboardButton(interaction) {
       }
       
       await showDashboard(interaction);
+    } else if (interaction.customId === 'pats_dashboard_help') {
+      // Show help menu
+      await interaction.deferUpdate();
+      await showHelpMenu(interaction);
+    } else if (interaction.customId === 'pats_help_legend') {
+      // Show emoji legend
+      await interaction.deferUpdate();
+      await showEmojiLegend(interaction);
+    } else if (interaction.customId === 'pats_help_tutorial') {
+      // Show tutorial
+      await interaction.deferUpdate();
+      await showTutorial(interaction);
+    } else if (interaction.customId === 'pats_help_back') {
+      // Return to dashboard from help
+      await interaction.deferUpdate();
+      await showDashboard(interaction);
     } else if (interaction.customId === 'pats_stats_back') {
       // Return to dashboard from stats
       await interaction.deferUpdate();
@@ -488,6 +504,11 @@ export async function showDashboard(interaction) {
       .setCustomId('pats_dashboard_refresh')
       .setLabel('Refresh')
       .setEmoji('🔄')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('pats_dashboard_help')
+      .setLabel('Help')
+      .setEmoji('❓')
       .setStyle(ButtonStyle.Secondary)
   );
 
@@ -859,3 +880,185 @@ export async function handleEveryonePicksNavigation(interaction) {
   await showEveryonesPicks(interaction, gameIndex);
 }
 
+/**
+ * Show help menu
+ */
+async function showHelpMenu(interaction) {
+  const embed = new EmbedBuilder()
+    .setTitle('❓ PATS Help & Information')
+    .setDescription('**Picks Against The Spread (PATS)** - Learn how to play and understand all the symbols!')
+    .setColor(0x5865F2)
+    .addFields(
+      {
+        name: '📖 What is PATS?',
+        value: 'PATS is a fun NBA betting game where you pick which teams will "cover the spread" in their games. You compete against other players to see who can make the best predictions!',
+        inline: false
+      },
+      {
+        name: '🎮 Quick Start',
+        value: '1. View the available games on your dashboard\n2. Click "Make Picks" to choose your teams\n3. Optionally use your Double Down on one pick\n4. Watch the games and see if your picks cover!\n5. Check your stats and leaderboard position',
+        inline: false
+      }
+    )
+    .setTimestamp();
+
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_help_legend')
+      .setLabel('Emoji Legend')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🔤'),
+    new ButtonBuilder()
+      .setCustomId('pats_help_tutorial')
+      .setLabel('Full Tutorial')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('📚'),
+    new ButtonBuilder()
+      .setCustomId('pats_help_back')
+      .setLabel('Back to Dashboard')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🏠')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [buttons]
+  });
+}
+
+/**
+ * Show emoji legend
+ */
+async function showEmojiLegend(interaction) {
+  const embed = new EmbedBuilder()
+    .setTitle('🔤 PATS Emoji Legend')
+    .setDescription('Here\'s what every emoji means in PATS:')
+    .setColor(0x5865F2)
+    .addFields(
+      {
+        name: '📊 Pick Status (Live Games)',
+        value: [
+          '**📈** = Your pick is winning (covering the spread)',
+          '**📉** = Your pick is losing (not covering)',
+          '**➖** = Push territory (exactly at the spread line)'
+        ].join('\n'),
+        inline: false
+      },
+      {
+        name: '✅ Final Results',
+        value: [
+          '**✅** = Won - Your pick covered the spread!',
+          '**❌** = Lost - Your pick didn\'t cover',
+          '**🟰** = Push - Final score exactly at spread (no win/loss)'
+        ].join('\n'),
+        inline: false
+      },
+      {
+        name: '🎯 Pick States',
+        value: [
+          '**📌** = Pick made, game hasn\'t started yet',
+          '**🔒** = Game started, no pick made (automatic loss)',
+          '**💰** = Double Down used on this pick (2x points!)'
+        ].join('\n'),
+        inline: false
+      },
+      {
+        name: '📈 Other Symbols',
+        value: [
+          '**🟢** = Active session',
+          '**🔴** = Closed session',
+          '**⚠️** = Warning/Missed picks',
+          '**🏆** = Leaderboard winner',
+          '**🔥** = Hot streak',
+          '**⭐** = Achievement/milestone'
+        ].join('\n'),
+        inline: false
+      }
+    )
+    .setTimestamp();
+
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_help_tutorial')
+      .setLabel('View Tutorial')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('📚'),
+    new ButtonBuilder()
+      .setCustomId('pats_help_back')
+      .setLabel('Back to Dashboard')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🏠')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [buttons]
+  });
+}
+
+/**
+ * Show tutorial
+ */
+async function showTutorial(interaction) {
+  const embed = new EmbedBuilder()
+    .setTitle('📚 PATS Tutorial - How to Play')
+    .setDescription('**Master the art of picking against the spread!**')
+    .setColor(0x5865F2)
+    .addFields(
+      {
+        name: '1️⃣ Understanding Spreads',
+        value: 'The **spread** is the predicted margin of victory. If Lakers are -5.5, they must win by **more than 5.5 points** to "cover." If Celtics are +5.5, they can lose by up to 5 points and still cover.',
+        inline: false
+      },
+      {
+        name: '2️⃣ Making Your Picks',
+        value: '• Click **"Make Picks"** on your dashboard\n• Review each game and its spread\n• Choose which team you think will cover\n• You must pick one team for every game\n• Picks lock when the game starts',
+        inline: false
+      },
+      {
+        name: '3️⃣ Double Down Power 💰',
+        value: 'Use your **Double Down** on ONE pick per session:\n• If it wins, you get **2 wins** instead of 1\n• If it loses, you get **2 losses**\n• Pushes stay as 1 push\n• Use it wisely on your most confident pick!',
+        inline: false
+      },
+      {
+        name: '4️⃣ Scoring System',
+        value: '• **Win**: Pick covers the spread ✅\n• **Loss**: Pick doesn\'t cover ❌\n• **Push**: Final score exactly at spread 🟰\n• Missed picks = automatic losses\n• Win percentage = Wins ÷ (Wins + Losses)',
+        inline: false
+      },
+      {
+        name: '5️⃣ During Games',
+        value: 'Watch your dashboard during live games:\n• **📈** = Currently winning\n• **📉** = Currently losing\n• **➖** = Right at the push line\n\nRefresh to see live updates!',
+        inline: false
+      },
+      {
+        name: '6️⃣ After Games',
+        value: '• Check your session record on the dashboard\n• View full stats with the **"My Stats"** button\n• See how you rank on the leaderboard\n• Review session history to track progress',
+        inline: false
+      },
+      {
+        name: '💡 Pro Tips',
+        value: '• Make ALL picks before any games start\n• Research team injuries and recent performance\n• Don\'t just pick favorites - consider the spread\n• Save your Double Down for a lock\n• Check the refresh button during live games',
+        inline: false
+      }
+    )
+    .setFooter({ text: 'Good luck with your picks! 🍀' })
+    .setTimestamp();
+
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_help_legend')
+      .setLabel('View Emoji Legend')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🔤'),
+    new ButtonBuilder()
+      .setCustomId('pats_help_back')
+      .setLabel('Back to Dashboard')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🏠')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [buttons]
+  });
+}
