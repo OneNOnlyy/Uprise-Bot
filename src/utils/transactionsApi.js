@@ -97,6 +97,10 @@ export async function fetchNBATransactions(retryCount = 0) {
 export function getTransactionType(description) {
   const lowerDesc = description.toLowerCase();
   
+  // Check for fines first (before other checks)
+  if (lowerDesc.includes('fined') || lowerDesc.includes('fine')) {
+    return { type: 'Fine', emoji: '💰', color: 0xFFD700 };
+  }
   if (lowerDesc.includes('signed') || lowerDesc.includes('signs')) {
     return { type: 'Signing', emoji: '✍️', color: 0x00FF00 };
   }
@@ -109,14 +113,14 @@ export function getTransactionType(description) {
   if (lowerDesc.includes('assigned') || lowerDesc.includes('recalled')) {
     return { type: 'G League', emoji: '🏀', color: 0xFFA500 };
   }
+  if (lowerDesc.includes('suspended') || lowerDesc.includes('suspension')) {
+    return { type: 'Suspension', emoji: '⚠️', color: 0xFFCC00 };
+  }
   if (lowerDesc.includes('injured') || lowerDesc.includes('il') || lowerDesc.includes('injury')) {
     return { type: 'Injury', emoji: '🏥', color: 0xFF6B6B };
   }
   if (lowerDesc.includes('activated') || lowerDesc.includes('return')) {
     return { type: 'Activated', emoji: '✅', color: 0x00AA00 };
-  }
-  if (lowerDesc.includes('suspended') || lowerDesc.includes('suspension')) {
-    return { type: 'Suspension', emoji: '⚠️', color: 0xFFCC00 };
   }
   
   return { type: 'Transaction', emoji: '📋', color: 0x808080 };
