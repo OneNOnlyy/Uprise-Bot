@@ -1273,21 +1273,23 @@ export async function getTeamActiveRoster(teamAbbr) {
       return [];
     }
 
-    // ESPN groups players by position
-    for (const positionGroup of data.athletes) {
-      const position = positionGroup.position || 'N/A';
-      
-      for (const athlete of positionGroup.items || []) {
-        try {
+    // Athletes array contains player objects directly
+    for (const athlete of data.athletes) {
+      try {
+        // Only include active players (not injured/out)
+        const isActive = !athlete.injuries || athlete.injuries.length === 0 || 
+                        athlete.injuries.every(inj => inj.status !== 'Out');
+        
+        if (isActive) {
           players.push({
             name: athlete.displayName || athlete.fullName,
             number: athlete.jersey || 'N/A',
-            position: athlete.position?.abbreviation || position,
-            status: 'Active' // These are all active since they're on the roster
+            position: athlete.position?.abbreviation || 'N/A',
+            status: 'Active'
           });
-        } catch (error) {
-          console.error('Error parsing player:', error.message);
         }
+      } catch (error) {
+        console.error('Error parsing player:', error.message);
       }
     }
 
