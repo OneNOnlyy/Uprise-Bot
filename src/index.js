@@ -489,6 +489,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       // Handle navigation to specific game (previous/next)
       else if (interaction.customId.startsWith('pats_nav_game_')) {
+        // Defer immediately to prevent timeout
+        if (!interaction.deferred && !interaction.replied) {
+          await interaction.deferUpdate();
+        }
         await makepickCommand.handleGameNavigation(interaction);
       }
       // Handle back to overview (dashboard) button

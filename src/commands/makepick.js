@@ -1656,7 +1656,8 @@ export async function handleBackToDashboard(interaction) {
  */
 export async function handleGameNavigation(interaction) {
   try {
-    await interaction.deferUpdate();
+    // Defer is now handled in index.js before this function is called
+    // No need to defer again here
     
     // Extract game ID from customId: pats_nav_game_{gameId}
     const gameId = interaction.customId.replace('pats_nav_game_', '');
