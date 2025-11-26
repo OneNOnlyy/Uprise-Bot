@@ -6,6 +6,7 @@ import { scheduleGamePings } from './features/gamePing.js';
 import { scheduleThreadLocking } from './features/lockThreads.js';
 import { scheduleGameResultChecking } from './features/checkGameResults.js';
 import { scheduleTransactionFeed } from './features/transactionFeed.js';
+import { initGameWarnings } from './features/gameWarnings.js';
 import { loadScheduledSessions, scheduleSessionJobs } from './utils/sessionScheduler.js';
 import * as gamethreadCommand from './commands/gamethread.js';
 import * as testpingCommand from './commands/testping.js';
@@ -79,6 +80,9 @@ client.once(Events.ClientReady, (readyClient) => {
   
   // Start the PATS game result checker
   scheduleGameResultChecking();
+  
+  // Initialize game warnings system
+  initGameWarnings(client);
   
   // Initialize scheduled PATS sessions
   initializeScheduledSessions(client);

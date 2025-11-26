@@ -1176,54 +1176,27 @@ export function getInjuriesForTeam(teamAbbr, injuryReports) {
     return [];
   }
 
+  console.log(`[Injuries] Looking for injuries for team abbr: ${teamAbbr}`);
+  console.log(`[Injuries] Available teams in injury reports:`, Array.from(injuryReports.keys()));
+
   // Try exact match first
   if (injuryReports.has(teamAbbr)) {
-    return injuryReports.get(teamAbbr);
+    const injuries = injuryReports.get(teamAbbr);
+    console.log(`[Injuries] Found ${injuries.length} injuries for ${teamAbbr} (exact match)`);
+    return injuries;
   }
 
-  // Try some common variations
-  const variations = {
-    'LAL': ['LA Lakers', 'Los Angeles Lakers'],
-    'LAC': ['LA Clippers', 'Los Angeles Clippers'],
-    'BOS': ['Boston Celtics'],
-    'MIL': ['Milwaukee Bucks'],
-    'DEN': ['Denver Nuggets'],
-    'PHI': ['Philadelphia 76ers'],
-    'OKC': ['Oklahoma City Thunder'],
-    'DAL': ['Dallas Mavericks'],
-    'NYK': ['New York Knicks'],
-    'PHO': ['Phoenix Suns'],
-    'MIA': ['Miami Heat'],
-    'ATL': ['Atlanta Hawks'],
-    'GSW': ['Golden State Warriors'],
-    'SAS': ['San Antonio Spurs'],
-    'UTA': ['Utah Jazz'],
-    'MEM': ['Memphis Grizzlies'],
-    'POR': ['Portland Trail Blazers'],
-    'SAC': ['Sacramento Kings'],
-    'CHA': ['Charlotte Hornets'],
-    'WAS': ['Washington Wizards'],
-    'IND': ['Indiana Pacers'],
-    'ORL': ['Orlando Magic'],
-    'CHI': ['Chicago Bulls'],
-    'DET': ['Detroit Pistons'],
-    'BKN': ['Brooklyn Nets'],
-    'NOP': ['New Orleans Pelicans'],
-    'TOR': ['Toronto Raptors'],
-    'MIN': ['Minnesota Timberwolves'],
-    'CLE': ['Cleveland Cavaliers']
-  };
-
-  // Check if any variation matches
-  for (const [abbr, names] of Object.entries(variations)) {
-    if (names.some(name => name.toLowerCase().includes(teamAbbr.toLowerCase()) ||
-                          teamAbbr.toLowerCase().includes(name.toLowerCase()))) {
-      if (injuryReports.has(abbr)) {
-        return injuryReports.get(abbr);
-      }
+  console.log(`[Injuries] No exact match for ${teamAbbr}, trying case-insensitive match...`);
+  
+  // Try case-insensitive match
+  for (const [key, value] of injuryReports.entries()) {
+    if (key.toLowerCase() === teamAbbr.toLowerCase()) {
+      console.log(`[Injuries] Found ${value.length} injuries for ${teamAbbr} (case-insensitive match with ${key})`);
+      return value;
     }
   }
 
+  console.log(`[Injuries] No injuries found for ${teamAbbr}`);
   return [];
 }
 
