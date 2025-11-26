@@ -29,11 +29,7 @@ function fixZeroSpreads(game) {
 
 export const data = new SlashCommandBuilder()
   .setName('pats')
-  .setDescription('Picks Against The Spread - NBA betting game')
-  .addSubcommand(subcommand =>
-    subcommand
-      .setName('dashboard')
-      .setDescription('View your PATS dashboard and stats'))
+  .setDescription('View your PATS dashboard and make picks')
   .addSubcommand(subcommand =>
     subcommand
       .setName('start')
@@ -80,46 +76,48 @@ export const data = new SlashCommandBuilder()
       .setDescription('Refresh spreads from Odds API (Admin only)'));
 
 export async function execute(interaction) {
-  const subcommand = interaction.options.getSubcommand();
+  const subcommand = interaction.options.getSubcommand(false); // false = don't require subcommand
   
-  // Route to appropriate handler based on subcommand
-  switch (subcommand) {
-    case 'start': {
-      const patsstartCommand = await import('./patsstart.js');
-      return await patsstartCommand.execute(interaction);
+  // If no subcommand provided, show dashboard (default behavior)
+  if (!subcommand) {
+    // Show dashboard - this is the default /pats behavior
+    // Continue with existing dashboard code below
+  } else {
+    // Route to appropriate handler based on subcommand
+    switch (subcommand) {
+      case 'start': {
+        const patsstartCommand = await import('./patsstart.js');
+        return await patsstartCommand.execute(interaction);
+      }
+      case 'end': {
+        const patsendCommand = await import('./patsend.js');
+        return await patsendCommand.execute(interaction);
+      }
+      case 'schedule': {
+        const patsscheduleCommand = await import('./patsschedule.js');
+        return await patsscheduleCommand.execute(interaction);
+      }
+      case 'assignpicks': {
+        const patsassignpicksCommand = await import('./patsassignpicks.js');
+        return await patsassignpicksCommand.execute(interaction);
+      }
+      case 'history': {
+        const patshistoryCommand = await import('./patshistory.js');
+        return await patshistoryCommand.execute(interaction);
+      }
+      case 'leaderboard': {
+        const patsleaderboardCommand = await import('./patsleaderboard.js');
+        return await patsleaderboardCommand.execute(interaction);
+      }
+      case 'reopen': {
+        const patsreopenCommand = await import('./patsreopen.js');
+        return await patsreopenCommand.execute(interaction);
+      }
+      case 'refreshspreads': {
+        const patsrefreshspreadsCommand = await import('./patsrefreshspreads.js');
+        return await patsrefreshspreadsCommand.execute(interaction);
+      }
     }
-    case 'end': {
-      const patsendCommand = await import('./patsend.js');
-      return await patsendCommand.execute(interaction);
-    }
-    case 'schedule': {
-      const patsscheduleCommand = await import('./patsschedule.js');
-      return await patsscheduleCommand.execute(interaction);
-    }
-    case 'assignpicks': {
-      const patsassignpicksCommand = await import('./patsassignpicks.js');
-      return await patsassignpicksCommand.execute(interaction);
-    }
-    case 'history': {
-      const patshistoryCommand = await import('./patshistory.js');
-      return await patshistoryCommand.execute(interaction);
-    }
-    case 'leaderboard': {
-      const patsleaderboardCommand = await import('./patsleaderboard.js');
-      return await patsleaderboardCommand.execute(interaction);
-    }
-    case 'reopen': {
-      const patsreopenCommand = await import('./patsreopen.js');
-      return await patsreopenCommand.execute(interaction);
-    }
-    case 'refreshspreads': {
-      const patsrefreshspreadsCommand = await import('./patsrefreshspreads.js');
-      return await patsrefreshspreadsCommand.execute(interaction);
-    }
-    case 'dashboard':
-    default:
-      // Show dashboard
-      break;
   }
   
   // Default: show dashboard

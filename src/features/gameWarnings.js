@@ -40,11 +40,15 @@ async function checkGameWarnings(client) {
         
         console.log(`⚠️ Game starting in ${Math.floor(timeUntilGame / 60000)} minutes: ${game.awayTeam} @ ${game.homeTeam}`);
         
-        // Get all participants
+        // Get all participants who should receive warnings
         let participants = [];
         
+        // First, get users who have made at least one pick in this session
+        const allPicks = session.picks || {};
+        const usersWithPicks = Object.keys(allPicks);
+        
+        // Second, get users who were tagged in the announcement (if session has participants)
         if (session.participants && session.participants.length > 0) {
-          // If session has role-based participants
           for (const participantId of session.participants) {
             try {
               // Check if it's a role ID (18-20 digits)
@@ -69,14 +73,10 @@ async function checkGameWarnings(client) {
               console.error(`Error fetching participant ${participantId}:`, err.message);
             }
           }
-        } else {
-          // If no specific participants, get all users who have made any pick in this session
-          const allPicks = session.picks || {};
-          participants = Object.keys(allPicks);
         }
         
-        // Remove duplicates
-        participants = [...new Set(participants)];
+        // Combine both groups: users with picks + tagged users
+        participants = [...new Set([...usersWithPicks, ...participants])];
         
         console.log(`⚠️ Checking ${participants.length} participants for picks on game ${game.id}`);
         
@@ -90,11 +90,24 @@ async function checkGameWarnings(client) {
               continue;
             }
             
-            // Check if user has picked this game
+            // Check if user has made ANY picks in this session
             const userPicks = getUserPicks(session.id, userId);
-            const hasPicked = userPicks.some(p => p.gameId === game.id);
             
-            if (!hasPicked) {
+            // Only send warning if:
+            // 1. User has made at least one pick (engaged with the session), OR
+            // 2. User was tagged in the announcement (participant)
+            const hasAnyPicks = userPicks.length > 0;
+            const wasTagged = session.participants && session.participants.length > 0;
+            
+            if (!hasAnyPicks && !wasTagged) {
+              // Skip users who haven't engaged and weren't tagged
+              continue;
+            }
+            
+            // Check if user has picked THIS specific game
+            const hasPickedThisGame = userPicks.some(p => p.gameId === game.id);
+            
+            if (!hasPickedThisGame) {
               // Send warning DM
               try {
                 const user = await client.users.fetch(userId);
