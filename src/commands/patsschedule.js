@@ -546,8 +546,6 @@ export async function startSessionNow(interaction, sessionId) {
   });
   
   try {
-    // Import the startScheduledSession function from index.js
-    // We need to trigger it manually
     const channel = await interaction.client.channels.fetch(session.channelId);
     const guild = await interaction.client.guilds.fetch(session.guildId);
     
@@ -562,66 +560,77 @@ export async function startSessionNow(interaction, sessionId) {
     const sessionDate = new Date(session.firstGameTime);
     const dateStr = sessionDate.toISOString().split('T')[0];
     
-    // Import and execute patsstart
-    const patsstartCommand = await import('./patsstart.js');
+    // Import necessary functions
+    const { fetchGamesWithSpreads, prefetchMatchupInfo } = await import('../utils/oddsApi.js');
+    const { createPATSSession } = await import('../utils/patsData.js');
+    const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = await import('discord.js');
     
-    // Create mock interaction for patsstart
-    const mockInteraction = {
-      user: interaction.user,
-      member: interaction.member,
-      guild: guild,
-      guildId: session.guildId,
-      channelId: session.channelId,
-      channel: channel,
-      client: interaction.client,
-      options: {
-        getString: (name) => {
-          if (name === 'date') return dateStr;
-          return null;
-        },
-        getRole: (name) => {
-          if (name === 'participant_role' && session.participantType === 'role' && session.roleId) {
-            return guild.roles.cache.get(session.roleId) || null;
-          }
-          return null;
-        }
-      },
-      replied: false,
-      deferred: false,
-      ephemeral: false,
-      deferReply: async (options = {}) => {
-        mockInteraction.deferred = true;
-        if (options.ephemeral !== undefined) {
-          mockInteraction.ephemeral = options.ephemeral;
-        }
-        return Promise.resolve();
-      },
-      reply: async (options) => {
-        if (!mockInteraction.ephemeral) {
-          await channel.send(options);
-        }
-        mockInteraction.replied = true;
-      },
-      editReply: async (options) => {
-        if (typeof options === 'string' || options.content) {
-          const content = typeof options === 'string' ? options : options.content;
-          console.log(`[Manual Start] ${content}`);
-        }
-      },
-      followUp: async (options) => {
-        await channel.send(options);
-      }
-    };
+    // Fetch games with spreads
+    console.log(`📊 Fetching games with spreads for manually started PATS session on ${dateStr}...`);
+    const games = await fetchGamesWithSpreads(dateStr);
     
-    // Start the session
-    await patsstartCommand.execute(mockInteraction);
+    if (!games || games.length === 0) {
+      await interaction.editReply({
+        content: `❌ No games with spreads available for ${dateStr}.`
+      });
+      return;
+    }
+    
+    // Determine participants based on session type
+    let participants = [];
+    if (session.participantType === 'role' && session.roleId) {
+      participants = [session.roleId];
+    } else if (session.participantType === 'users' && session.specificUsers) {
+      participants = session.specificUsers;
+    }
+    // If participantType is 'here', participants stays empty (everyone can join)
+    
+    // Create the PATS session
+    const patsSession = createPATSSession(dateStr, games, participants);
+    console.log(`✅ Created PATS session ${patsSession.id} with ${games.length} games`);
+    
+    // Prefetch matchup info
+    prefetchMatchupInfo(patsSession.games).catch(err => {
+      console.error('[PATS] Error prefetching matchup info:', err);
+    });
+    
+    // Create announcement embed
+    const embed = new EmbedBuilder()
+      .setTitle('🏀 Picks Against The Spread - LIVE!')
+      .setDescription(`**${games.length} NBA games** available for picks today!`)
+      .setColor(0xE03A3E)
+      .addFields(
+        { name: '📅 Date', value: dateStr, inline: true },
+        { name: '🎮 Games Available', value: games.length.toString(), inline: true },
+        { name: '\u200B', value: '\u200B', inline: true }
+      )
+      .addFields({
+        name: '📋 How to Play',
+        value: '• Use `/pats` to view games and make picks\n• Pick the team you think will cover the spread\n• Make picks before the game starts\n• Track your record as games finish'
+      });
+    
+    // Create participant mention string
+    let mentionText = '';
+    if (session.participantType === 'role' && session.roleId) {
+      mentionText = `<@&${session.roleId}>`;
+    } else if (session.participantType === 'users' && session.specificUsers?.length > 0) {
+      mentionText = session.specificUsers.map(uid => `<@${uid}>`).join(' ');
+    } else if (session.participantType === 'here') {
+      mentionText = '@here';
+    }
+    
+    // Send announcement to channel
+    await channel.send({ 
+      content: mentionText || undefined,
+      embeds: [embed]
+    });
     
     // Delete the scheduled session since it's been started
     const { deleteScheduledSession } = await import('../utils/sessionScheduler.js');
     deleteScheduledSession(sessionId);
     
     await interaction.editReply({
-      content: '✅ PATS session started successfully! The scheduled session has been removed.',
+      content: `✅ PATS session started successfully with ${games.length} games! The scheduled session has been removed.`,
       embeds: [],
       components: []
     });
