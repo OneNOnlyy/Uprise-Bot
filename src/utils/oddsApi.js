@@ -1162,6 +1162,12 @@ export async function fetchCBSSportsScores(date = null) {
           // Use the short detail which has format like "3rd 6:59"
           status = statusShort || statusDetail;
           isLive = true;
+        } else if (statusType === 'STATUS_HALFTIME') {
+          status = 'Halftime';
+          isLive = true; // Halftime is still a live game
+        } else if (statusType === 'STATUS_END_PERIOD') {
+          status = statusShort || 'End of Quarter';
+          isLive = true;
         } else if (statusType === 'STATUS_SCHEDULED') {
           // ESPN sometimes keeps status as SCHEDULED even when game has started
           // Check if we have real scores (both teams have points)
@@ -1173,8 +1179,15 @@ export async function fetchCBSSportsScores(date = null) {
             status = 'Scheduled';
           }
         } else {
-          // Unknown status, log it
-          console.log(`  ⚠️ Unknown status type: ${statusType} for ${normalizedAwayTeam} @ ${normalizedHomeTeam}`);
+          // Unknown status - check if game has scores to determine if it's live
+          if (awayScore > 0 || homeScore > 0) {
+            console.log(`  ⚠️ Unknown status type: ${statusType} but has scores. Treating as LIVE.`);
+            status = statusShort || statusDetail || statusType;
+            isLive = true;
+          } else {
+            console.log(`  ⚠️ Unknown status type: ${statusType} for ${normalizedAwayTeam} @ ${normalizedHomeTeam}`);
+            status = 'Scheduled';
+          }
         }
 
         games.push({
