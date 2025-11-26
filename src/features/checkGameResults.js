@@ -159,7 +159,14 @@ async function checkAndUpdateGameResults() {
         const isScheduled = liveGame.status.match(/^\d{4}-\d{2}-\d{2}T/) || 
                            (liveGame.home_team_score === 0 && liveGame.visitor_team_score === 0);
         
-        if (!isScheduled) {
+        if (isScheduled) {
+          // Clear any incorrect live status that may have been set before
+          if (sessionGame.result && sessionGame.result.isLive) {
+            console.log(`🧹 [BallDontLie] Clearing incorrect live status for scheduled game: ${sessionGame.awayTeam} @ ${sessionGame.homeTeam}`);
+            updateGameResult(session.id, sessionGame.id, null);
+            updatedCount++;
+          }
+        } else {
           // Game is in progress - store live scores
           const homeScore = liveGame.home_team_score;
           const awayScore = liveGame.visitor_team_score;
