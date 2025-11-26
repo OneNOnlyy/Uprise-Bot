@@ -154,27 +154,34 @@ async function checkAndUpdateGameResults() {
           updatedCount++;
         }
       } else if (liveGame.status && liveGame.status !== 'Scheduled') {
-        // Game is in progress - store live scores
-        const homeScore = liveGame.home_team_score;
-        const awayScore = liveGame.visitor_team_score;
+        // Check if this is actually a live game or just scheduled
+        // BallDontLie uses ISO timestamps as status for scheduled games
+        const isScheduled = liveGame.status.match(/^\d{4}-\d{2}-\d{2}T/) || 
+                           (liveGame.home_team_score === 0 && liveGame.visitor_team_score === 0);
         
-        if (homeScore !== null && awayScore !== null) {
-          console.log(`🏀 [BallDontLie] Game in progress: ${sessionGame.awayTeam} ${awayScore} @ ${sessionGame.homeTeam} ${homeScore} - ${liveGame.status}`);
+        if (!isScheduled) {
+          // Game is in progress - store live scores
+          const homeScore = liveGame.home_team_score;
+          const awayScore = liveGame.visitor_team_score;
           
-          // Update live score in session (don't overwrite final results)
-          if (!sessionGame.result || sessionGame.result.status !== 'Final') {
-            const liveResult = {
-              homeScore,
-              awayScore,
-              status: liveGame.status,
-              isLive: true
-            };
+          if (homeScore !== null && awayScore !== null) {
+            console.log(`🏀 [BallDontLie] Game in progress: ${sessionGame.awayTeam} ${awayScore} @ ${sessionGame.homeTeam} ${homeScore} - ${liveGame.status}`);
             
-            updateGameResult(session.id, sessionGame.id, liveResult);
-            updatedCount++; // Count BallDontLie live updates too
+            // Update live score in session (don't overwrite final results)
+            if (!sessionGame.result || sessionGame.result.status !== 'Final') {
+              const liveResult = {
+                homeScore,
+                awayScore,
+                status: liveGame.status,
+                isLive: true
+              };
+              
+              updateGameResult(session.id, sessionGame.id, liveResult);
+              updatedCount++; // Count BallDontLie live updates too
+            }
+          } else {
+            console.log(`🏀 [BallDontLie] Game in progress: ${sessionGame.awayTeam} @ ${sessionGame.homeTeam} - ${liveGame.status} (scores not available yet)`);
           }
-        } else {
-          console.log(`🏀 [BallDontLie] Game in progress: ${sessionGame.awayTeam} @ ${sessionGame.homeTeam} - ${liveGame.status} (scores not available yet)`);
         }
       }
     }

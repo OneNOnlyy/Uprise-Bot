@@ -597,7 +597,11 @@ export async function showDashboard(interaction) {
           scoreText = ` - ${awayAbbrev} ${game.result.awayScore} @ ${homeAbbrev} ${game.result.homeScore}`;
         } else if (game.result.isLive) {
           // Show live status with score
-          const status = game.result.status || 'Live';
+          // Don't show ISO timestamps as status
+          let status = game.result.status || 'Live';
+          if (status.match(/^\d{4}-\d{2}-\d{2}T/)) {
+            status = 'Live';
+          }
           scoreText = ` - ${awayAbbrev} ${game.result.awayScore} @ ${homeAbbrev} ${game.result.homeScore} (${status})`;
         }
         // Don't show scores for scheduled games
