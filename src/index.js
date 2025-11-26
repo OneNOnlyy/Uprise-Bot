@@ -148,15 +148,15 @@ function initializeScheduledSessions(client) {
  */
 async function handleTrackInjuries(interaction) {
   try {
-    await interaction.deferUpdate();
-    
     const gameId = interaction.customId.replace('pats_track_injuries_', '');
     const { getActiveSession } = await import('./utils/patsData.js');
     const { getCachedMatchupInfo } = await import('./utils/dataCache.js');
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+    const { formatInjuries } = await import('./utils/espnApi.js');
     
     const session = getActiveSession();
     if (!session) {
-      await interaction.followUp({
+      await interaction.reply({
         content: '❌ No active PATS session found.',
         ephemeral: true
       });
@@ -165,7 +165,7 @@ async function handleTrackInjuries(interaction) {
     
     const game = session.games.find(g => g.id === gameId);
     if (!game) {
-      await interaction.followUp({
+      await interaction.reply({
         content: '❌ Game not found.',
         ephemeral: true
       });
@@ -188,20 +188,79 @@ async function handleTrackInjuries(interaction) {
       initialSnapshot
     );
     
+    // Rebuild the matchup embed with updated button
+    const embed = new EmbedBuilder()
+      .setTitle(`📊 Full Matchup Info: ${game.awayTeam} @ ${game.homeTeam}`)
+      .setColor(0x1D42A2);
+
+    const awayInfo = matchupInfo.away;
+    const homeInfo = matchupInfo.home;
+
+    embed.addFields({
+      name: `✈️ ${game.awayTeam}`,
+      value: `**Record:** ${awayInfo.record}\n**Spread:** ${game.spreadDisplay.away}\n**Injuries:**\n${formatInjuries(awayInfo.injuries)}`,
+      inline: false
+    });
+
+    embed.addFields({
+      name: `🏠 ${game.homeTeam}`,
+      value: `**Record:** ${homeInfo.record}\n**Spread:** ${game.spreadDisplay.home}\n**Injuries:**\n${formatInjuries(homeInfo.injuries)}`,
+      inline: false
+    });
+
+    const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
+    const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
+    const favoredTeam = game.favored === 'home' ? game.homeTeam : game.awayTeam;
+    const favoredSpread = game.favored === 'home' ? homeSpread : awaySpread;
+    
+    embed.addFields({
+      name: '📈 Spread Breakdown',
+      value: `**${favoredTeam}** is favored by **${Math.abs(favoredSpread)} points**`,
+      inline: false
+    });
+
+    const backButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pats_view_roster_${gameId}`)
+        .setLabel('View Active Roster')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('👥'),
+      new ButtonBuilder()
+        .setCustomId(`pats_back_to_game_${gameId}`)
+        .setLabel('Back to Game')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️')
+    );
+
+    const trackingButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pats_untrack_injuries_${gameId}`)
+        .setLabel('Stop Tracking Injuries')
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji('🔕')
+    );
+
+    await interaction.update({
+      embeds: [embed],
+      components: [backButton, trackingButton]
+    });
+    
     await interaction.followUp({
       content: `🔔 You are now tracking injuries for **${game.awayTeam} @ ${game.homeTeam}**\n\nYou'll receive a DM whenever there are changes to the injury report for this game.`,
       ephemeral: true
     });
     
-    // Refresh the matchup display to show the "Stop Tracking" button
-    await makepickCommand.handleViewMatchup(interaction);
-    
   } catch (error) {
     console.error('Error tracking injuries:', error);
-    await interaction.followUp({
+    const errorMessage = {
       content: '❌ Error setting up injury tracking.',
       ephemeral: true
-    });
+    };
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp(errorMessage);
+    } else {
+      await interaction.reply(errorMessage);
+    }
   }
 }
 
@@ -210,27 +269,108 @@ async function handleTrackInjuries(interaction) {
  */
 async function handleUntrackInjuries(interaction) {
   try {
-    await interaction.deferUpdate();
-    
     const gameId = interaction.customId.replace('pats_untrack_injuries_', '');
+    const { getActiveSession } = await import('./utils/patsData.js');
+    const { getCachedMatchupInfo } = await import('./utils/dataCache.js');
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+    const { formatInjuries } = await import('./utils/espnApi.js');
+    
+    const session = getActiveSession();
+    if (!session) {
+      await interaction.reply({
+        content: '❌ No active PATS session found.',
+        ephemeral: true
+      });
+      return;
+    }
+    
+    const game = session.games.find(g => g.id === gameId);
+    if (!game) {
+      await interaction.reply({
+        content: '❌ Game not found.',
+        ephemeral: true
+      });
+      return;
+    }
     
     // Unsubscribe user from injury tracking
     unsubscribeFromInjuries(interaction.user.id, gameId);
+    
+    // Rebuild the matchup embed with updated button
+    const matchupInfo = await getCachedMatchupInfo(game.homeTeam, game.awayTeam);
+    
+    const embed = new EmbedBuilder()
+      .setTitle(`📊 Full Matchup Info: ${game.awayTeam} @ ${game.homeTeam}`)
+      .setColor(0x1D42A2);
+
+    const awayInfo = matchupInfo.away;
+    const homeInfo = matchupInfo.home;
+
+    embed.addFields({
+      name: `✈️ ${game.awayTeam}`,
+      value: `**Record:** ${awayInfo.record}\n**Spread:** ${game.spreadDisplay.away}\n**Injuries:**\n${formatInjuries(awayInfo.injuries)}`,
+      inline: false
+    });
+
+    embed.addFields({
+      name: `🏠 ${game.homeTeam}`,
+      value: `**Record:** ${homeInfo.record}\n**Spread:** ${game.spreadDisplay.home}\n**Injuries:**\n${formatInjuries(homeInfo.injuries)}`,
+      inline: false
+    });
+
+    const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
+    const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
+    const favoredTeam = game.favored === 'home' ? game.homeTeam : game.awayTeam;
+    const favoredSpread = game.favored === 'home' ? homeSpread : awaySpread;
+    
+    embed.addFields({
+      name: '📈 Spread Breakdown',
+      value: `**${favoredTeam}** is favored by **${Math.abs(favoredSpread)} points**`,
+      inline: false
+    });
+
+    const backButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pats_view_roster_${gameId}`)
+        .setLabel('View Active Roster')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('👥'),
+      new ButtonBuilder()
+        .setCustomId(`pats_back_to_game_${gameId}`)
+        .setLabel('Back to Game')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️')
+    );
+
+    const trackingButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pats_track_injuries_${gameId}`)
+        .setLabel('Track Injuries')
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('🔔')
+    );
+
+    await interaction.update({
+      embeds: [embed],
+      components: [backButton, trackingButton]
+    });
     
     await interaction.followUp({
       content: '🔕 You have stopped tracking injuries for this game.',
       ephemeral: true
     });
     
-    // Refresh the matchup display to show the "Track Injuries" button
-    await makepickCommand.handleViewMatchup(interaction);
-    
   } catch (error) {
     console.error('Error untracking injuries:', error);
-    await interaction.followUp({
+    const errorMessage = {
       content: '❌ Error removing injury tracking.',
       ephemeral: true
-    });
+    };
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp(errorMessage);
+    } else {
+      await interaction.reply(errorMessage);
+    }
   }
 }
 
