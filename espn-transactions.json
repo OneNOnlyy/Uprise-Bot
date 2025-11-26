@@ -1,0 +1,4095 @@
+{
+  "timestamp": "2025-11-25T18:34:52Z",
+  "status": "success",
+  "season": {
+    "year": 2026,
+    "type": 2,
+    "name": "Regular Season",
+    "displayName": "2025-26"
+  },
+  "requestedYear": {
+    "year": 2025,
+    "displayName": "2025"
+  },
+  "count": 461,
+  "pageIndex": 1,
+  "pageSize": 25,
+  "pageCount": 19,
+  "transactions": [
+    {
+      "date": "2025-11-24T08:00Z",
+      "description": "Signed G Kobe Bufkin to a 10-day contract.",
+      "team": {
+        "id": "29",
+        "location": "Memphis",
+        "name": "Grizzlies",
+        "abbreviation": "MEM",
+        "displayName": "Memphis Grizzlies",
+        "color": "5d76a9",
+        "alternateColor": "12173f",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/mem.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/mem.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/mem.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/mem.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:14Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/mem/memphis-grizzlies",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-11-22T08:00Z",
+      "description": "F Dillon Brooks was fined by the league office for confronting and directing inappropriate language toward game officials in a game played November 21.",
+      "team": {
+        "id": "21",
+        "location": "Phoenix",
+        "name": "Suns",
+        "abbreviation": "PHX",
+        "displayName": "Phoenix Suns",
+        "color": "29127a",
+        "alternateColor": "e56020",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/phx.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/phx.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/phx.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/phx.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:14Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/phx/phoenix-suns",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-11-21T08:00Z",
+      "description": "Signed F Jeremiah Robinson-Earl to a rest-of-season contract. Waived G Monte Morris.",
+      "team": {
+        "id": "11",
+        "location": "Indiana",
+        "name": "Pacers",
+        "abbreviation": "IND",
+        "displayName": "Indiana Pacers",
+        "color": "0c2340",
+        "alternateColor": "ffd520",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/ind/indiana-pacers",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-11-20T08:00Z",
+      "description": "Signed G Garrison Mathews to a 10-day contract.",
+      "team": {
+        "id": "11",
+        "location": "Indiana",
+        "name": "Pacers",
+        "abbreviation": "IND",
+        "displayName": "Indiana Pacers",
+        "color": "0c2340",
+        "alternateColor": "ffd520",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/ind/indiana-pacers",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-11-18T08:00Z",
+      "description": "Signed G Jamaree Bouyea to a two-way contract.",
+      "team": {
+        "id": "21",
+        "location": "Phoenix",
+        "name": "Suns",
+        "abbreviation": "PHX",
+        "displayName": "Phoenix Suns",
+        "color": "29127a",
+        "alternateColor": "e56020",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/phx.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/phx.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/phx.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/phx.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:14Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c6eade89-5971-0e84-8ccb-cd91482b2b50/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:04Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/phx/phoenix-suns",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-11-16T08:00Z",
+      "description": "Signed G Jahmai Mashack to a Two-Way Contract. Waived C PJ Hall.",
+      "team": {
+        "id": "29",
+        "location": "Memphis",
+        "name": "Grizzlies",
+        "abbreviation": "MEM",
+        "displayName": "Memphis Grizzlies",
+        "color": "5d76a9",
+        "alternateColor": "12173f",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/mem.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/mem.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/mem.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/mem.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:14Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/mem/memphis-grizzlies",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-11-11T08:00Z",
+      "description": "Signed F Jeremiah Robinson-Earl to a 10-day contract.",
+      "team": {
+        "id": "11",
+        "location": "Indiana",
+        "name": "Pacers",
+        "abbreviation": "IND",
+        "displayName": "Indiana Pacers",
+        "color": "0c2340",
+        "alternateColor": "ffd520",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/ind/indiana-pacers",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-11-11T08:00Z",
+      "description": "Fired general manager Nico Harrison.",
+      "team": {
+        "id": "6",
+        "location": "Dallas",
+        "name": "Mavericks",
+        "abbreviation": "DAL",
+        "displayName": "Dallas Mavericks",
+        "color": "0064b1",
+        "alternateColor": "bbc4ca",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/dal.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/dal.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/dal.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/dal.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:14Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f00d1f4e-4ce6-d581-466c-5b52531cf7ad/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:30Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f00d1f4e-4ce6-d581-466c-5b52531cf7ad/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:30Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f00d1f4e-4ce6-d581-466c-5b52531cf7ad/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:30Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f00d1f4e-4ce6-d581-466c-5b52531cf7ad/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:30Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f00d1f4e-4ce6-d581-466c-5b52531cf7ad/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:30Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f00d1f4e-4ce6-d581-466c-5b52531cf7ad/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:30Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f00d1f4e-4ce6-d581-466c-5b52531cf7ad/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:30Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f00d1f4e-4ce6-d581-466c-5b52531cf7ad/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:30Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/dal/dallas-mavericks",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-11-10T08:00Z",
+      "description": "Signed G Wendell Moore Jr. to a two-way contract. Waived G Colby Jones.",
+      "team": {
+        "id": "8",
+        "location": "Detroit",
+        "name": "Pistons",
+        "abbreviation": "DET",
+        "displayName": "Detroit Pistons",
+        "color": "1d428a",
+        "alternateColor": "c8102e",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/det.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/det.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/det.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/det.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:14Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/det/detroit-pistons",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-11-07T08:00Z",
+      "description": "Signed G Monte Morris to a rest-of-season contract. Waived G Mac McClung.",
+      "team": {
+        "id": "11",
+        "location": "Indiana",
+        "name": "Pacers",
+        "abbreviation": "IND",
+        "displayName": "Indiana Pacers",
+        "color": "0c2340",
+        "alternateColor": "ffd520",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/ind/indiana-pacers",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-11-06T08:00Z",
+      "description": "Claimed F Isaac Jones off waivers from the Sacramento Kings.",
+      "team": {
+        "id": "8",
+        "location": "Detroit",
+        "name": "Pistons",
+        "abbreviation": "DET",
+        "displayName": "Detroit Pistons",
+        "color": "1d428a",
+        "alternateColor": "c8102e",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/det.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/det.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/det.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/det.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:14Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/4e096981-dc02-51d0-3dcd-2468fcc1e22d/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/det/detroit-pistons",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-11-05T08:00Z",
+      "description": "Signed F Cody Martin to a 10-day contract.",
+      "team": {
+        "id": "11",
+        "location": "Indiana",
+        "name": "Pacers",
+        "abbreviation": "IND",
+        "displayName": "Indiana Pacers",
+        "color": "0c2340",
+        "alternateColor": "ffd520",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/ind/indiana-pacers",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-10-31T07:00Z",
+      "description": "Exercised its fourth-year team option on G Brandon Miller and its third-year team option on F Tidjane Salaün.",
+      "team": {
+        "id": "30",
+        "location": "Charlotte",
+        "name": "Hornets",
+        "abbreviation": "CHA",
+        "displayName": "Charlotte Hornets",
+        "color": "008ca8",
+        "alternateColor": "1d1060",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/cha.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/cha.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/cha.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/cha.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/377633c2-0dd1-91a1-83c0-9ed2d0c00ea1/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/377633c2-0dd1-91a1-83c0-9ed2d0c00ea1/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/377633c2-0dd1-91a1-83c0-9ed2d0c00ea1/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/377633c2-0dd1-91a1-83c0-9ed2d0c00ea1/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/377633c2-0dd1-91a1-83c0-9ed2d0c00ea1/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/377633c2-0dd1-91a1-83c0-9ed2d0c00ea1/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/377633c2-0dd1-91a1-83c0-9ed2d0c00ea1/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/377633c2-0dd1-91a1-83c0-9ed2d0c00ea1/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/cha/charlotte-hornets",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-10-28T07:00Z",
+      "description": "Signed G Mac McClung to a rest-of-season contract. Waived C James Wiseman.",
+      "team": {
+        "id": "11",
+        "location": "Indiana",
+        "name": "Pacers",
+        "abbreviation": "IND",
+        "displayName": "Indiana Pacers",
+        "color": "0c2340",
+        "alternateColor": "ffd520",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/ind.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2025-06-24T14:58Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/547fc042-3e02-4795-9637-9ab84322b625/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/ind/indiana-pacers",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-10-27T07:00Z",
+      "description": "Signed C Charles Bassey to a 10-day contract.",
+      "team": {
+        "id": "29",
+        "location": "Memphis",
+        "name": "Grizzlies",
+        "abbreviation": "MEM",
+        "displayName": "Memphis Grizzlies",
+        "color": "5d76a9",
+        "alternateColor": "12173f",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/mem.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/mem.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/mem.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/mem.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:14Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/af5d4942-aeb5-2d07-2a8a-f70b54617e51/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:29Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/mem/memphis-grizzlies",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-10-23T07:00Z",
+      "description": "Waived G Jaden Springer.",
+      "team": {
+        "id": "3",
+        "location": "New Orleans",
+        "name": "Pelicans",
+        "abbreviation": "NO",
+        "displayName": "New Orleans Pelicans",
+        "color": "0a2240",
+        "alternateColor": "b4975a",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/no.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/no.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/no.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/no.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:14Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/9461f397-7882-94c0-c18c-e89bdc9e570e/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-04T20:57Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/9461f397-7882-94c0-c18c-e89bdc9e570e/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-04T20:57Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/9461f397-7882-94c0-c18c-e89bdc9e570e/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-04T20:57Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/9461f397-7882-94c0-c18c-e89bdc9e570e/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-04T20:57Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/9461f397-7882-94c0-c18c-e89bdc9e570e/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-04T20:57Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/9461f397-7882-94c0-c18c-e89bdc9e570e/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-04T20:57Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/9461f397-7882-94c0-c18c-e89bdc9e570e/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-04T20:57Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/9461f397-7882-94c0-c18c-e89bdc9e570e/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-04T20:57Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/no/new-orleans-pelicans",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-10-20T07:00Z",
+      "description": "Signed G Javonte Cooke to a two-way contract. Re-signed G Shaedon Sharpe to a rookie-scale extension.",
+      "team": {
+        "id": "22",
+        "location": "Portland",
+        "name": "Trail Blazers",
+        "abbreviation": "POR",
+        "displayName": "Portland Trail Blazers",
+        "color": "e03a3e",
+        "alternateColor": "000000",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/por.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/por.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/por.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/por.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:14Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/ed294c02-3c44-db14-9e06-1b4e8cff9558/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/ed294c02-3c44-db14-9e06-1b4e8cff9558/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/ed294c02-3c44-db14-9e06-1b4e8cff9558/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/ed294c02-3c44-db14-9e06-1b4e8cff9558/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/ed294c02-3c44-db14-9e06-1b4e8cff9558/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/ed294c02-3c44-db14-9e06-1b4e8cff9558/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/ed294c02-3c44-db14-9e06-1b4e8cff9558/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/ed294c02-3c44-db14-9e06-1b4e8cff9558/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/por/portland-trail-blazers",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-10-20T07:00Z",
+      "description": "Waived G Kobe Bufkin.",
+      "team": {
+        "id": "17",
+        "location": "Brooklyn",
+        "name": "Nets",
+        "abbreviation": "BKN",
+        "displayName": "Brooklyn Nets",
+        "color": "000000",
+        "alternateColor": "ffffff",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/bkn.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/bkn.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/bkn.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/bkn.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/926db769-d35e-e282-9d7e-a05001d774ab/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:34Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/926db769-d35e-e282-9d7e-a05001d774ab/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:34Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/926db769-d35e-e282-9d7e-a05001d774ab/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/926db769-d35e-e282-9d7e-a05001d774ab/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:34Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/926db769-d35e-e282-9d7e-a05001d774ab/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:34Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/926db769-d35e-e282-9d7e-a05001d774ab/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:34Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/926db769-d35e-e282-9d7e-a05001d774ab/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:34Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/926db769-d35e-e282-9d7e-a05001d774ab/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:34Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/bkn/brooklyn-nets",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-10-20T07:00Z",
+      "description": "Waived F Tyler Smith.",
+      "team": {
+        "id": "15",
+        "location": "Milwaukee",
+        "name": "Bucks",
+        "abbreviation": "MIL",
+        "displayName": "Milwaukee Bucks",
+        "color": "00471b",
+        "alternateColor": "eee1c6",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/mil.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/mil.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/mil.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/mil.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:14Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f59bbabc-eedb-9ad2-c5dd-9bcd9f450a2f/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f59bbabc-eedb-9ad2-c5dd-9bcd9f450a2f/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f59bbabc-eedb-9ad2-c5dd-9bcd9f450a2f/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f59bbabc-eedb-9ad2-c5dd-9bcd9f450a2f/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f59bbabc-eedb-9ad2-c5dd-9bcd9f450a2f/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f59bbabc-eedb-9ad2-c5dd-9bcd9f450a2f/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f59bbabc-eedb-9ad2-c5dd-9bcd9f450a2f/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/f59bbabc-eedb-9ad2-c5dd-9bcd9f450a2f/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/mil/milwaukee-bucks",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-10-20T07:00Z",
+      "description": "Re-signed G Christian Braun to a rookie-scale extension.",
+      "team": {
+        "id": "7",
+        "location": "Denver",
+        "name": "Nuggets",
+        "abbreviation": "DEN",
+        "displayName": "Denver Nuggets",
+        "color": "0e2240",
+        "alternateColor": "fec524",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/den.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/den.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/den.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/den.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:14Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c4aceb39-0eb9-a30b-1120-9cb5b12b677a/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c4aceb39-0eb9-a30b-1120-9cb5b12b677a/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c4aceb39-0eb9-a30b-1120-9cb5b12b677a/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c4aceb39-0eb9-a30b-1120-9cb5b12b677a/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c4aceb39-0eb9-a30b-1120-9cb5b12b677a/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c4aceb39-0eb9-a30b-1120-9cb5b12b677a/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c4aceb39-0eb9-a30b-1120-9cb5b12b677a/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/c4aceb39-0eb9-a30b-1120-9cb5b12b677a/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/den/denver-nuggets",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-10-20T07:00Z",
+      "description": "Re-signed G Dyson Daniels to a rookie-scale extension.",
+      "team": {
+        "id": "1",
+        "location": "Atlanta",
+        "name": "Hawks",
+        "abbreviation": "ATL",
+        "displayName": "Atlanta Hawks",
+        "color": "c8102e",
+        "alternateColor": "fdb927",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/atl.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/atl.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/atl.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/atl.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/15096a54-f015-c987-5ec8-55afedf6272f/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/15096a54-f015-c987-5ec8-55afedf6272f/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/15096a54-f015-c987-5ec8-55afedf6272f/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/15096a54-f015-c987-5ec8-55afedf6272f/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/15096a54-f015-c987-5ec8-55afedf6272f/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/15096a54-f015-c987-5ec8-55afedf6272f/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/15096a54-f015-c987-5ec8-55afedf6272f/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/15096a54-f015-c987-5ec8-55afedf6272f/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:31Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/atl/atlanta-hawks",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-10-19T07:00Z",
+      "description": "Waived F Dillon Jones.",
+      "team": {
+        "id": "27",
+        "location": "Washington",
+        "name": "Wizards",
+        "abbreviation": "WSH",
+        "displayName": "Washington Wizards",
+        "color": "e31837",
+        "alternateColor": "002b5c",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/wsh.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/wsh.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:13Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/wsh.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/wsh.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-06-25T21:14Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/64d73af6-b8ec-e213-87e8-a4eab3a692e7/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-04T21:08Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/64d73af6-b8ec-e213-87e8-a4eab3a692e7/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-04T21:08Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/64d73af6-b8ec-e213-87e8-a4eab3a692e7/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:08Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/64d73af6-b8ec-e213-87e8-a4eab3a692e7/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:08Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/64d73af6-b8ec-e213-87e8-a4eab3a692e7/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-04T21:08Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/64d73af6-b8ec-e213-87e8-a4eab3a692e7/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-04T21:08Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/64d73af6-b8ec-e213-87e8-a4eab3a692e7/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:08Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/64d73af6-b8ec-e213-87e8-a4eab3a692e7/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:08Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/wsh/washington-wizards",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-10-19T07:00Z",
+      "description": "Re-signed F Kevin Durant to a two-year contract extension.",
+      "team": {
+        "id": "10",
+        "location": "Houston",
+        "name": "Rockets",
+        "abbreviation": "HOU",
+        "displayName": "Houston Rockets",
+        "color": "ce1141",
+        "alternateColor": "000000",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/hou.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-06-25T21:17Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/hou.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2025-01-21T22:35Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/hou.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-06-25T21:18Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/hou.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2025-01-22T15:28Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/78113ad4-1ac7-0c04-dada-388a6ff4e15e/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/78113ad4-1ac7-0c04-dada-388a6ff4e15e/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/78113ad4-1ac7-0c04-dada-388a6ff4e15e/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/78113ad4-1ac7-0c04-dada-388a6ff4e15e/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/78113ad4-1ac7-0c04-dada-388a6ff4e15e/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/78113ad4-1ac7-0c04-dada-388a6ff4e15e/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/78113ad4-1ac7-0c04-dada-388a6ff4e15e/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/78113ad4-1ac7-0c04-dada-388a6ff4e15e/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/hou/houston-rockets",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-10-18T07:00Z",
+      "description": "Waived Gs Jules Bernard, Tristen Newton and Zyon Pullin and F Alize Johnson. Converted G Johnny Juzang to a two-way contract. Exercised team options on Gs Rob Dillingham and Terrence Shannon Jr.",
+      "team": {
+        "id": "16",
+        "location": "Minnesota",
+        "name": "Timberwolves",
+        "abbreviation": "MIN",
+        "displayName": "Minnesota Timberwolves",
+        "color": "266092",
+        "alternateColor": "79bc43",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/min.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2024-07-18T19:53Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/min.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2024-07-18T19:54Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/min.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2024-07-18T19:54Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/min.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2024-07-18T19:54Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/13f727cb-254d-b484-a337-93fcc0047add/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/13f727cb-254d-b484-a337-93fcc0047add/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/13f727cb-254d-b484-a337-93fcc0047add/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/13f727cb-254d-b484-a337-93fcc0047add/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/13f727cb-254d-b484-a337-93fcc0047add/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/13f727cb-254d-b484-a337-93fcc0047add/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/13f727cb-254d-b484-a337-93fcc0047add/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/13f727cb-254d-b484-a337-93fcc0047add/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-03T19:33Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/min/minnesota-timberwolves",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    },
+    {
+      "date": "2025-10-17T07:00Z",
+      "description": "Waived C Mo Bamba, F Pedro Bradshaw, and G Sean East II.",
+      "team": {
+        "id": "26",
+        "location": "Utah",
+        "name": "Jazz",
+        "abbreviation": "UTAH",
+        "displayName": "Utah Jazz",
+        "color": "4e008e",
+        "alternateColor": "79a3dc",
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/utah.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "default"
+            ],
+            "lastUpdated": "2025-06-24T15:32Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/utah.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "dark"
+            ],
+            "lastUpdated": "2025-06-24T15:43Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/utah.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard"
+            ],
+            "lastUpdated": "2025-06-24T15:34Z"
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nba/500-dark/scoreboard/utah.png",
+            "width": 500,
+            "height": 500,
+            "alt": "",
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ],
+            "lastUpdated": "2025-06-24T15:34Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/77cea2fb-1388-b7c8-d171-2e72b3aecbfb/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-04T21:03Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/77cea2fb-1388-b7c8-d171-2e72b3aecbfb/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-04T21:03Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/77cea2fb-1388-b7c8-d171-2e72b3aecbfb/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:03Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/77cea2fb-1388-b7c8-d171-2e72b3aecbfb/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:03Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/77cea2fb-1388-b7c8-d171-2e72b3aecbfb/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ],
+            "lastUpdated": "2024-12-04T21:03Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/77cea2fb-1388-b7c8-d171-2e72b3aecbfb/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ],
+            "lastUpdated": "2024-12-04T21:03Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/77cea2fb-1388-b7c8-d171-2e72b3aecbfb/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:03Z"
+          },
+          {
+            "href": "https://a.espncdn.com/guid/77cea2fb-1388-b7c8-d171-2e72b3aecbfb/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "alt": "",
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ],
+            "lastUpdated": "2024-12-04T21:03Z"
+          }
+        ],
+        "links": [
+          {
+            "language": "en-US",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nba/team/_/name/utah/utah-jazz",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ]
+      }
+    }
+  ]
+}

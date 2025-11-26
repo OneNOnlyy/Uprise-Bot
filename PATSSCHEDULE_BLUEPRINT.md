@@ -113,7 +113,7 @@ The `/patsschedule` command allows admins to schedule PATS sessions in advance w
 🎮 Games: 8 total
 👥 Participants: @RoleOrUsers
 
-Use /pats to join and make your picks!
+Use /pats dashboard to join and make your picks!
 First game: CLE @ BOS starts at 4:30 PM PT
 ```
 

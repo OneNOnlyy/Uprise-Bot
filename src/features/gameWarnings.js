@@ -134,7 +134,7 @@ async function checkGameWarnings(client) {
                       inline: false
                     }
                   )
-                  .setFooter({ text: 'Use /pats to make your pick now!' });
+                  .setFooter({ text: 'Use /pats dashboard to make your pick now!' });
                 
                 await user.send({ embeds: [embed] });
                 warningsSent++;

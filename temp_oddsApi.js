@@ -1,0 +1,1061 @@
+/**
+ * Odds API and NBA Game Fetching Module
+ * 
+ * API USAGE STRATEGY:
+ * - The Odds API has a limit of 500 calls per month
+ * - We ONLY call the Odds API ONCE when creating a PATS session
+ * - Spreads are cached for the entire session duration (no refreshes)
+ * - This conserves API calls while maintaining accuracy
+ * 
+ * Data Sources (in priority order):
+ * 1. The Odds API (primary, called once per session)
+ * 2. Puppeteer web scraping (ESPN for games, OddsShark/Covers for spreads)
+ * 3. Manual spreads file (fallback)
+ */
+
+import fetch from 'node-fetch';
+import * as cheerio from 'cheerio';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import puppeteer from 'puppeteer';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const ODDS_API_BASE = 'https://api.the-odds-api.com/v4';
+const SPORT = 'basketball_nba';
+const BALLDONTLIE_API = 'https://api.balldontlie.io/v1';
+const CBS_SCOREBOARD_URL = 'https://www.cbssports.com/nba/scoreboard/';
+const CBS_GAMETRACKER_URL = 'https://www.cbssports.com/nba/gametracker/live/';
+const MANUAL_SPREADS_FILE = path.join(__dirname, '../../data/manual-spreads.json');
+
+// Team name mappings for scraping
+const TEAM_ABBREVIATIONS = {
+  'Atlanta Hawks': 'ATL',
+  'Boston Celtics': 'BOS',
+  'Brooklyn Nets': 'BKN',
+  'Charlotte Hornets': 'CHA',
+  'Chicago Bulls': 'CHI',
+  'Cleveland Cavaliers': 'CLE',
+  'Dallas Mavericks': 'DAL',
+  'Denver Nuggets': 'DEN',
+  'Detroit Pistons': 'DET',
+  'Golden State Warriors': 'GSW',
+  'Houston Rockets': 'HOU',
+  'Indiana Pacers': 'IND',
+  'LA Clippers': 'LAC',
+  'Los Angeles Clippers': 'LAC',
+  'Los Angeles Lakers': 'LAL',
+  'LA Lakers': 'LAL',
+  'Memphis Grizzlies': 'MEM',
+  'Miami Heat': 'MIA',
+  'Milwaukee Bucks': 'MIL',
+  'Minnesota Timberwolves': 'MIN',
+  'New Orleans Pelicans': 'NOP',
+  'New York Knicks': 'NYK',
+  'Oklahoma City Thunder': 'OKC',
+  'Orlando Magic': 'ORL',
+  'Philadelphia 76ers': 'PHI',
+  'Phoenix Suns': 'PHX',
+  'Portland Trail Blazers': 'POR',
+  'Sacramento Kings': 'SAC',
+  'San Antonio Spurs': 'SAS',
+  'Toronto Raptors': 'TOR',
+  'Utah Jazz': 'UTA',
+  'Washington Wizards': 'WAS'
+};
+
+/**
+ * Get team abbreviation from full team name
+ * @param {string} fullName - Full team name (e.g., "Boston Celtics")
+ * @returns {string} - Team abbreviation (e.g., "BOS") or original name if not found
+ */
+export function getTeamAbbreviation(fullName) {
+  return TEAM_ABBREVIATIONS[fullName] || fullName;
+}
+
+/**
+ * Load manual spreads from JSON file
+ */
+function loadManualSpreads(date = null) {
+  try {
+    if (!fs.existsSync(MANUAL_SPREADS_FILE)) {
+      return null;
+    }
+    
+    const dateStr = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    const data = JSON.parse(fs.readFileSync(MANUAL_SPREADS_FILE, 'utf8'));
+    
+    if (data[dateStr] && data[dateStr].games) {
+      console.log(`📋 Found ${data[dateStr].games.length} manually entered spreads for ${dateStr}`);
+      return data[dateStr].games;
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn('Could not load manual spreads:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Scrape NBA games and spreads using Puppeteer (JavaScript rendering)
+ */
+async function scrapeESPNWithPuppeteer() {
+  let browser;
+  try {
+    console.log('🌐 Launching browser to scrape ESPN with JavaScript rendering...');
+    browser = await puppeteer.launch({ 
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    console.log('📡 Loading ESPN NBA scoreboard...');
+    await page.goto('https://www.espn.com/nba/scoreboard', { 
+      waitUntil: 'networkidle2',
+      timeout: 30000 
+    });
+    
+    // Wait for games to load
+    await page.waitForSelector('.ScoreCell', { timeout: 10000 }).catch(() => {
+      console.warn('No ScoreCell elements found');
+    });
+    
+    // Extract games data
+    const games = await page.evaluate(() => {
+      const gameElements = document.querySelectorAll('.ScoreCell');
+      const results = [];
+      
+      gameElements.forEach((gameEl, index) => {
+        try {
+          const teams = gameEl.querySelectorAll('.ScoreCell__TeamName');
+          if (teams.length >= 2) {
+            const awayTeam = teams[0].textContent.trim();
+            const homeTeam = teams[1].textContent.trim();
+            
+            if (awayTeam && homeTeam) {
+              results.push({
+                id: `espn_${index}`,
+                awayTeam,
+                homeTeam
+              });
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing game:', e);
+        }
+      });
+      
+      return results;
+    });
+    
+    console.log(`✅ Found ${games.length} games from ESPN`);
+    await browser.close();
+    
+    return games;
+  } catch (error) {
+    console.error('Error scraping ESPN with Puppeteer:', error.message);
+    if (browser) await browser.close();
+    return [];
+  }
+}
+
+/**
+ * Scrape spreads from Odds Shark with Puppeteer  
+ */
+async function scrapeOddsSharkWithPuppeteer() {
+  let browser;
+  try {
+    console.log('🌐 Launching browser to scrape OddsShark...');
+    browser = await puppeteer.launch({ 
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    console.log('📡 Loading OddsShark NBA odds...');
+    await page.goto('https://www.oddsshark.com/nba/odds', { 
+      waitUntil: 'networkidle2',
+      timeout: 30000 
+    });
+    
+    // Wait for game data to load
+    await page.waitForTimeout(3000);
+    
+    // Extract spreads
+    const games = await page.evaluate(() => {
+      const results = [];
+      const gameRows = document.querySelectorAll('.game-matchup, [data-game], .game-row, tr.game');
+      
+      gameRows.forEach(row => {
+        try {
+          // Try multiple selectors to find team names and spreads
+          const teamCells = row.querySelectorAll('.team, .team-name, td.team');
+          const spreadCells = row.querySelectorAll('.spread, .line, td.spread, [data-spread]');
+          
+          if (teamCells.length >= 2 && spreadCells.length >= 2) {
+            const awayTeam = teamCells[0].textContent.trim();
+            const homeTeam = teamCells[1].textContent.trim();
+            const awaySpreadText = spreadCells[0].textContent.trim();
+            const homeSpreadText = spreadCells[1].textContent.trim();
+            
+            const awaySpread = parseFloat(awaySpreadText.replace(/[^-\d.]/g, ''));
+            const homeSpread = parseFloat(homeSpreadText.replace(/[^-\d.]/g, ''));
+            
+            if (awayTeam && homeTeam && !isNaN(awaySpread) && !isNaN(homeSpread)) {
+              results.push({
+                awayTeam,
+                homeTeam,
+                awaySpread,
+                homeSpread
+              });
+            }
+          }
+        } catch (e) {
+          // Skip malformed rows
+        }
+      });
+      
+      return results;
+    });
+    
+    console.log(`✅ Scraped ${games.length} games with spreads from OddsShark`);
+    await browser.close();
+    
+    return games;
+  } catch (error) {
+    console.error('Error scraping OddsShark with Puppeteer:', error.message);
+    if (browser) await browser.close();
+    return [];
+  }
+}
+
+/**
+ * Scrape spreads from Covers.com with Puppeteer
+ */
+async function scrapeCoversWithPuppeteer() {
+  let browser;
+  try {
+    console.log('🌐 Launching browser to scrape Covers.com...');
+    browser = await puppeteer.launch({ 
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    console.log('📡 Loading Covers NBA odds...');
+    await page.goto('https://www.covers.com/sport/basketball/nba/odds', { 
+      waitUntil: 'networkidle2',
+      timeout: 30000 
+    });
+    
+    // Wait for odds to load
+    await page.waitForSelector('[data-game-id]', { timeout: 10000 }).catch(() => {
+      console.warn('No game elements found on Covers');
+    });
+    
+    // Extract spreads
+    const games = await page.evaluate(() => {
+      const gameCards = document.querySelectorAll('[data-game-id]');
+      const results = [];
+      
+      gameCards.forEach(card => {
+        try {
+          const teams = card.querySelectorAll('.covers-CoversOddsTable-team-name');
+          const spreads = card.querySelectorAll('.covers-CoversOddsTable-odds-handicap');
+          
+          if (teams.length >= 2 && spreads.length >= 2) {
+            const awayTeam = teams[0].textContent.trim();
+            const homeTeam = teams[1].textContent.trim();
+            const awaySpreadText = spreads[0].textContent.trim();
+            const homeSpreadText = spreads[1].textContent.trim();
+            
+            const awaySpread = parseFloat(awaySpreadText.replace(/[^-\d.]/g, ''));
+            const homeSpread = parseFloat(homeSpreadText.replace(/[^-\d.]/g, ''));
+            
+            if (awayTeam && homeTeam && !isNaN(awaySpread) && !isNaN(homeSpread)) {
+              results.push({
+                awayTeam,
+                homeTeam,
+                awaySpread,
+                homeSpread
+              });
+            }
+          }
+        } catch (e) {
+          // Skip malformed cards
+        }
+      });
+      
+      return results;
+    });
+    
+    console.log(`✅ Scraped ${games.length} games with spreads from Covers`);
+    await browser.close();
+    
+    return games;
+  } catch (error) {
+    console.error('Error scraping Covers with Puppeteer:', error.message);
+    if (browser) await browser.close();
+    return [];
+  }
+}
+
+/**
+ * Scrape NBA games and spreads from ESPN (when APIs fail)
+ */
+async function scrapeESPNGamesAndSpreads() {
+  try {
+    console.log('🕷️ Scraping NBA schedule and spreads from ESPN...');
+    const url = 'https://www.espn.com/nba/scoreboard';
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('ESPN scoreboard scrape failed:', response.status);
+      return [];
+    }
+    
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    const games = [];
+    
+    // ESPN's scoreboard has games in ScoreCell components
+    $('.ScoreCell').each((i, gameElement) => {
+      try {
+        const awayTeam = $(gameElement).find('.ScoreCell__TeamName--shortDisplayName').first().text().trim();
+        const homeTeam = $(gameElement).find('.ScoreCell__TeamName--shortDisplayName').last().text().trim();
+        const gameLink = $(gameElement).find('a').first().attr('href');
+        const gameId = gameLink ? gameLink.match(/gameId\/(\d+)/)?.[1] : `espn_${i}`;
+        
+        if (awayTeam && homeTeam) {
+          games.push({
+            id: gameId || `game_${i}`,
+            awayTeam,
+            homeTeam,
+            awaySpread: null,
+            homeSpread: null
+          });
+        }
+      } catch (e) {
+        console.warn('Error parsing ESPN game:', e.message);
+      }
+    });
+    
+    console.log(`✅ Found ${games.length} games from ESPN scoreboard`);
+    
+    // Try multiple sources for spreads
+    let spreadsFound = false;
+    
+    // Try ActionNetwork first (most reliable)
+    let spreadGames = await scrapeActionNetworkOdds();
+    if (spreadGames.length === 0) {
+      // Fallback to Covers
+      spreadGames = await scrapeCoversOdds();
+    }
+    
+    // Match spreads to games
+    for (const game of games) {
+      const match = spreadGames.find(cg => 
+        (cg.awayTeam.includes(game.awayTeam) || game.awayTeam.includes(cg.awayTeam.split(' ').pop())) &&
+        (cg.homeTeam.includes(game.homeTeam) || game.homeTeam.includes(cg.homeTeam.split(' ').pop()))
+      );
+      
+      if (match) {
+        game.awaySpread = match.awaySpread;
+        game.homeSpread = match.homeSpread;
+        spreadsFound = true;
+        console.log(`  Matched spreads for ${game.awayTeam} @ ${game.homeTeam}: ${game.awaySpread}/${game.homeSpread}`);
+      }
+    }
+    
+    if (!spreadsFound) {
+      console.warn('⚠️ Could not find spreads from any source');
+    }
+    
+    return games;
+  } catch (error) {
+    console.error('Error scraping ESPN games and spreads:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Get NBA games from BallDontLie API for a specific date
+ */
+async function getNBAGamesFromBallDontLie(date) {
+  try {
+    const dateStr = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    
+    const url = `${BALLDONTLIE_API}/games?dates[]=${dateStr}`;
+    const headers = process.env.BALLDONTLIE_API_KEY 
+      ? { 'Authorization': process.env.BALLDONTLIE_API_KEY }
+      : {};
+    
+    console.log(`🔍 Fetching NBA games from BallDontLie for ${dateStr}...`);
+    
+    const response = await fetch(url, { headers });
+    
+    if (!response.ok) {
+      console.error(`BallDontLie API error: ${response.status} ${response.statusText}`);
+      return [];
+    }
+    
+    const data = await response.json();
+    console.log(`✅ Found ${data.data.length} NBA games for ${dateStr}`);
+    
+    return data.data;
+  } catch (error) {
+    console.error('Error fetching NBA games:', error);
+    return [];
+  }
+}
+
+/**
+ * Scrape NBA spreads from ESPN
+ */
+async function scrapeESPNSpreads() {
+  try {
+    console.log('🕷️ Scraping NBA spreads from ESPN...');
+    const url = 'https://www.espn.com/nba/lines';
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('ESPN scrape failed:', response.status);
+      return {};
+    }
+    
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    const spreads = {};
+    
+    // ESPN shows spreads in a table format
+    $('.Table__TR').each((i, row) => {
+      try {
+        const teamName = $(row).find('.Table__Team a').text().trim();
+        const spreadText = $(row).find('.spread').text().trim();
+        
+        if (teamName && spreadText) {
+          // Parse spread (e.g., "-5.5" or "+3.0")
+          const spread = parseFloat(spreadText);
+          if (!isNaN(spread)) {
+            spreads[teamName] = spread;
+            console.log(`  Found: ${teamName} ${spread}`);
+          }
+        }
+      } catch (e) {
+        // Skip malformed rows
+      }
+    });
+    
+    console.log(`✅ Scraped ${Object.keys(spreads).length} team spreads from ESPN`);
+    return spreads;
+  } catch (error) {
+    console.error('Error scraping ESPN spreads:', error.message);
+    return {};
+  }
+}
+
+/**
+ * Scrape NBA spreads from ActionNetwork (more reliable)
+ */
+async function scrapeActionNetworkOdds() {
+  try {
+    console.log('🕷️ Scraping NBA spreads from ActionNetwork...');
+    const url = 'https://www.actionnetwork.com/nba/odds';
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('ActionNetwork scrape failed:', response.status);
+      return [];
+    }
+    
+    const html = await response.text();
+    
+    // ActionNetwork often has JSON data embedded in the page
+    const jsonMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">(.*?)<\/script>/);
+    if (jsonMatch) {
+      try {
+        const data = JSON.parse(jsonMatch[1]);
+        const games = [];
+        
+        // Navigate through the data structure to find games
+        // This structure may vary, so we'll log it to see what we get
+        console.log('Found embedded JSON data');
+        
+        // Try to extract games from props
+        const pageProps = data?.props?.pageProps;
+        if (pageProps && pageProps.games) {
+          for (const game of pageProps.games) {
+            if (game.away_team && game.home_team && game.spread) {
+              games.push({
+                awayTeam: game.away_team,
+                homeTeam: game.home_team,
+                awaySpread: game.spread.away,
+                homeSpread: game.spread.home
+              });
+            }
+          }
+        }
+        
+        if (games.length > 0) {
+          console.log(`✅ Scraped ${games.length} games from ActionNetwork`);
+          return games;
+        }
+      } catch (e) {
+        console.warn('Could not parse ActionNetwork JSON:', e.message);
+      }
+    }
+    
+    // Fallback to HTML parsing
+    const $ = cheerio.load(html);
+    const games = [];
+    
+    $('[data-testid="game-card"]').each((i, card) => {
+      try {
+        const awayTeam = $(card).find('[data-testid="away-team-name"]').text().trim();
+        const homeTeam = $(card).find('[data-testid="home-team-name"]').text().trim();
+        const awaySpread = $(card).find('[data-testid="away-spread"]').text().trim();
+        const homeSpread = $(card).find('[data-testid="home-spread"]').text().trim();
+        
+        if (awayTeam && homeTeam && awaySpread && homeSpread) {
+          const awaySpreadNum = parseFloat(awaySpread.replace(/[^-\d.]/g, ''));
+          const homeSpreadNum = parseFloat(homeSpread.replace(/[^-\d.]/g, ''));
+          
+          if (!isNaN(awaySpreadNum) && !isNaN(homeSpreadNum)) {
+            games.push({
+              awayTeam,
+              homeTeam,
+              awaySpread: awaySpreadNum,
+              homeSpread: homeSpreadNum
+            });
+          }
+        }
+      } catch (e) {
+        // Skip malformed cards
+      }
+    });
+    
+    console.log(`✅ Scraped ${games.length} games from ActionNetwork (HTML)`);
+    return games;
+  } catch (error) {
+    console.error('Error scraping ActionNetwork:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Scrape NBA spreads from Covers.com
+ */
+async function scrapeCoversOdds() {
+  try {
+    console.log('🕷️ Scraping NBA spreads from Covers.com...');
+    const url = 'https://www.covers.com/sport/basketball/nba/odds';
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('Covers scrape failed:', response.status);
+      return {};
+    }
+    
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    const games = [];
+    
+    // Covers uses a specific table structure for odds
+    $('.cmg_matchup_game_box').each((i, gameBox) => {
+      try {
+        const awayTeam = $(gameBox).find('.cmg_matchup_list_team_name').first().text().trim();
+        const homeTeam = $(gameBox).find('.cmg_matchup_list_team_name').last().text().trim();
+        const awaySpread = $(gameBox).find('.covers-CoversOddsTable-handicap').first().text().trim();
+        const homeSpread = $(gameBox).find('.covers-CoversOddsTable-handicap').last().text().trim();
+        
+        if (awayTeam && homeTeam && awaySpread && homeSpread) {
+          const awaySpreadNum = parseFloat(awaySpread.replace(/[^-\d.]/g, ''));
+          const homeSpreadNum = parseFloat(homeSpread.replace(/[^-\d.]/g, ''));
+          
+          if (!isNaN(awaySpreadNum) && !isNaN(homeSpreadNum)) {
+            games.push({
+              awayTeam,
+              homeTeam,
+              awaySpread: awaySpreadNum,
+              homeSpread: homeSpreadNum
+            });
+            console.log(`  Found: ${awayTeam} @ ${homeTeam} - Spreads: ${awaySpreadNum}/${homeSpreadNum}`);
+          }
+        }
+      } catch (e) {
+        // Skip malformed games
+      }
+    });
+    
+    console.log(`✅ Scraped ${games.length} games from Covers`);
+    return games;
+  } catch (error) {
+    console.error('Error scraping Covers odds:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Match scraped spreads to games
+ */
+function matchScrapedSpreadsToGames(games, scrapedGames) {
+  const results = [];
+  
+  for (const game of games) {
+    const homeTeam = game.home_team.full_name;
+    const awayTeam = game.visitor_team.full_name;
+    
+    // Try to find matching game in scraped data
+    const match = scrapedGames.find(sg => {
+      const homeMatch = sg.homeTeam.includes(game.home_team.name) || 
+                        game.home_team.name.includes(sg.homeTeam.split(' ').pop());
+      const awayMatch = sg.awayTeam.includes(game.visitor_team.name) ||
+                        game.visitor_team.name.includes(sg.awayTeam.split(' ').pop());
+      return homeMatch && awayMatch;
+    });
+    
+    if (match) {
+      let homeSpread = match.homeSpread;
+      let awaySpread = match.awaySpread;
+      
+      // FAIL-SAFE: If one spread is 0 but the other isn't, they should be inverse
+      if (homeSpread !== 0 && awaySpread === 0) {
+        awaySpread = -homeSpread;
+        console.log(`🔧 Fixed zero spread: ${awayTeam} spread corrected from 0 to ${awaySpread}`);
+      } else if (awaySpread !== 0 && homeSpread === 0) {
+        homeSpread = -awaySpread;
+        console.log(`🔧 Fixed zero spread: ${homeTeam} spread corrected from 0 to ${homeSpread}`);
+      }
+      
+      results.push({
+        id: game.id.toString(),
+        home_team: homeTeam,
+        away_team: awayTeam,
+        commence_time: game.status || game.date,
+        bookmakers: [{
+          title: 'Scraped',
+          markets: [{
+            key: 'spreads',
+            outcomes: [
+              { name: homeTeam, point: homeSpread },
+              { name: awayTeam, point: awaySpread }
+            ]
+          }]
+        }]
+      });
+    } else {
+      // No spread found, add game with null spreads
+      results.push({
+        id: game.id.toString(),
+        home_team: homeTeam,
+        away_team: awayTeam,
+        commence_time: game.status || game.date,
+        bookmakers: []
+      });
+    }
+  }
+  
+  return results;
+}
+
+/**
+ * Get NBA games with spreads for a specific date
+ */
+export async function getNBAGamesWithSpreads(date = null) {
+  try {
+    // Try getting games from BallDontLie first
+    let games = await getNBAGamesFromBallDontLie(date);
+    
+    // If BallDontLie fails, use Puppeteer to scrape ESPN
+    if (games.length === 0) {
+      console.log('📡 BallDontLie failed, using Puppeteer to scrape ESPN...');
+      const espnGames = await scrapeESPNWithPuppeteer();
+      
+      if (espnGames.length > 0) {
+        // Try OddsShark first, then Covers as fallback
+        let spreadGames = await scrapeOddsSharkWithPuppeteer();
+        
+        if (spreadGames.length === 0) {
+          console.log('📡 OddsShark failed, trying Covers...');
+          spreadGames = await scrapeCoversWithPuppeteer();
+        }
+        
+        // Match spreads to games
+        const gamesWithSpreads = espnGames.map(game => {
+          const match = spreadGames.find(cg => {
+            const awayMatch = cg.awayTeam.toLowerCase().includes(game.awayTeam.toLowerCase()) ||
+                             game.awayTeam.toLowerCase().includes(cg.awayTeam.toLowerCase());
+            const homeMatch = cg.homeTeam.toLowerCase().includes(game.homeTeam.toLowerCase()) ||
+                             game.homeTeam.toLowerCase().includes(cg.homeTeam.toLowerCase());
+            return awayMatch && homeMatch;
+          });
+          
+          if (match) {
+            console.log(`  ✅ Matched spreads: ${game.awayTeam} @ ${game.homeTeam} - ${match.awaySpread}/${match.homeSpread}`);
+          }
+          
+          return {
+            id: game.id,
+            home_team: game.homeTeam,
+            away_team: game.awayTeam,
+            commence_time: new Date().toISOString(),
+            bookmakers: match ? [{
+              title: 'Scraped (Covers)',
+              markets: [{
+                key: 'spreads',
+                outcomes: [
+                  { name: game.homeTeam, point: match.homeSpread },
+                  { name: game.awayTeam, point: match.awaySpread }
+                ]
+              }]
+            }] : []
+          };
+        });
+        
+        return gamesWithSpreads;
+      }
+      
+      console.warn('⚠️ Puppeteer scraping failed');
+      return [];
+    }
+    
+    // Try The Odds API for spreads
+    const apiKey = process.env.ODDS_API_KEY;
+    let oddsData = [];
+    let usedScraping = false;
+    
+    if (apiKey) {
+      const url = `${ODDS_API_BASE}/sports/${SPORT}/odds/?apiKey=${apiKey}&regions=us&markets=spreads&oddsFormat=american&dateFormat=iso`;
+      
+      try {
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          // Check if response is valid array
+          if (Array.isArray(data)) {
+            oddsData = data;
+            console.log(`✅ Found odds data from API for ${oddsData.length} games`);
+          } else if (data.message) {
+            console.warn('❌ Odds API error:', data.message);
+            oddsData = [];
+          }
+        } else {
+          console.warn('❌ Odds API returned error:', response.status);
+        }
+      } catch (error) {
+        console.warn('❌ Could not fetch from Odds API:', error.message);
+      }
+    } else {
+      console.warn('⚠️ ODDS_API_KEY not set');
+    }
+    
+    // If API failed or returned no data, use Puppeteer scraping
+    if (oddsData.length === 0) {
+      console.log('📡 Falling back to Puppeteer scraping for spreads...');
+      
+      // Try OddsShark first, then Covers as fallback
+      let spreadGames = await scrapeOddsSharkWithPuppeteer();
+      
+      if (spreadGames.length === 0) {
+        console.log('📡 OddsShark failed, trying Covers...');
+        spreadGames = await scrapeCoversWithPuppeteer();
+      }
+      
+      if (spreadGames.length > 0) {
+        console.log(`✅ Using Puppeteer-scraped spreads for ${spreadGames.length} games`);
+        return matchScrapedSpreadsToGames(games, spreadGames);
+      } else {
+        console.warn('⚠️ Puppeteer scraping also failed, continuing without spreads');
+      }
+    }
+    
+    // Combine games with odds (from API)
+    return games.map(game => ({
+      id: game.id.toString(),
+      home_team: game.home_team.full_name,
+      away_team: game.visitor_team.full_name,
+      commence_time: game.status || game.date,
+      bookmakers: findOddsForGame(game, oddsData)
+    }));
+  } catch (error) {
+    console.error('Error fetching NBA games with spreads:', error);
+    return [];
+  }
+}
+
+/**
+ * Find odds data for a specific game
+ */
+function findOddsForGame(game, oddsData) {
+  if (!oddsData || oddsData.length === 0) return [];
+  
+  // Try to match by team names
+  const homeTeam = game.home_team.full_name;
+  const awayTeam = game.visitor_team.full_name;
+  
+  const matchingOdds = oddsData.find(odds => 
+    (odds.home_team === homeTeam && odds.away_team === awayTeam) ||
+    (odds.home_team.includes(game.home_team.name) && odds.away_team.includes(game.visitor_team.name))
+  );
+  
+  return matchingOdds?.bookmakers || [];
+}
+
+/**
+ * Format game data with spread information
+ */
+export function formatGameWithSpread(game) {
+  try {
+    const homeTeam = game.home_team;
+    const awayTeam = game.away_team;
+    const commenceTime = new Date(game.commence_time);
+    
+    // Get spread from first bookmaker (usually most reliable)
+    const spreadMarket = game.bookmakers?.[0]?.markets?.find(m => m.key === 'spreads');
+    const h2hMarket = game.bookmakers?.[0]?.markets?.find(m => m.key === 'h2h');
+    
+    let homeSpread = 0;
+    let awaySpread = 0;
+    let favored = null;
+    
+    if (spreadMarket && spreadMarket.outcomes) {
+      const homeOutcome = spreadMarket.outcomes.find(o => o.name === homeTeam);
+      const awayOutcome = spreadMarket.outcomes.find(o => o.name === awayTeam);
+      
+      homeSpread = homeOutcome?.point || 0;
+      awaySpread = awayOutcome?.point || 0;
+      
+      // FAIL-SAFE: If one spread is 0 but the other isn't, they should be inverse
+      if (homeSpread !== 0 && awaySpread === 0) {
+        awaySpread = -homeSpread;
+        console.log(`🔧 Fixed zero spread: ${awayTeam} spread corrected from 0 to ${awaySpread}`);
+      } else if (awaySpread !== 0 && homeSpread === 0) {
+        homeSpread = -awaySpread;
+        console.log(`🔧 Fixed zero spread: ${homeTeam} spread corrected from 0 to ${homeSpread}`);
+      }
+      
+      // ADDITIONAL FAIL-SAFE: If both are 0 but it's clearly not a pick'em game
+      if (homeSpread === 0 && awaySpread === 0 && spreadMarket.outcomes.length === 2) {
+        console.warn(`⚠️ Both spreads are 0 for ${awayTeam} @ ${homeTeam} - this may be a pick'em game or data issue`);
+      }
+      
+      // Determine favored team (negative spread = favored)
+      if (homeSpread < 0) {
+        favored = 'home';
+      } else if (awaySpread < 0) {
+        favored = 'away';
+      }
+    }
+    
+    return {
+      id: game.id,
+      homeTeam,
+      awayTeam,
+      commenceTime: commenceTime.toISOString(),
+      timeString: commenceTime.toLocaleString('en-US', {
+        timeZone: 'America/Los_Angeles',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZoneName: 'short'
+      }),
+      homeSpread,
+      awaySpread,
+      favored,
+      bookmaker: game.bookmakers?.[0]?.title || 'N/A',
+      spreadDisplay: {
+        home: homeSpread >= 0 ? `+${homeSpread}` : homeSpread.toString(),
+        away: awaySpread >= 0 ? `+${awaySpread}` : awaySpread.toString()
+      }
+    };
+  } catch (error) {
+    console.error('Error formatting game with spread:', error);
+    return null;
+  }
+}
+
+/**
+ * Get all formatted games for a date
+ */
+export async function getFormattedGamesForDate(date = null) {
+  const games = await getNBAGamesWithSpreads(date);
+  return games.map(formatGameWithSpread).filter(g => g !== null);
+}
+
+/**
+ * Fetch live scores from CBS Sports scoreboard
+ * @param {string} date - Date in YYYY-MM-DD format (optional, defaults to today)
+ * @returns {Array} Array of games with scores
+ */
+export async function fetchCBSSportsScores(date = null) {
+  try {
+    const dateStr = date ? new Date(date).toISOString().split('T')[0].replace(/-/g, '') : new Date().toISOString().split('T')[0].replace(/-/g, '');
+    const url = CBS_SCOREBOARD_URL;
+    
+    console.log( Fetching scores from CBS Sports for ...);
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+    
+    if (!response.ok) {
+      console.error(CBS Sports fetch failed: );
+      return [];
+    }
+    
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    
+    // Extract game IDs from embedded script
+    let gameIds = [];
+    script.each((i, script) => {
+      const scriptContent = .html();
+      if (scriptContent && scriptContent.includes('live-app-params')) {
+        const gameAbbrMatch = scriptContent.match(/"gameAbbr":"([^"]+)"/);
+        if (gameAbbrMatch) {
+          const gameAbbr = gameAbbrMatch[1];
+          gameIds = gameAbbr.split('|').filter(id => id.includes(dateStr));
+        }
+      }
+    });
+    
+    console.log( Found  games for );
+    
+    if (gameIds.length === 0) {
+      console.log(' No games found for this date on CBS Sports');
+      return [];
+    }
+    
+    // Fetch scores for each game from gametracker pages
+    const games = [];
+    
+    for (const gameId of gameIds) {
+      try {
+        // Parse game ID: NBA_YYYYMMDD_AWAY@HOME
+        const parts = gameId.split('_');
+        if (parts.length < 3) continue;
+        
+        const matchup = parts[2];
+        const [awayTeam, homeTeam] = matchup.split('@');
+        
+        // Fetch game details
+        const gametrackerUrl = ${CBS_GAMETRACKER_URL};
+        const gameResponse = await fetch(gametrackerUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        
+        if (!gameResponse.ok) {
+          console.log( Could not fetch gametracker for  @ );
+          continue;
+        }
+        
+        const gameHtml = await gameResponse.text();
+        const  = cheerio.load(gameHtml);
+        
+        // Extract scores - CBS uses various selectors
+        let awayScore = null;
+        let homeScore = null;
+        let status = 'Scheduled';
+        
+        // Try to find scores in the HTML
+        const scoreElements = ('[class*="score"]').toArray();
+        const scores = scoreElements
+          .map(el => (el).text().trim())
+          .filter(text => /^\d+$/.test(text))
+          .map(text => parseInt(text, 10));
+        
+        if (scores.length >= 2) {
+          awayScore = scores[0];
+          homeScore = scores[1];
+        }
+        
+        // Determine game status more accurately
+        // Check for INPROGRESS-status class which indicates live game
+        const isInProgress = ('body').attr('class')?.includes('INPROGRESS-status') || false;
+        
+        // Check for FINAL-status class
+        const isGameFinal = ('body').attr('class')?.includes('FINAL-status') || false;
+        
+        // Look for combined status like "3rd 9:53" in the HTML
+        let combinedStatus = '';
+        const bodyText = ('body').text();
+        const timeMatch = bodyText.match(/(\d+(?:st|nd|rd|th))\s+(\d+:\d+)/);
+        if (timeMatch) {
+          combinedStatus = ${timeMatch[1]} ;
+        }
+        
+        // Determine status based on game state
+        if (isGameFinal) {
+          status = 'Final';
+        } else if (isInProgress && combinedStatus) {
+          // Use the combined status like "3rd 9:53"
+          status = combinedStatus;
+        } else if (isInProgress) {
+          status = 'Live';
+        } else {
+          status = 'Scheduled';
+        }
+        
+        // Determine if game is final or live
+        const isFinal = status === 'Final';
+        const isLive = (isInProgress || (awayScore !== null && homeScore !== null)) && !isFinal;
+        
+        games.push({
+          id: gameId,
+          awayTeam,
+          homeTeam,
+          awayScore,
+          homeScore,
+          status,
+          isFinal,
+          isLive
+        });
+        
+        console.log(     @   ());
+        
+        // Small delay to avoid overwhelming CBS servers
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+      } catch (error) {
+        console.error(Error fetching game :, error.message);
+      }
+    }
+    
+    console.log( Fetched  games with scores from CBS Sports);
+    return games;
+    
+  } catch (error) {
+    console.error('Error fetching CBS Sports scores:', error);
+    return [];
+  }
+}

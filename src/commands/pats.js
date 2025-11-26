@@ -499,7 +499,7 @@ export async function showDashboard(interaction) {
           return `${index + 1}. ❌ **No pick made** - ${game.awayTeam} @ ${game.homeTeam} (Missed)`;
         } else {
           // Haven't picked yet but still time
-          return `${index + 1}. ⚪ **No pick yet** - ${game.awayTeam} @ ${game.homeTeam}`;
+          return `${index + 1}. ⚠️ **No pick yet** - ${game.awayTeam} @ ${game.homeTeam}`;
         }
       }
       
