@@ -105,9 +105,13 @@ export async function showSettingsMenu(interaction) {
                 name: 'Direct Message Notifications',
                 value: [
                     `📢 **Session Announcements**: ${announcementsStatus}`,
+                    `   → DM when new PATS sessions start`,
                     `⏰ **Reminders** (60 min): ${remindersStatus}`,
+                    `   → DM 1 hour before session starts`,
                     `⚠️ **Warnings** (15 min): ${warningsStatus}`,
-                    `🔒 **Game Lock Alerts**: ${gameLocksStatus}`
+                    `   → DM 15 min before each unpicked game starts`,
+                    `🔒 **Game Lock Alerts**: ${gameLocksStatus}`,
+                    `   → DM when each game locks (no more picks allowed)`
                 ].join('\n')
             },
             {
