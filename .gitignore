@@ -2,3 +2,8 @@ node_modules/
 .env
 *.log
 .DS_Store
+
+# Runtime data files - never commit these!
+data/pats.json
+data/scheduled-sessions.json
+data/injury-tracking.json
