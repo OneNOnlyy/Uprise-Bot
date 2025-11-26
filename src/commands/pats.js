@@ -29,7 +29,11 @@ function fixZeroSpreads(game) {
 
 export const data = new SlashCommandBuilder()
   .setName('pats')
-  .setDescription('View your PATS dashboard and make picks')
+  .setDescription('Picks Against The Spread commands')
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('dashboard')
+      .setDescription('View your PATS dashboard and make picks'))
   .addSubcommand(subcommand =>
     subcommand
       .setName('start')
@@ -76,14 +80,10 @@ export const data = new SlashCommandBuilder()
       .setDescription('Refresh spreads from Odds API (Admin only)'));
 
 export async function execute(interaction) {
-  const subcommand = interaction.options.getSubcommand(false); // false = don't require subcommand
+  const subcommand = interaction.options.getSubcommand();
   
-  // If no subcommand provided, show dashboard (default behavior)
-  if (!subcommand) {
-    // Show dashboard - this is the default /pats behavior
-    // Continue with existing dashboard code below
-  } else {
-    // Route to appropriate handler based on subcommand
+  // Route to appropriate handler based on subcommand
+  if (subcommand !== 'dashboard') {
     switch (subcommand) {
       case 'start': {
         const patsstartCommand = await import('./patsstart.js');
@@ -120,7 +120,7 @@ export async function execute(interaction) {
     }
   }
   
-  // Default: show dashboard
+  // Show dashboard (for 'dashboard' subcommand)
   try {
     await interaction.deferReply({ ephemeral: true });
     
