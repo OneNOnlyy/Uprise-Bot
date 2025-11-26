@@ -1787,9 +1787,9 @@ export async function showUserInputModal(interaction) {
   
   const userInput = new TextInputBuilder()
     .setCustomId('user_input')
-    .setLabel('User Mentions or IDs (comma separated)')
+    .setLabel('User IDs (comma separated)')
     .setStyle(TextInputStyle.Paragraph)
-    .setPlaceholder('e.g., @User1, @User2 or 123456789, 987654321')
+    .setPlaceholder('e.g., 123456789, 987654321, 456789123')
     .setRequired(true);
   
   const row = new ActionRowBuilder().addComponents(userInput);
@@ -1810,13 +1810,29 @@ export async function handleUserModalSubmit(interaction) {
   const notFound = [];
   
   for (const input of inputs) {
-    // Try to extract user ID from mention or use as-is
-    const userIdMatch = input.match(/^<@!?(\d+)>$/) || input.match(/^(\d+)$/);
+    // Try to extract user ID from various formats:
+    // 1. Direct ID: 123456789
+    // 2. Mention format: <@123456789> or <@!123456789>
+    // 3. Username mention that Discord may auto-format
     
-    if (userIdMatch) {
-      const userId = userIdMatch[1];
-      
-      // Verify user exists in guild
+    let userId = null;
+    
+    // Try direct ID match
+    const directIdMatch = input.match(/^(\d{17,20})$/);
+    if (directIdMatch) {
+      userId = directIdMatch[1];
+    }
+    
+    // Try mention format (with or without !)
+    if (!userId) {
+      const mentionMatch = input.match(/<@!?(\d{17,20})>/);
+      if (mentionMatch) {
+        userId = mentionMatch[1];
+      }
+    }
+    
+    // If we found a user ID, verify it exists
+    if (userId) {
       try {
         const member = await interaction.guild.members.fetch(userId);
         if (member) {
@@ -1828,13 +1844,14 @@ export async function handleUserModalSubmit(interaction) {
         notFound.push(input);
       }
     } else {
+      // Couldn't extract ID from any format
       notFound.push(input);
     }
   }
   
   if (userIds.length === 0) {
     await interaction.editReply({
-      content: `❌ No valid users found. Please use user mentions or IDs separated by commas.`,
+      content: `❌ No valid users found. Please use user IDs separated by commas.\n💡 Tip: Right-click a user → Copy ID (enable Developer Mode in Discord settings)`,
       embeds: [],
       components: []
     });
