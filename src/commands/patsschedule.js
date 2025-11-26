@@ -561,13 +561,17 @@ export async function startSessionNow(interaction, sessionId) {
     const dateStr = sessionDate.toISOString().split('T')[0];
     
     // Import necessary functions
-    const { fetchGamesWithSpreads, prefetchMatchupInfo } = await import('../utils/oddsApi.js');
+    const { fetchGamesForSession, clearGamesCache, prefetchMatchupInfo } = await import('../utils/dataCache.js');
     const { createPATSSession } = await import('../utils/patsData.js');
-    const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = await import('discord.js');
+    const { EmbedBuilder } = await import('discord.js');
     
     // Fetch games with spreads
     console.log(`📊 Fetching games with spreads for manually started PATS session on ${dateStr}...`);
-    const games = await fetchGamesWithSpreads(dateStr);
+    console.log(`💡 This will use 1 Odds API call (we have 500/month)`);
+    
+    // Clear any old cache and fetch fresh data for this session
+    clearGamesCache();
+    const games = await fetchGamesForSession(dateStr);
     
     if (!games || games.length === 0) {
       await interaction.editReply({
