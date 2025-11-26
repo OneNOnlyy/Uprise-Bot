@@ -1163,8 +1163,15 @@ export async function fetchCBSSportsScores(date = null) {
           status = statusShort || statusDetail;
           isLive = true;
         } else if (statusType === 'STATUS_SCHEDULED') {
-          status = 'Scheduled';
-          // Don't use scores to determine if game is live - ESPN sometimes shows placeholder values
+          // ESPN sometimes keeps status as SCHEDULED even when game has started
+          // Check if we have real scores (both teams have points)
+          if (awayScore > 0 || homeScore > 0) {
+            console.log(`  ⚠️ Game marked as SCHEDULED but has scores: ${awayScore}-${homeScore}. Treating as LIVE.`);
+            status = statusShort || statusDetail || 'In Progress';
+            isLive = true;
+          } else {
+            status = 'Scheduled';
+          }
         } else {
           // Unknown status, log it
           console.log(`  ⚠️ Unknown status type: ${statusType} for ${normalizedAwayTeam} @ ${normalizedHomeTeam}`);
