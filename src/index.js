@@ -633,12 +633,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await patsscheduleCommand.showParticipantTypeSelection(interaction);
       }
       else if (interaction.customId === 'schedule_participants_role') {
-        await interaction.deferUpdate();
-        await patsscheduleCommand.showRoleSelection(interaction);
+        // Show modal for role input
+        await patsscheduleCommand.showRoleInputModal(interaction);
       }
       else if (interaction.customId === 'schedule_participants_users') {
-        await interaction.deferUpdate();
-        await patsscheduleCommand.showUserSelection(interaction);
+        // Show modal for user input
+        await patsscheduleCommand.showUserInputModal(interaction);
       }
       else if (interaction.customId === 'schedule_select_channel') {
         const channelId = interaction.values[0];
@@ -796,6 +796,32 @@ client.on(Events.InteractionCreate, async (interaction) => {
       console.error('Error handling schedule interaction:', error);
       const errorMessage = { 
         content: '❌ There was an error processing your request!', 
+        ephemeral: true 
+      };
+      
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(errorMessage);
+      } else {
+        await interaction.reply(errorMessage);
+      }
+    }
+  }
+  
+  // Handle modal submissions for scheduling
+  if (interaction.isModalSubmit() && interaction.customId.startsWith('schedule_')) {
+    try {
+      if (interaction.customId === 'schedule_modal_role') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.handleRoleModalSubmit(interaction);
+      }
+      else if (interaction.customId === 'schedule_modal_users') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.handleUserModalSubmit(interaction);
+      }
+    } catch (error) {
+      console.error('Error handling schedule modal:', error);
+      const errorMessage = { 
+        content: '❌ There was an error processing your input!', 
         ephemeral: true 
       };
       

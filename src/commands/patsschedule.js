@@ -1696,3 +1696,170 @@ export async function createScheduledSession(interaction) {
 // Export helper functions
 export { getSessionConfig, clearSessionConfig };
 
+// Modal functions for patsschedule.js - append to end of file
+
+/**
+ * Show modal for role input
+ */
+export async function showRoleInputModal(interaction) {
+  const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = await import('discord.js');
+  
+  const modal = new ModalBuilder()
+    .setCustomId('schedule_modal_role')
+    .setTitle('Enter Role');
+  
+  const roleInput = new TextInputBuilder()
+    .setCustomId('role_input')
+    .setLabel('Role Name or ID')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('e.g., @Discord Manager or role ID')
+    .setRequired(true);
+  
+  const row = new ActionRowBuilder().addComponents(roleInput);
+  modal.addComponents(row);
+  
+  await interaction.showModal(modal);
+}
+
+/**
+ * Handle role modal submission
+ */
+export async function handleRoleModalSubmit(interaction) {
+  const roleInput = interaction.fields.getTextInputValue('role_input');
+  
+  // Try to extract role ID from mention or use as-is
+  const roleIdMatch = roleInput.match(/^<@&(\d+)>$/) || roleInput.match(/^(\d+)$/);
+  
+  if (!roleIdMatch) {
+    // Try to find role by name
+    const role = interaction.guild.roles.cache.find(r => 
+      r.name.toLowerCase() === roleInput.toLowerCase()
+    );
+    
+    if (!role) {
+      await interaction.editReply({
+        content: `❌ Could not find role: "${roleInput}". Please use a role mention, ID, or exact role name.`,
+        embeds: [],
+        components: []
+      });
+      
+      // Show participant selection again after 3 seconds
+      setTimeout(async () => {
+        await showParticipantTypeSelection(interaction);
+      }, 3000);
+      return;
+    }
+    
+    setRole(interaction.user.id, role.id);
+  } else {
+    const roleId = roleIdMatch[1];
+    
+    // Verify role exists
+    const role = interaction.guild.roles.cache.get(roleId);
+    if (!role) {
+      await interaction.editReply({
+        content: `❌ Role not found. Please check the role ID and try again.`,
+        embeds: [],
+        components: []
+      });
+      
+      setTimeout(async () => {
+        await showParticipantTypeSelection(interaction);
+      }, 3000);
+      return;
+    }
+    
+    setRole(interaction.user.id, roleId);
+  }
+  
+  await showConfigurationMenu(interaction);
+}
+
+/**
+ * Show modal for user input
+ */
+export async function showUserInputModal(interaction) {
+  const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = await import('discord.js');
+  
+  const modal = new ModalBuilder()
+    .setCustomId('schedule_modal_users')
+    .setTitle('Enter Users');
+  
+  const userInput = new TextInputBuilder()
+    .setCustomId('user_input')
+    .setLabel('User Mentions or IDs (comma separated)')
+    .setStyle(TextInputStyle.Paragraph)
+    .setPlaceholder('e.g., @User1, @User2 or 123456789, 987654321')
+    .setRequired(true);
+  
+  const row = new ActionRowBuilder().addComponents(userInput);
+  modal.addComponents(row);
+  
+  await interaction.showModal(modal);
+}
+
+/**
+ * Handle user modal submission
+ */
+export async function handleUserModalSubmit(interaction) {
+  const userInput = interaction.fields.getTextInputValue('user_input');
+  
+  // Split by comma and clean up
+  const inputs = userInput.split(',').map(s => s.trim()).filter(s => s.length > 0);
+  const userIds = [];
+  const notFound = [];
+  
+  for (const input of inputs) {
+    // Try to extract user ID from mention or use as-is
+    const userIdMatch = input.match(/^<@!?(\d+)>$/) || input.match(/^(\d+)$/);
+    
+    if (userIdMatch) {
+      const userId = userIdMatch[1];
+      
+      // Verify user exists in guild
+      try {
+        const member = await interaction.guild.members.fetch(userId);
+        if (member) {
+          userIds.push(userId);
+        } else {
+          notFound.push(input);
+        }
+      } catch (error) {
+        notFound.push(input);
+      }
+    } else {
+      notFound.push(input);
+    }
+  }
+  
+  if (userIds.length === 0) {
+    await interaction.editReply({
+      content: `❌ No valid users found. Please use user mentions or IDs separated by commas.`,
+      embeds: [],
+      components: []
+    });
+    
+    setTimeout(async () => {
+      await showParticipantTypeSelection(interaction);
+    }, 3000);
+    return;
+  }
+  
+  setUsers(interaction.user.id, userIds);
+  
+  let message = `✅ Added ${userIds.length} user(s) to participants.`;
+  if (notFound.length > 0) {
+    message += `\n⚠️ Could not find: ${notFound.join(', ')}`;
+  }
+  
+  await interaction.editReply({
+    content: message,
+    embeds: [],
+    components: []
+  });
+  
+  setTimeout(async () => {
+    await showConfigurationMenu(interaction);
+  }, 2000);
+}
+
