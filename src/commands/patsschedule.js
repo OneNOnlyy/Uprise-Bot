@@ -307,6 +307,11 @@ export async function showSessionManager(interaction, sessionId) {
   const actionButtons = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
+        .setCustomId(`schedule_start_now_${sessionId}`)
+        .setLabel('Start Now')
+        .setEmoji('▶️')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
         .setCustomId(`schedule_edit_${sessionId}`)
         .setLabel('Edit Configuration')
         .setEmoji('✏️')
@@ -517,6 +522,118 @@ export async function dismissMenu(interaction) {
     components: [],
     content: '✅ Session scheduled successfully!'
   });
+}
+
+/**
+ * Start a scheduled session immediately
+ */
+export async function startSessionNow(interaction, sessionId) {
+  const session = getScheduledSession(sessionId);
+  
+  if (!session) {
+    await interaction.editReply({
+      content: '❌ Session not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  await interaction.editReply({
+    content: '⏳ Starting PATS session now...',
+    embeds: [],
+    components: []
+  });
+  
+  try {
+    // Import the startScheduledSession function from index.js
+    // We need to trigger it manually
+    const channel = await interaction.client.channels.fetch(session.channelId);
+    const guild = await interaction.client.guilds.fetch(session.guildId);
+    
+    if (!channel || !guild) {
+      await interaction.editReply({
+        content: '❌ Could not find channel or guild for this session.'
+      });
+      return;
+    }
+    
+    // Get the date for this session
+    const sessionDate = new Date(session.firstGameTime);
+    const dateStr = sessionDate.toISOString().split('T')[0];
+    
+    // Import and execute patsstart
+    const patsstartCommand = await import('./patsstart.js');
+    
+    // Create mock interaction for patsstart
+    const mockInteraction = {
+      user: interaction.user,
+      member: interaction.member,
+      guild: guild,
+      guildId: session.guildId,
+      channelId: session.channelId,
+      channel: channel,
+      client: interaction.client,
+      options: {
+        getString: (name) => {
+          if (name === 'date') return dateStr;
+          return null;
+        },
+        getRole: (name) => {
+          if (name === 'participant_role' && session.participantType === 'role' && session.roleId) {
+            return guild.roles.cache.get(session.roleId) || null;
+          }
+          return null;
+        }
+      },
+      replied: false,
+      deferred: false,
+      ephemeral: false,
+      deferReply: async (options = {}) => {
+        mockInteraction.deferred = true;
+        if (options.ephemeral !== undefined) {
+          mockInteraction.ephemeral = options.ephemeral;
+        }
+        return Promise.resolve();
+      },
+      reply: async (options) => {
+        if (!mockInteraction.ephemeral) {
+          await channel.send(options);
+        }
+        mockInteraction.replied = true;
+      },
+      editReply: async (options) => {
+        if (typeof options === 'string' || options.content) {
+          const content = typeof options === 'string' ? options : options.content;
+          console.log(`[Manual Start] ${content}`);
+        }
+      },
+      followUp: async (options) => {
+        await channel.send(options);
+      }
+    };
+    
+    // Start the session
+    await patsstartCommand.execute(mockInteraction);
+    
+    // Delete the scheduled session since it's been started
+    const { deleteScheduledSession } = await import('../utils/sessionScheduler.js');
+    deleteScheduledSession(sessionId);
+    
+    await interaction.editReply({
+      content: '✅ PATS session started successfully! The scheduled session has been removed.',
+      embeds: [],
+      components: []
+    });
+    
+  } catch (error) {
+    console.error('Error starting session manually:', error);
+    await interaction.editReply({
+      content: `❌ Failed to start session: ${error.message}`,
+      embeds: [],
+      components: []
+    });
+  }
 }
 
 /**

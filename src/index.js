@@ -726,6 +726,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.deferUpdate();
         await patsscheduleCommand.dismissMenu(interaction);
       }
+      else if (interaction.customId.startsWith('schedule_start_now_')) {
+        const sessionId = interaction.customId.replace('schedule_start_now_', '');
+        await interaction.deferUpdate();
+        await patsscheduleCommand.startSessionNow(interaction, sessionId);
+      }
       else if (interaction.customId.startsWith('schedule_manage_')) {
         const sessionId = interaction.customId.replace('schedule_manage_', '');
         await interaction.deferUpdate();
