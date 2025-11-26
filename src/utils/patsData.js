@@ -238,6 +238,13 @@ export function updateGameResult(sessionId, gameId, result) {
     return false;
   }
   
+  // Handle null result (clearing the result)
+  if (result === null) {
+    game.result = null;
+    writePATSData(data);
+    return true;
+  }
+  
   // Allow live score updates to override previous statuses
   // Only prevent overwrites if BOTH existing and new are Final (confirmed final)
   if (game.result && game.result.status === 'Final' && result.status === 'Final') {
