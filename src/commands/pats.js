@@ -475,25 +475,33 @@ export async function showDashboard(interaction) {
     });
   }
 
-  // Add all picks to dashboard with win/loss status
-  if (pickedCount > 0) {
+  // Add all games to dashboard with pick status
+  if (session.games.length > 0) {
     let wins = 0;
     let losses = 0;
     let pushes = 0;
     let pending = 0;
     let completedGames = 0; // Track actual number of completed games (not win/loss count)
     
-    // Sort picks by game commence time to match the order elsewhere
-    const sortedPicks = [...userPicks].sort((a, b) => {
-      const gameA = session.games.find(g => g.id === a.gameId);
-      const gameB = session.games.find(g => g.id === b.gameId);
-      if (!gameA || !gameB) return 0;
-      return new Date(gameA.commenceTime) - new Date(gameB.commenceTime);
+    // Sort games by commence time
+    const sortedGames = [...session.games].sort((a, b) => {
+      return new Date(a.commenceTime) - new Date(b.commenceTime);
     });
     
-    const pickSummary = sortedPicks.map((pick, index) => {
-      const game = session.games.find(g => g.id === pick.gameId);
-      if (!game) return null;
+    const pickSummary = sortedGames.map((game, index) => {
+      const pick = userPicks.find(p => p.gameId === game.id);
+      
+      // If no pick made, show as unpicked
+      if (!pick) {
+        const isLocked = new Date(game.commenceTime) < now;
+        if (isLocked) {
+          // Missed pick on started game
+          return `${index + 1}. ❌ **No pick made** - ${game.awayTeam} @ ${game.homeTeam} (Missed)`;
+        } else {
+          // Haven't picked yet but still time
+          return `${index + 1}. ⚪ **No pick yet** - ${game.awayTeam} @ ${game.homeTeam}`;
+        }
+      }
       
       const pickedTeam = pick.pick === 'home' ? game.homeTeam : game.awayTeam;
       
@@ -612,7 +620,7 @@ export async function showDashboard(interaction) {
 
     embed.addFields({
       name: `🎯 Your Picks`,
-      value: pickSummary || 'No picks yet',
+      value: pickSummary || 'No games available',
       inline: false
     });
     
