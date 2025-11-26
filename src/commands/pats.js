@@ -140,7 +140,26 @@ export async function handleDashboardButton(interaction) {
       await showDashboard(interaction);
     } else if (interaction.customId === 'pats_dashboard_refresh') {
       // Fetch fresh CBS scores and update session before showing dashboard
-      await interaction.deferUpdate();
+      
+      // Try to defer, but if interaction is too old (>15 min), it will fail
+      try {
+        await interaction.deferUpdate();
+      } catch (error) {
+        // Interaction expired - can't update the old message
+        // Best we can do is log it and inform the user
+        console.log('⚠️ Interaction expired, cannot refresh. User needs to run /pats again.');
+        if (!interaction.replied && !interaction.deferred) {
+          try {
+            await interaction.reply({
+              content: '❌ This dashboard expired. Please run `/pats` again to get a fresh dashboard with updated scores.',
+              ephemeral: true
+            });
+          } catch (replyError) {
+            console.error('Could not send expiration message:', replyError);
+          }
+        }
+        return;
+      }
       
       const session = getActiveSession();
       if (session) {
