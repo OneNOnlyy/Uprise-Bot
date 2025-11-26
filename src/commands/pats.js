@@ -526,7 +526,7 @@ export async function showDashboard(interaction) {
     // Add record if any games are complete
     if (wins > 0 || losses > 0 || pushes > 0) {
       embed.addFields({
-        name: '📊 Current Record',
+        name: '📊 Today\'s Record',
         value: `**${wins}-${losses}-${pushes}** (${completedGames} complete, ${pending} pending)`,
         inline: false
       });
