@@ -318,10 +318,12 @@ async function startScheduledSession(client, session) {
     // Create a mock interaction object that patsstart expects
     const mockInteraction = {
       user: { id: client.user.id, username: 'Uprise Bot' },
+      member: null, // Scheduled sessions don't have a member
       guild: guild,
       guildId: session.guildId,
       channelId: session.channelId,
       channel: channel,
+      client: client,
       options: {
         getString: (name) => {
           if (name === 'date') return dateStr;
@@ -337,31 +339,62 @@ async function startScheduledSession(client, session) {
       },
       replied: false,
       deferred: false,
-      deferReply: async (options) => {
+      ephemeral: false,
+      deferReply: async (options = {}) => {
         // Mock defer - just mark as deferred
         mockInteraction.deferred = true;
+        if (options.ephemeral !== undefined) {
+          mockInteraction.ephemeral = options.ephemeral;
+        }
         return Promise.resolve();
       },
       reply: async (options) => {
         // Send the reply to the channel
-        await channel.send(options);
+        if (!mockInteraction.ephemeral) {
+          await channel.send(options);
+        }
         mockInteraction.replied = true;
       },
       editReply: async (options) => {
-        // For scheduled sessions, send as new message to channel
-        await channel.send(options);
+        // For scheduled sessions, log the message (since it's ephemeral in normal case)
+        // but also send success/error to channel
+        if (typeof options === 'string' || options.content) {
+          const content = typeof options === 'string' ? options : options.content;
+          console.log(`[Scheduled Session] ${content}`);
+          
+          // If it's an error, send to channel
+          if (content.includes('❌')) {
+            await channel.send({ content });
+          } else if (content.includes('✅')) {
+            // Success message - log but don't spam channel
+            console.log(`✅ Session ${session.id} started successfully`);
+          }
+        }
       },
       followUp: async (options) => {
         await channel.send(options);
       }
     };
     
+    console.log(`🏀 Starting scheduled PATS session ${session.id} for ${dateStr}...`);
+    
     // Execute the patsstart command
     await patsstartCommand.execute(mockInteraction);
     
-    console.log(`🏀 Auto-started PATS session ${session.id} for ${dateStr}`);
+    console.log(`✅ Scheduled PATS session ${session.id} completed`);
   } catch (error) {
-    console.error(`Error starting session ${session.id}:`, error);
+    console.error(`❌ Error starting scheduled session ${session.id}:`, error);
+    console.error(error.stack);
+    
+    // Try to send error to channel
+    try {
+      const channel = await client.channels.fetch(session.channelId);
+      await channel.send({
+        content: `❌ Failed to start scheduled PATS session. Please start manually with \`/patsstart\`.\nError: ${error.message}`
+      });
+    } catch (channelError) {
+      console.error('Could not send error to channel:', channelError);
+    }
   }
 }
 
