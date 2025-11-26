@@ -148,8 +148,7 @@ async function sendSessionAnnouncement(client, session) {
     
     const embed = new EmbedBuilder()
       .setTitle('🏀 PATS is Now Open!')
-      .setDescription(`Picks Against The Spread is now open! Make your picks before the first game starts at **${firstGameTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })}**`)
-      .setColor('#5865F2')
+      .setColor(0xE03A3E)
       .addFields(
         {
           name: '📅 Today\'s Games',

@@ -598,20 +598,27 @@ export async function startSessionNow(interaction, sessionId) {
       console.error('[PATS] Error prefetching matchup info:', err);
     });
     
+    // Get first game time for announcement
+    const firstGameTime = new Date(session.firstGameTime);
+    
     // Create announcement embed
     const embed = new EmbedBuilder()
-      .setTitle('🏀 Picks Against The Spread - LIVE!')
-      .setDescription(`**${games.length} NBA games** available for picks today!`)
+      .setTitle('🏀 PATS is Now Open!')
       .setColor(0xE03A3E)
       .addFields(
-        { name: '📅 Date', value: dateStr, inline: true },
-        { name: '🎮 Games Available', value: games.length.toString(), inline: true },
-        { name: '\u200B', value: '\u200B', inline: true }
-      )
-      .addFields({
-        name: '📋 How to Play',
-        value: '• Use `/pats` to view games and make picks\n• Pick the team you think will cover the spread\n• Make picks before the game starts\n• Track your record as games finish'
-      });
+        {
+          name: '📅 Today\'s Games',
+          value: session.gameDetails.map(g => `• ${g.matchup}`).join('\n')
+        },
+        {
+          name: '📋 How to Play',
+          value: '1️⃣ Use `/pats` to see games and odds\n2️⃣ Pick teams you think will cover the spread\n3️⃣ Make all picks before each game starts!'
+        },
+        {
+          name: '⏰ First Game',
+          value: firstGameTime.toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })
+        }
+      );
     
     // Create participant mention string
     let mentionText = '';
