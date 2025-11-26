@@ -1151,7 +1151,11 @@ export async function fetchCBSSportsScores(date = null) {
         let isFinal = false;
         let isLive = false;
         
-        if (statusType === 'STATUS_FINAL') {
+        // Check completed status first
+        if (competition.status.type.completed === true) {
+          status = 'Final';
+          isFinal = true;
+        } else if (statusType === 'STATUS_FINAL') {
           status = 'Final';
           isFinal = true;
         } else if (statusType === 'STATUS_IN_PROGRESS') {
@@ -1159,27 +1163,26 @@ export async function fetchCBSSportsScores(date = null) {
           status = statusShort || statusDetail;
           isLive = true;
         } else if (statusType === 'STATUS_SCHEDULED') {
-          // Double-check: if scores are non-zero, game is actually in progress
-          if (awayScore > 0 || homeScore > 0) {
-            status = statusShort || statusDetail || 'In Progress';
-            isLive = true;
-          } else {
-            status = 'Scheduled';
-          }
+          status = 'Scheduled';
+          // Don't use scores to determine if game is live - ESPN sometimes shows placeholder values
+        } else {
+          // Unknown status, log it
+          console.log(`  ⚠️ Unknown status type: ${statusType} for ${normalizedAwayTeam} @ ${normalizedHomeTeam}`);
         }
 
         games.push({
           id: event.id,
           awayTeam: normalizedAwayTeam,
           homeTeam: normalizedHomeTeam,
-          awayScore,
-          homeScore,
+          awayScore: isLive || isFinal ? awayScore : null, // Only include scores if game started
+          homeScore: isLive || isFinal ? homeScore : null,
           status,
           isFinal,
           isLive
         });
 
-        console.log(`  ✅ ${normalizedAwayTeam} ${awayScore} @ ${normalizedHomeTeam} ${homeScore} (${status})`);
+        const scoreDisplay = (isLive || isFinal) ? `${awayScore} @ ${homeScore}` : 'vs';
+        console.log(`  ✅ ${normalizedAwayTeam} ${scoreDisplay} ${normalizedHomeTeam} (${status})`);
 
       } catch (error) {
         console.error(`Error parsing event:`, error.message);

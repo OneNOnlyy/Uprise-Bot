@@ -484,7 +484,15 @@ export async function showDashboard(interaction) {
         }
         pending++;
       } else if (isLocked) {
-        statusEmoji = '🔒';
+        // Only show lock if game has actually started OR if it's significantly past commence time
+        // If game.result exists but isn't final/live, game hasn't started yet
+        if (game.result && !game.result.isLive && !game.result.isFinal) {
+          // Has result object but not started - show scheduled icon
+          statusEmoji = '📌';
+        } else {
+          // Past commence time and either started or should have started
+          statusEmoji = '🔒';
+        }
         pending++;
       } else {
         statusEmoji = '📌';  // Pick made but not locked yet
@@ -503,6 +511,7 @@ export async function showDashboard(interaction) {
           const status = game.result.status || 'Live';
           scoreText = ` - ${awayAbbrev} ${game.result.awayScore} @ ${homeAbbrev} ${game.result.homeScore} (${status})`;
         }
+        // Don't show scores for scheduled games
       }
       
       return `${index + 1}. ${statusEmoji} **${pickedTeam}** (${spreadText})${ddEmoji}${scoreText}`;
