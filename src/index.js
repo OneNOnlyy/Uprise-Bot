@@ -7,6 +7,7 @@ import { scheduleThreadLocking } from './features/lockThreads.js';
 import { scheduleGameResultChecking } from './features/checkGameResults.js';
 import { scheduleTransactionFeed } from './features/transactionFeed.js';
 import { initGameWarnings } from './features/gameWarnings.js';
+import { initInjuryTracking, subscribeToInjuries, unsubscribeFromInjuries, isSubscribed } from './features/injuryTracking.js';
 import { loadScheduledSessions, scheduleSessionJobs } from './utils/sessionScheduler.js';
 import * as gamethreadCommand from './commands/gamethread.js';
 import * as testpingCommand from './commands/testping.js';
@@ -58,7 +59,7 @@ client.commands.set(patsdeleteplayerCommand.data.name, patsdeleteplayerCommand);
 client.commands.set(patsrefreshspreadsCommand.data.name, patsrefreshspreadsCommand);
 client.commands.set(patsscheduleCommand.data.name, patsscheduleCommand);
 
-client.once(Events.ClientReady, (readyClient) => {
+client.once(Events.ClientReady, async (readyClient) => {
   console.log(`✅ Uprise Bot is ready! Logged in as ${readyClient.user.tag}`);
   console.log(`🏀 Monitoring Portland Trail Blazers games...`);
   console.log(`⚡ Slash commands loaded: ${client.commands.size}`);
@@ -83,6 +84,9 @@ client.once(Events.ClientReady, (readyClient) => {
   
   // Initialize game warnings system
   initGameWarnings(client);
+  
+  // Initialize injury tracking system
+  await initInjuryTracking(client);
   
   // Initialize scheduled PATS sessions
   initializeScheduledSessions(client);
@@ -137,6 +141,97 @@ function initializeScheduledSessions(client) {
   });
   
   console.log(`   Initialized ${sessions.length} scheduled session(s)`);
+}
+
+/**
+ * Handle tracking injuries for a game
+ */
+async function handleTrackInjuries(interaction) {
+  try {
+    await interaction.deferUpdate();
+    
+    const gameId = interaction.customId.replace('pats_track_injuries_', '');
+    const { getActiveSession } = await import('./utils/patsData.js');
+    const { getCachedMatchupInfo } = await import('./utils/dataCache.js');
+    
+    const session = getActiveSession();
+    if (!session) {
+      await interaction.followUp({
+        content: '❌ No active PATS session found.',
+        ephemeral: true
+      });
+      return;
+    }
+    
+    const game = session.games.find(g => g.id === gameId);
+    if (!game) {
+      await interaction.followUp({
+        content: '❌ Game not found.',
+        ephemeral: true
+      });
+      return;
+    }
+    
+    // Get current injury snapshot
+    const matchupInfo = await getCachedMatchupInfo(game.homeTeam, game.awayTeam);
+    const initialSnapshot = {
+      home: matchupInfo.home.injuries || [],
+      away: matchupInfo.away.injuries || []
+    };
+    
+    // Subscribe user to injury tracking
+    subscribeToInjuries(
+      interaction.user.id,
+      gameId,
+      game.homeTeam,
+      game.awayTeam,
+      initialSnapshot
+    );
+    
+    await interaction.followUp({
+      content: `🔔 You are now tracking injuries for **${game.awayTeam} @ ${game.homeTeam}**\n\nYou'll receive a DM whenever there are changes to the injury report for this game.`,
+      ephemeral: true
+    });
+    
+    // Refresh the matchup display to show the "Stop Tracking" button
+    await makepickCommand.handleViewMatchup(interaction);
+    
+  } catch (error) {
+    console.error('Error tracking injuries:', error);
+    await interaction.followUp({
+      content: '❌ Error setting up injury tracking.',
+      ephemeral: true
+    });
+  }
+}
+
+/**
+ * Handle untracking injuries for a game
+ */
+async function handleUntrackInjuries(interaction) {
+  try {
+    await interaction.deferUpdate();
+    
+    const gameId = interaction.customId.replace('pats_untrack_injuries_', '');
+    
+    // Unsubscribe user from injury tracking
+    unsubscribeFromInjuries(interaction.user.id, gameId);
+    
+    await interaction.followUp({
+      content: '🔕 You have stopped tracking injuries for this game.',
+      ephemeral: true
+    });
+    
+    // Refresh the matchup display to show the "Track Injuries" button
+    await makepickCommand.handleViewMatchup(interaction);
+    
+  } catch (error) {
+    console.error('Error untracking injuries:', error);
+    await interaction.followUp({
+      content: '❌ Error removing injury tracking.',
+      ephemeral: true
+    });
+  }
 }
 
 /**
@@ -502,6 +597,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
       // Handle view matchup button
       else if (interaction.customId.startsWith('pats_matchup_')) {
         await makepickCommand.handleViewMatchup(interaction);
+      }
+      // Handle injury tracking buttons
+      else if (interaction.customId.startsWith('pats_track_injuries_')) {
+        await handleTrackInjuries(interaction);
+      }
+      else if (interaction.customId.startsWith('pats_untrack_injuries_')) {
+        await handleUntrackInjuries(interaction);
       }
       // Handle view roster button
       else if (interaction.customId.startsWith('pats_view_roster_')) {

@@ -10,6 +10,7 @@
 import { getActiveSession, savePick, getUserPicks } from '../utils/patsData.js';
 import { getCachedMatchupInfo } from '../utils/dataCache.js';
 import { getMatchupInfo, formatInjuries } from '../utils/espnApi.js';
+import { isSubscribed } from '../features/injuryTracking.js';
 
 /**
  * FAIL-SAFE: Fix spreads where one is 0 but the other isn't (they should be inverse)
@@ -1110,6 +1111,9 @@ export async function handleViewMatchup(interaction) {
       inline: false
     });
 
+    // Check if user is already tracking this game's injuries
+    const userIsTracking = isSubscribed(interaction.user.id, gameId);
+
     const backButton = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`pats_view_roster_${gameId}`)
@@ -1123,9 +1127,17 @@ export async function handleViewMatchup(interaction) {
         .setEmoji('◀️')
     );
 
+    const trackingButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pats_${userIsTracking ? 'untrack' : 'track'}_injuries_${gameId}`)
+        .setLabel(userIsTracking ? 'Stop Tracking Injuries' : 'Track Injuries')
+        .setStyle(userIsTracking ? ButtonStyle.Danger : ButtonStyle.Success)
+        .setEmoji(userIsTracking ? '🔕' : '🔔')
+    );
+
     await interaction.editReply({
       embeds: [embed],
-      components: [backButton]
+      components: [backButton, trackingButton]
     });
 
   } catch (error) {
