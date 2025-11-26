@@ -29,9 +29,100 @@ function fixZeroSpreads(game) {
 
 export const data = new SlashCommandBuilder()
   .setName('pats')
-  .setDescription('View your PATS dashboard and stats');
+  .setDescription('Picks Against The Spread - NBA betting game')
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('dashboard')
+      .setDescription('View your PATS dashboard and stats'))
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('start')
+      .setDescription('Start a new PATS session (Admin only)')
+      .addStringOption(option =>
+        option.setName('date')
+          .setDescription('Date for games (YYYY-MM-DD, default: today)')
+          .setRequired(false))
+      .addRoleOption(option =>
+        option.setName('participant_role')
+          .setDescription('Role to DM for participation (default: @everyone)')
+          .setRequired(false)))
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('end')
+      .setDescription('End the current PATS session (Admin only)'))
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('schedule')
+      .setDescription('Schedule PATS sessions (Admin only)'))
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('assignpicks')
+      .setDescription('Assign picks on behalf of a user (Admin only)')
+      .addUserOption(option =>
+        option.setName('user')
+          .setDescription('The user to assign picks for')
+          .setRequired(true)))
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('history')
+      .setDescription('View PATS session history (Admin only)'))
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('leaderboard')
+      .setDescription('View the all-time PATS leaderboard'))
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('reopen')
+      .setDescription('Reopen a closed session for more picks (Admin only)'))
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('refreshspreads')
+      .setDescription('Refresh spreads from Odds API (Admin only)'));
 
 export async function execute(interaction) {
+  const subcommand = interaction.options.getSubcommand();
+  
+  // Route to appropriate handler based on subcommand
+  switch (subcommand) {
+    case 'start': {
+      const patsstartCommand = await import('./patsstart.js');
+      return await patsstartCommand.execute(interaction);
+    }
+    case 'end': {
+      const patsendCommand = await import('./patsend.js');
+      return await patsendCommand.execute(interaction);
+    }
+    case 'schedule': {
+      const patsscheduleCommand = await import('./patsschedule.js');
+      return await patsscheduleCommand.execute(interaction);
+    }
+    case 'assignpicks': {
+      const patsassignpicksCommand = await import('./patsassignpicks.js');
+      return await patsassignpicksCommand.execute(interaction);
+    }
+    case 'history': {
+      const patshistoryCommand = await import('./patshistory.js');
+      return await patshistoryCommand.execute(interaction);
+    }
+    case 'leaderboard': {
+      const patsleaderboardCommand = await import('./patsleaderboard.js');
+      return await patsleaderboardCommand.execute(interaction);
+    }
+    case 'reopen': {
+      const patsreopenCommand = await import('./patsreopen.js');
+      return await patsreopenCommand.execute(interaction);
+    }
+    case 'refreshspreads': {
+      const patsrefreshspreadsCommand = await import('./patsrefreshspreads.js');
+      return await patsrefreshspreadsCommand.execute(interaction);
+    }
+    case 'dashboard':
+    default:
+      // Show dashboard
+      break;
+  }
+  
+  // Default: show dashboard
   try {
     await interaction.deferReply({ ephemeral: true });
     

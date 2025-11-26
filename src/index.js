@@ -550,6 +550,54 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   }
   
+  // Handle PATS assign picks interactions (admin)
+  if (interaction.customId && interaction.customId.startsWith('pats_assign_')) {
+    try {
+      const patsassignpicksCommand = await import('./commands/patsassignpicks.js');
+      
+      if (interaction.customId.startsWith('pats_assign_select_game_')) {
+        const targetUserId = interaction.customId.replace('pats_assign_select_game_', '');
+        const gameId = interaction.values[0];
+        await interaction.deferUpdate();
+        await patsassignpicksCommand.showTeamSelection(interaction, targetUserId, gameId);
+      }
+      else if (interaction.customId.startsWith('pats_assign_pick_')) {
+        const parts = interaction.customId.replace('pats_assign_pick_', '').split('_');
+        const targetUserId = parts[0];
+        const gameId = parts[1];
+        const team = parts[2]; // 'away' or 'home'
+        await interaction.deferUpdate();
+        await patsassignpicksCommand.assignPick(interaction, targetUserId, gameId, team);
+      }
+      else if (interaction.customId.startsWith('pats_assign_back_')) {
+        const targetUserId = interaction.customId.replace('pats_assign_back_', '');
+        const targetUser = await interaction.guild.members.fetch(targetUserId);
+        await interaction.deferUpdate();
+        await patsassignpicksCommand.showGameSelection(interaction, targetUser.user);
+      }
+      else if (interaction.customId === 'pats_assign_cancel') {
+        await interaction.deferUpdate();
+        await interaction.editReply({
+          content: '❌ Pick assignment cancelled.',
+          embeds: [],
+          components: []
+        });
+      }
+    } catch (error) {
+      console.error('Error handling PATS assign interaction:', error);
+      const errorMessage = { 
+        content: '❌ There was an error assigning the pick!', 
+        ephemeral: true 
+      };
+      
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(errorMessage);
+      } else {
+        await interaction.reply(errorMessage);
+      }
+    }
+  }
+  
   // Handle PATS history interactions (admin)
   if (interaction.customId && interaction.customId.startsWith('history_')) {
     try {
