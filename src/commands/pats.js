@@ -615,6 +615,18 @@ export async function showDashboard(interaction) {
         // Don't show scores for scheduled games
       }
       
+      // Add start time for scheduled picks (📌)
+      if (statusEmoji === '📌' && game.commenceTime) {
+        const gameTime = new Date(game.commenceTime);
+        const timeString = gameTime.toLocaleString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZone: 'America/New_York',
+          timeZoneName: 'short'
+        });
+        scoreText = ` - ${timeString}`;
+      }
+      
       return `${index + 1}. ${statusEmoji} **${pickedTeam}** (${spreadText})${ddEmoji}${scoreText}`;
     }).filter(Boolean).join('\n');
 
