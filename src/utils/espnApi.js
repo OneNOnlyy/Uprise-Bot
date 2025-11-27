@@ -262,6 +262,93 @@ async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
 }
 
 /**
+ * Scrape injuries with comments from ESPN's main injuries page
+ */
+async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
+  try {
+    const url = 'https://www.espn.com/nba/injuries';
+    console.log(`[ESPN Injuries Page] Fetching ${url} for team ${teamAbbr} (${teamName})...`);
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.warn(`[ESPN Injuries Page] Failed to fetch: ${response.status}`);
+      return [];
+    }
+    
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    const injuries = [];
+    
+    // Strategy: Find team section, then collect all injury rows until next team
+    let inTargetTeam = false;
+    let foundTeam = false;
+    
+    // Iterate through all elements to find team headers and injury rows
+    $('body').find('*').each((i, elem) => {
+      const $elem = $(elem);
+      const text = $elem.text().trim();
+      
+      // Check if this is a team header - look for team name match
+      if (text === teamName || text.includes(teamName)) {
+        // Verify it's actually a team header by checking for logo nearby
+        const hasLogo = $elem.find('img[alt*="' + teamName + '"]').length > 0 || 
+                       $elem.parent().find('img[alt*="' + teamName + '"]').length > 0 ||
+                       $elem.prev().find('img[alt*="' + teamName + '"]').length > 0;
+        
+        if (hasLogo || $elem.is('h2, h3') || $elem.parent().is('h2, h3')) {
+          console.log(`[ESPN Injuries Page] ✓ Found team section for ${teamName}`);
+          inTargetTeam = true;
+          foundTeam = true;
+          return; // continue to next element
+        }
+      }
+      
+      // Check if we've moved to a different team section
+      if (inTargetTeam && text.match(/^(Atlanta Hawks|Boston Celtics|Brooklyn Nets|Charlotte Hornets|Chicago Bulls|Cleveland Cavaliers|Dallas Mavericks|Denver Nuggets|Detroit Pistons|Golden State Warriors|Houston Rockets|Indiana Pacers|LA Clippers|Los Angeles Lakers|Los Angeles Clippers|Memphis Grizzlies|Miami Heat|Milwaukee Bucks|Minnesota Timberwolves|New Orleans Pelicans|New York Knicks|Oklahoma City Thunder|Orlando Magic|Philadelphia 76ers|Phoenix Suns|Portland Trail Blazers|Sacramento Kings|San Antonio Spurs|Toronto Raptors|Utah Jazz|Washington Wizards)$/)) {
+        if (text !== teamName && !text.includes(teamName)) {
+          console.log(`[ESPN Injuries Page] Reached next team section: ${text}`);
+          inTargetTeam = false;
+        }
+      }
+      
+      // If we're in target team section, look for table rows
+      if (inTargetTeam && $elem.is('tr')) {
+        const cells = $elem.find('td');
+        if (cells.length >= 5) {
+          const playerName = $(cells.eq(0)).text().trim();
+          const position = $(cells.eq(1)).text().trim();
+          const date = $(cells.eq(2)).text().trim();
+          const status = $(cells.eq(3)).text().trim();
+          const comment = $(cells.eq(4)).text().trim();
+          
+          if (playerName && status && comment && playerName.length > 1) {
+            console.log(`[ESPN Injuries Page] ${teamName}: ${playerName} - ${status}`);
+            
+            injuries.push({
+              player: fixPlayerName(playerName),
+              status: status,
+              description: position || 'Injury',
+              comment: comment
+            });
+          }
+        }
+      }
+    });
+    
+    if (!foundTeam) {
+      console.log(`[ESPN Injuries Page] Could not find ${teamName} on page`);
+    }
+    
+    console.log(`[ESPN Injuries Page] Found ${injuries.length} injuries for ${teamName}`);
+    return injuries;
+    
+  } catch (error) {
+    console.error(`[ESPN Injuries Page] Error scraping:`, error.message);
+    return [];
+  }
+}
+
+/**
  * Fetch injuries from ESPN game summary endpoint (MOST RELIABLE!)
  */
 async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
@@ -786,6 +873,28 @@ export async function getTeamInfo(teamName) {
     }
     
     console.log(`[ESPN] Final injury count for ${normalizedName}: ${injuries.length}`);
+    
+    // SUPPLEMENT: Try to add comments from ESPN injuries page if we're missing them
+    if (injuries.length > 0) {
+      const hasComments = injuries.some(inj => inj.comment && inj.comment.length > 0);
+      if (!hasComments) {
+        console.log(`[ESPN] Injuries found but missing comments, checking ESPN injuries page...`);
+        const pageInjuries = await scrapeInjuriesFromESPNInjuriesPage(team.abbreviation, normalizedName);
+        
+        if (pageInjuries.length > 0) {
+          // Merge comments from injuries page into existing injuries
+          const pageMap = new Map(pageInjuries.map(inj => [inj.player.toLowerCase(), inj]));
+          
+          for (const injury of injuries) {
+            const pageInjury = pageMap.get(injury.player.toLowerCase());
+            if (pageInjury && pageInjury.comment) {
+              injury.comment = pageInjury.comment;
+              console.log(`[ESPN] Added comment for ${injury.player}`);
+            }
+          }
+        }
+      }
+    }
     
     const result = {
       name: team.displayName,
