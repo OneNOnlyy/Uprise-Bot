@@ -53,7 +53,22 @@ export async function getUpcomingBlazersGames(daysAhead = 14, includePast = fals
       games = games.filter(game => {
         if (!game.status) return true; // Keep games without status
         
+        // If status is "Final" or similar, the game is over - exclude it
+        if (typeof game.status === 'string' && 
+            (game.status.toLowerCase().includes('final') || 
+             game.status.toLowerCase().includes('end'))) {
+          console.log(`🚫 Filtering out completed game: ${game.visitor_team?.abbreviation} @ ${game.home_team?.abbreviation} (Status: ${game.status})`);
+          return false;
+        }
+        
+        // Check if status is an ISO timestamp and game time hasn't passed
         const gameTime = new Date(game.status);
+        if (isNaN(gameTime.getTime())) {
+          // Invalid date - might be a status string we don't recognize, keep it to be safe
+          console.log(`⚠️ Unknown game status format: ${game.status} for ${game.visitor_team?.abbreviation} @ ${game.home_team?.abbreviation}`);
+          return true;
+        }
+        
         const isUpcoming = gameTime > now;
         
         if (!isUpcoming) {
@@ -110,11 +125,35 @@ export async function getBlazersGameToday() {
     
     console.log(`📊 [NBA API] API returned ${games.length} games`);
     
+    // Filter out completed games (status is "Final", "End", etc.)
+    const upcomingGames = games.filter(game => {
+      if (!game.status) return false;
+      
+      // Exclude games that are already finished
+      if (typeof game.status === 'string' && 
+          (game.status.toLowerCase().includes('final') || 
+           game.status.toLowerCase().includes('end'))) {
+        console.log(`🚫 [NBA API] Skipping completed game: ${game.visitor_team?.abbreviation} @ ${game.home_team?.abbreviation} (Status: ${game.status})`);
+        return false;
+      }
+      
+      return true;
+    });
+    
+    if (upcomingGames.length === 0) {
+      console.log(`ℹ️ [NBA API] No upcoming games found (all games are completed)`);
+      return null;
+    }
+    
+    console.log(`📊 [NBA API] Found ${upcomingGames.length} upcoming games`);
+    
     // Find today's game (filter to games happening today in PT)
-    const todayGame = games.find(game => {
+    const todayGame = upcomingGames.find(game => {
       if (!game.status) return false;
       
       const gameDate = new Date(game.status);
+      if (isNaN(gameDate.getTime())) return false;
+      
       const gameDatePT = gameDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' });
       const todayDatePT = todayDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' });
       
@@ -130,19 +169,6 @@ export async function getBlazersGameToday() {
         date: todayGame.date
       });
       return todayGame;
-    }
-    
-    // If no game found with proper date matching, just return the first game (fallback)
-    if (games.length > 0) {
-      console.log(`⚠️ [NBA API] No exact match, returning first game as fallback`);
-      console.log(`✅ [NBA API] Game found:`, {
-        id: games[0].id,
-        home: games[0].home_team?.full_name,
-        away: games[0].visitor_team?.full_name,
-        status: games[0].status,
-        date: games[0].date
-      });
-      return games[0];
     }
     
     console.log(`ℹ️ [NBA API] No games found for ${yesterdayStr} to ${todayStr}`);
