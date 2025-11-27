@@ -698,97 +698,75 @@ export async function getTeamInfo(teamName) {
     const wins = record?.stats?.find(s => s.name === 'wins')?.value || 0;
     const losses = record?.stats?.find(s => s.name === 'losses')?.value || 0;
     
-    // Extract injuries - try multiple locations
+    // NEW INJURY PRIORITY ORDER:
+    // 1. ESPN Game Summary (fastest, most reliable)
+    // 2. ESPN Scoreboard (fast, reliable)
+    // 3. ESPN Page Scraping (decent fallback)
+    // 4. CBS Sports (comprehensive but slower)
+    // 5. RotoWire (last resort)
+    
     let injuries = [];
     
-    // Check team.injuries
-    if (team.injuries && team.injuries.length > 0) {
-      console.log(`[ESPN] Found ${team.injuries.length} injuries in team.injuries`);
-      team.injuries.forEach(injury => {
-        injuries.push({
-          player: injury.athlete?.displayName || 'Unknown',
-          status: injury.status || 'Out',
-          description: injury.details?.type || 'Injury'
-        });
-      });
-    }
+    console.log(`[ESPN] Fetching injuries with priority order...`);
     
-    // Try fetching from separate injuries endpoint
-    if (injuries.length === 0) {
-      try {
-        const injuryUrl = `${ESPN_API_BASE}/teams/${teamId}/injuries`;
-        console.log(`[ESPN] Trying injuries endpoint: ${injuryUrl}`);
-        const injuryResponse = await fetch(injuryUrl);
-        if (injuryResponse.ok) {
-          const injuryData = await injuryResponse.json();
-          if (injuryData.injuries && injuryData.injuries.length > 0) {
-            console.log(`[ESPN] Found ${injuryData.injuries.length} injuries from injuries endpoint`);
-            injuryData.injuries.forEach(injury => {
-              injuries.push({
-                player: injury.athlete?.displayName || 'Unknown',
-                status: injury.status || 'Out',
-                description: injury.details?.type || injury.type || 'Injury'
-              });
-            });
+    // Priority 1: ESPN Game Summary (FASTEST & MOST RELIABLE!)
+    console.log(`[ESPN] Priority 1: Trying ESPN Game Summary API...`);
+    injuries = await fetchInjuriesFromGameSummary(normalizedName, team.abbreviation);
+    
+    if (injuries.length > 0) {
+      console.log(`[ESPN] ✓ Found ${injuries.length} injuries from Game Summary (primary source)`);
+    } else {
+      // Priority 2: ESPN Scoreboard
+      console.log(`[ESPN] Priority 2: Trying ESPN Scoreboard API...`);
+      injuries = await getInjuriesFromScoreboard(team.abbreviation);
+      
+      if (injuries.length > 0) {
+        console.log(`[ESPN] ✓ Found ${injuries.length} injuries from Scoreboard (secondary source)`);
+      } else {
+        // Priority 3: ESPN Page Scraping
+        console.log(`[ESPN] Priority 3: Trying ESPN page scraping...`);
+        injuries = await scrapeInjuriesFromESPN(team.abbreviation, normalizedName);
+        
+        if (injuries.length > 0) {
+          console.log(`[ESPN] ✓ Found ${injuries.length} injuries from ESPN scraping (tertiary source)`);
+        } else {
+          // Priority 4: CBS Sports (from cache)
+          console.log(`[ESPN] Priority 4: Trying cached CBS Sports data...`);
+          try {
+            const cachedInjuryReports = await getCachedInjuryReports();
+            if (cachedInjuryReports && cachedInjuryReports.size > 0) {
+              const teamAbbr = team.abbreviation;
+              const cbsInjuries = getInjuriesForTeam(teamAbbr, cachedInjuryReports);
+              
+              if (cbsInjuries.length > 0) {
+                console.log(`[ESPN] ✓ Found ${cbsInjuries.length} injuries from CBS Sports (4th priority)`);
+                injuries = cbsInjuries;
+              } else {
+                console.log(`[ESPN] No CBS injuries found for ${teamAbbr}`);
+              }
+            } else {
+              console.log(`[ESPN] No cached CBS injury reports available`);
+            }
+          } catch (cbsError) {
+            console.warn(`[ESPN] Error accessing cached CBS injury data:`, cbsError.message);
+          }
+          
+          // Priority 5: RotoWire (last resort)
+          if (injuries.length === 0) {
+            console.log(`[ESPN] Priority 5: Trying RotoWire as last resort...`);
+            injuries = await scrapeInjuriesFromRotoWire(normalizedName);
+            
+            if (injuries.length > 0) {
+              console.log(`[ESPN] ✓ Found ${injuries.length} injuries from RotoWire (last resort)`);
+            } else {
+              console.log(`[ESPN] No injuries found from any source for ${normalizedName}`);
+            }
           }
         }
-      } catch (injuryError) {
-        console.warn(`[ESPN] Could not fetch injuries from separate endpoint:`, injuryError.message);
       }
     }
     
-    console.log(`[ESPN] Total injuries found for ${normalizedName}: ${injuries.length}`);
-    
-    // Try to get CBS Sports injury data from cache
-    console.log(`[ESPN] Checking for cached CBS Sports injury data...`);
-    try {
-      const cachedInjuryReports = await getCachedInjuryReports();
-      if (cachedInjuryReports && cachedInjuryReports.size > 0) {
-        const teamAbbr = team.abbreviation;
-        const cbsInjuries = getInjuriesForTeam(teamAbbr, cachedInjuryReports);
-        
-        if (cbsInjuries.length > 0) {
-          console.log(`[ESPN] Using CBS Sports injury data: ${cbsInjuries.length} injuries (primary source)`);
-          injuries = cbsInjuries; // Use comprehensive CBS data as primary source
-        } else {
-          console.log(`[ESPN] No CBS injuries found for ${teamAbbr}, keeping ESPN data (${injuries.length} injuries)`);
-        }
-      } else {
-        console.log(`[ESPN] No cached CBS injury reports available`);
-      }
-    } catch (cbsError) {
-      console.warn(`[ESPN] Error accessing cached CBS injury data:`, cbsError.message);
-    }
-    
-    // If still no injuries after all attempts, try alternative sources as fallback
-    let scrapedInjuries = [];
-    if (injuries.length === 0) {
-      console.log(`[ESPN] No injuries found, attempting alternative sources...`);
-      console.log(`[ESPN] Team abbreviation: "${team.abbreviation}"`);
-      
-      // Try ESPN Game Summary first (most reliable - proven working!)
-      scrapedInjuries = await fetchInjuriesFromGameSummary(normalizedName, team.abbreviation);
-      
-      // If game summary fails, try scoreboard
-      if (scrapedInjuries.length === 0) {
-        scrapedInjuries = await fetchInjuriesFromBallDontLie(normalizedName);
-      }
-      
-      // If scoreboard fails, try ESPN page scraping
-      if (scrapedInjuries.length === 0) {
-        scrapedInjuries = await scrapeInjuriesFromESPN(team.abbreviation, normalizedName);
-      }
-      
-      // If ESPN scraping fails, try RotoWire as last resort
-      if (scrapedInjuries.length === 0) {
-        scrapedInjuries = await scrapeInjuriesFromRotoWire(normalizedName);
-      }
-      
-      if (scrapedInjuries.length > 0) {
-        injuries.push(...scrapedInjuries);
-        console.log(`[ESPN] Added ${scrapedInjuries.length} injuries via alternative sources`);
-      }
-    }
+    console.log(`[ESPN] Final injury count for ${normalizedName}: ${injuries.length}`);
     
     const result = {
       name: team.displayName,
