@@ -878,7 +878,10 @@ async function searchPlayers(interaction, searchQuery) {
       displayName = member.user.displayName || member.user.username;
     } catch (error) {
       // User might have left, use stored name
+      console.log(`[PLAYER SEARCH] Could not fetch member ${userId}, using stored name: ${displayName}`);
     }
+    
+    console.log(`[PLAYER SEARCH] Checking user: ${displayName} (stored: ${user.username}) against query: ${searchQuery}`);
     
     // Calculate match score
     const lowerQuery = searchQuery.toLowerCase();
@@ -901,11 +904,16 @@ async function searchPlayers(interaction, searchQuery) {
       const distance = levenshteinDistance(searchQuery, displayName);
       // Only include if distance is reasonable (less than half the query length + 3)
       if (distance <= Math.max(3, Math.floor(searchQuery.length / 2) + 1)) {
+        console.log(`[PLAYER SEARCH] Fuzzy match: ${displayName} (distance: ${distance})`);
         players.push({ userId, displayName, user, score: distance + 3 });
+      } else {
+        console.log(`[PLAYER SEARCH] Rejected: ${displayName} (distance: ${distance}, threshold: ${Math.max(3, Math.floor(searchQuery.length / 2) + 1)})`);
       }
     }
   }
 
+  console.log(`[PLAYER SEARCH] Found ${players.length} matching players for query: ${searchQuery}`);
+  
   // Sort by score (lower is better)
   players.sort((a, b) => a.score - b.score);
 
