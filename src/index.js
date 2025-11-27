@@ -395,7 +395,7 @@ async function sendSessionAnnouncement(client, session) {
         },
         {
           name: '📋 How to Play',
-          value: '1️⃣ Use `/pats` to see games and odds\n2️⃣ Pick teams you think will cover the spread\n3️⃣ Make all picks before each game starts!'
+          value: '1️⃣ Use `/pats dashboard` to see games and odds\n2️⃣ Pick teams you think will cover the spread\n3️⃣ Make all picks before each game starts!'
         },
         {
           name: '⏰ First Game',
