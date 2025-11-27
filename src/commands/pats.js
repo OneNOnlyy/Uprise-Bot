@@ -225,7 +225,7 @@ export async function handleDashboardButton(interaction) {
     } else if (interaction.customId === 'pats_stats_menu_other_stats') {
       // Show player selection for viewing other stats
       await interaction.deferUpdate();
-      await showPlayerSelection(interaction);
+      await showPlayerSelection(interaction, false);
     } else if (interaction.customId === 'pats_search_player') {
       // Show modal for player search
       const modal = new ModalBuilder()
@@ -251,6 +251,10 @@ export async function handleDashboardButton(interaction) {
       await interaction.deferUpdate();
       const userId = interaction.customId.replace('pats_view_player_', '');
       await showUserStats(interaction, userId);
+    } else if (interaction.customId === 'pats_player_selection_back') {
+      // Return to stats menu from player selection
+      await interaction.deferUpdate();
+      await showStatsMenu(interaction);
     } else if (interaction.customId === 'pats_stats_menu_back') {
       // Return to dashboard from stats menu
       await interaction.deferUpdate();
@@ -774,8 +778,8 @@ async function showPlayerSelection(interaction) {
       .setStyle(ButtonStyle.Primary)
       .setEmoji('🔍'),
     new ButtonBuilder()
-      .setCustomId('pats_stats_menu_back')
-      .setLabel('Back')
+      .setCustomId('pats_player_selection_back')
+      .setLabel('Back to Stats Menu')
       .setStyle(ButtonStyle.Secondary)
       .setEmoji('◀️')
   );
@@ -841,7 +845,7 @@ async function searchPlayers(interaction, searchQuery) {
         .setStyle(ButtonStyle.Primary)
         .setEmoji('🔍'),
       new ButtonBuilder()
-        .setCustomId('pats_stats_menu_back')
+        .setCustomId('pats_player_selection_back')
         .setLabel('Back')
         .setStyle(ButtonStyle.Secondary)
         .setEmoji('◀️')
@@ -910,7 +914,7 @@ async function searchPlayers(interaction, searchQuery) {
         .setStyle(ButtonStyle.Primary)
         .setEmoji('🔍'),
       new ButtonBuilder()
-        .setCustomId('pats_stats_menu_back')
+        .setCustomId('pats_player_selection_back')
         .setLabel('Back')
         .setStyle(ButtonStyle.Secondary)
         .setEmoji('◀️')
@@ -965,7 +969,7 @@ async function searchPlayers(interaction, searchQuery) {
       .setStyle(ButtonStyle.Secondary)
       .setEmoji('🔍'),
     new ButtonBuilder()
-      .setCustomId('pats_stats_menu_back')
+      .setCustomId('pats_player_selection_back')
       .setLabel('Back')
       .setStyle(ButtonStyle.Secondary)
       .setEmoji('◀️')
