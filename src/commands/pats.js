@@ -903,7 +903,7 @@ async function searchPlayers(interaction, searchQuery) {
   if (players.length === 0) {
     const embed = new EmbedBuilder()
       .setTitle('🔍 Player Search')
-      .setDescription(`No players found matching **"${searchQuery}"**\n\nTry searching with a different username or check the spelling.`)
+      .setDescription(`No players found matching **"${searchQuery}"**\n\nPossible reasons:\n• The player hasn't participated in PATS yet\n• Try a different spelling or username\n• Only players with at least 1 session can be viewed`)
       .setColor(0xFF6B6B)
       .setTimestamp();
 
