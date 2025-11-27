@@ -59,28 +59,77 @@ export async function getUpcomingBlazersGames(daysAhead = 14, includePast = fals
  */
 export async function getBlazersGameToday() {
   try {
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    // Get today's date in Pacific Time (where Trail Blazers play)
+    const todayPT = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+    const todayDate = new Date(todayPT);
+    const todayStr = todayDate.toISOString().split('T')[0];
     
-    console.log(`🔍 Checking for game on ${todayStr}...`);
+    // Also check yesterday to catch games that might span midnight UTC
+    const yesterday = new Date(todayDate);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
     
-    const url = `${BALLDONTLIE_API_BASE}/games?team_ids[]=${BLAZERS_TEAM_ID}&start_date=${todayStr}&end_date=${todayStr}`;
+    console.log(`🔍 [NBA API] Checking for game on ${todayStr} (PT: ${todayPT})...`);
+    console.log(`🔍 [NBA API] Also checking ${yesterdayStr} to catch timezone edge cases`);
+    
+    const url = `${BALLDONTLIE_API_BASE}/games?team_ids[]=${BLAZERS_TEAM_ID}&start_date=${yesterdayStr}&end_date=${todayStr}`;
+    console.log(`🔗 [NBA API] Request URL: ${url}`);
     
     const response = await fetch(url, {
       headers: getHeaders()
     });
     
     if (!response.ok) {
-      console.error(`BallDontLie API error: ${response.status} ${response.statusText}`);
+      console.error(`❌ [NBA API] BallDontLie API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`❌ [NBA API] Error response: ${errorText}`);
       return null;
     }
     
     const data = await response.json();
     const games = data.data || [];
     
-    return games.length > 0 ? games[0] : null;
+    console.log(`📊 [NBA API] API returned ${games.length} games`);
+    
+    // Find today's game (filter to games happening today in PT)
+    const todayGame = games.find(game => {
+      if (!game.status) return false;
+      
+      const gameDate = new Date(game.status);
+      const gameDatePT = gameDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' });
+      const todayDatePT = todayDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' });
+      
+      return gameDatePT === todayDatePT;
+    });
+    
+    if (todayGame) {
+      console.log(`✅ [NBA API] Game found:`, {
+        id: todayGame.id,
+        home: todayGame.home_team?.full_name,
+        away: todayGame.visitor_team?.full_name,
+        status: todayGame.status,
+        date: todayGame.date
+      });
+      return todayGame;
+    }
+    
+    // If no game found with proper date matching, just return the first game (fallback)
+    if (games.length > 0) {
+      console.log(`⚠️ [NBA API] No exact match, returning first game as fallback`);
+      console.log(`✅ [NBA API] Game found:`, {
+        id: games[0].id,
+        home: games[0].home_team?.full_name,
+        away: games[0].visitor_team?.full_name,
+        status: games[0].status,
+        date: games[0].date
+      });
+      return games[0];
+    }
+    
+    console.log(`ℹ️ [NBA API] No games found for ${yesterdayStr} to ${todayStr}`);
+    return null;
   } catch (error) {
-    console.error('Error fetching today\'s game:', error);
+    console.error('❌ [NBA API] Error fetching today\'s game:', error);
     return null;
   }
 }
