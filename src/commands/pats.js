@@ -842,9 +842,17 @@ async function showUserStats(interaction, targetUserId = null) {
   
   if (targetUserId && targetUserId !== interaction.user.id) {
     isOwnStats = false;
-    const { readPATSData } = await import('../utils/patsData.js');
-    const data = readPATSData();
-    displayName = data.users[targetUserId]?.username || targetUserId;
+    
+    // Try to fetch the user from Discord first
+    try {
+      const targetUser = await interaction.client.users.fetch(targetUserId);
+      displayName = targetUser.displayName || targetUser.username;
+    } catch (error) {
+      // If user can't be fetched, fall back to stored username
+      const { readPATSData } = await import('../utils/patsData.js');
+      const data = readPATSData();
+      displayName = data.users[targetUserId]?.username || targetUserId;
+    }
   }
   
   const embed = new EmbedBuilder()
