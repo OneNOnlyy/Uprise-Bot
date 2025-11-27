@@ -461,10 +461,19 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
                 status = injury.status.abbreviation;
               }
               
+              // Extract comment (latest update)
+              let comment = '';
+              if (injury.longComment) {
+                comment = injury.longComment;
+              } else if (injury.shortComment) {
+                comment = injury.shortComment;
+              }
+              
               injuries.push({
                 player: playerName,
                 status: status,
-                description: description
+                description: description,
+                comment: comment
               });
               console.log(`[Scraper] Game Summary: ${playerName} - ${status} (${description})`);
             }
@@ -841,10 +850,19 @@ async function getInjuriesFromScoreboard(teamAbbr) {
                   status = injury.status.abbreviation;
                 }
                 
+                // Extract comment
+                let comment = '';
+                if (injury.longComment) {
+                  comment = injury.longComment;
+                } else if (injury.shortComment) {
+                  comment = injury.shortComment;
+                }
+                
                 const injuryData = {
                   player: injury.athlete?.displayName || injury.athlete?.fullName || 'Unknown',
                   status: status,
-                  description: injury.details?.type || injury.type || 'Injury'
+                  description: injury.details?.type || injury.type || 'Injury',
+                  comment: comment
                 };
                 injuries.push(injuryData);
                 console.log(`[ESPN] Scoreboard injury: ${injuryData.player} - ${injuryData.status} (${injuryData.description})`);

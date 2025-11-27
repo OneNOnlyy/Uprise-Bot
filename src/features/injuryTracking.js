@@ -126,7 +126,8 @@ function compareInjuries(oldList, newList) {
         player,
         oldStatus: oldInj.status,
         newStatus: newInj.status,
-        injury: newInj.injury
+        description: newInj.description,
+        comment: newInj.comment
       });
     }
   }
@@ -150,22 +151,30 @@ function formatInjuryChanges(teamName, changes) {
   if (changes.added.length > 0) {
     lines.push('**🔴 New Injuries:**');
     changes.added.forEach(inj => {
-      lines.push(`• ${inj.player} - ${inj.injury} (${inj.status})`);
+      const desc = inj.description || 'Injury';
+      lines.push(`• ${inj.player} - ${desc} (${inj.status})`);
+      if (inj.comment) {
+        lines.push(`  💬 ${inj.comment}`);
+      }
     });
   }
 
   if (changes.statusChanged.length > 0) {
     lines.push('**⚠️ Status Updates:**');
     changes.statusChanged.forEach(change => {
-      lines.push(`• ${change.player} - ${change.injury}`);
+      const desc = change.description || 'Injury';
+      lines.push(`• ${change.player} - ${desc}`);
       lines.push(`  ${change.oldStatus} → ${change.newStatus}`);
+      if (change.comment) {
+        lines.push(`  💬 ${change.comment}`);
+      }
     });
   }
 
   if (changes.removed.length > 0) {
-    lines.push('**🟢 Removed from Report:**');
+    lines.push('**🟢 Removed from Report (Now Available):**');
     changes.removed.forEach(inj => {
-      lines.push(`• ${inj.player} - ${inj.injury}`);
+      lines.push(`• ${inj.player}`);
     });
   }
 
