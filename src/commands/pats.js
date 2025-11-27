@@ -883,31 +883,40 @@ async function searchPlayers(interaction, searchQuery) {
     
     console.log(`[PLAYER SEARCH] Checking user: ${displayName} (stored: ${user.username}) against query: ${searchQuery}`);
     
-    // Calculate match score
+    // Calculate match score - check both display name AND stored username
     const lowerQuery = searchQuery.toLowerCase();
     const lowerName = displayName.toLowerCase();
+    const lowerStoredName = (user.username || '').toLowerCase();
     
-    // Exact match scores highest
-    if (lowerName === lowerQuery) {
+    // Exact match scores highest (check both names)
+    if (lowerName === lowerQuery || lowerStoredName === lowerQuery) {
       players.push({ userId, displayName, user, score: 0 });
     }
-    // Starts with query scores high
-    else if (lowerName.startsWith(lowerQuery)) {
+    // Starts with query scores high (check both names)
+    else if (lowerName.startsWith(lowerQuery) || lowerStoredName.startsWith(lowerQuery)) {
       players.push({ userId, displayName, user, score: 1 });
     }
-    // Contains query scores medium
-    else if (lowerName.includes(lowerQuery)) {
+    // Contains query scores medium (check both names)
+    else if (lowerName.includes(lowerQuery) || lowerStoredName.includes(lowerQuery)) {
+      console.log(`[PLAYER SEARCH] Contains match: ${displayName} (or stored: ${user.username})`);
       players.push({ userId, displayName, user, score: 2 });
     }
-    // Use Levenshtein distance for fuzzy matching
+    // Use Levenshtein distance for fuzzy matching (check both names, use best match)
     else {
-      const distance = levenshteinDistance(searchQuery, displayName);
-      // Only include if distance is reasonable (less than half the query length + 3)
-      if (distance <= Math.max(3, Math.floor(searchQuery.length / 2) + 1)) {
-        console.log(`[PLAYER SEARCH] Fuzzy match: ${displayName} (distance: ${distance})`);
+      const distanceDisplay = levenshteinDistance(searchQuery, displayName);
+      const distanceStored = levenshteinDistance(searchQuery, user.username || '');
+      const distance = Math.min(distanceDisplay, distanceStored);
+      
+      // More lenient threshold: allow up to 5 edits or 60% of the longer string length
+      const maxDistanceDisplay = Math.max(5, Math.floor(Math.max(searchQuery.length, displayName.length) * 0.6));
+      const maxDistanceStored = Math.max(5, Math.floor(Math.max(searchQuery.length, (user.username || '').length) * 0.6));
+      const maxDistance = Math.max(maxDistanceDisplay, maxDistanceStored);
+      
+      if (distance <= maxDistance) {
+        console.log(`[PLAYER SEARCH] Fuzzy match: ${displayName} (display distance: ${distanceDisplay}, stored distance: ${distanceStored}, threshold: ${maxDistance})`);
         players.push({ userId, displayName, user, score: distance + 3 });
       } else {
-        console.log(`[PLAYER SEARCH] Rejected: ${displayName} (distance: ${distance}, threshold: ${Math.max(3, Math.floor(searchQuery.length / 2) + 1)})`);
+        console.log(`[PLAYER SEARCH] Rejected: ${displayName} (display distance: ${distanceDisplay}, stored distance: ${distanceStored}, threshold: ${maxDistance})`);
       }
     }
   }
