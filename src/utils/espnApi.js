@@ -451,12 +451,22 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
               
               const playerName = fixPlayerName(injury.longComment || injury.athlete?.displayName || 'Unknown');
               
+              // Parse status - it might be an object with description/abbreviation
+              let status = 'Out';
+              if (typeof injury.status === 'string') {
+                status = injury.status;
+              } else if (injury.status?.description) {
+                status = injury.status.description;
+              } else if (injury.status?.abbreviation) {
+                status = injury.status.abbreviation;
+              }
+              
               injuries.push({
                 player: playerName,
-                status: injury.status || 'Out',
+                status: status,
                 description: description
               });
-              console.log(`[Scraper] Game Summary: ${playerName} - ${injury.status} (${description})`);
+              console.log(`[Scraper] Game Summary: ${playerName} - ${status} (${description})`);
             }
           } else {
             console.log(`[Scraper] ✓ MATCH but no injuries array for ${teamName}`);
@@ -821,9 +831,19 @@ async function getInjuriesFromScoreboard(teamAbbr) {
             if (competitor.injuries && competitor.injuries.length > 0) {
               console.log(`[ESPN] Found ${competitor.injuries.length} injuries for ${teamAbbr}`);
               competitor.injuries.forEach(injury => {
+                // Parse status - it might be an object with description/abbreviation
+                let status = 'Out';
+                if (typeof injury.status === 'string') {
+                  status = injury.status;
+                } else if (injury.status?.description) {
+                  status = injury.status.description;
+                } else if (injury.status?.abbreviation) {
+                  status = injury.status.abbreviation;
+                }
+                
                 const injuryData = {
                   player: injury.athlete?.displayName || injury.athlete?.fullName || 'Unknown',
-                  status: injury.status || 'Out',
+                  status: status,
                   description: injury.details?.type || injury.type || 'Injury'
                 };
                 injuries.push(injuryData);
