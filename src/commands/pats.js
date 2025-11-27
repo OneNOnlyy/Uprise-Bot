@@ -825,10 +825,19 @@ async function searchPlayers(interaction, searchQuery) {
   const { readPATSData } = await import('../utils/patsData.js');
   const data = readPATSData();
   
-  // Get all users who have played
+  // Get active session to check who has made picks
+  const { getActiveSession, getUserPicks } = await import('../utils/patsData.js');
+  const activeSession = getActiveSession();
+  
+  // Get all users who have played (sessions > 0) OR have made picks in current session
   const playerIds = Object.keys(data.users).filter(userId => {
     const user = data.users[userId];
-    return (user.sessions || 0) > 0;
+    const hasCompletedSessions = (user.sessions || 0) > 0;
+    
+    // Check if user has picks in current active session
+    const hasCurrentPicks = activeSession && getUserPicks(activeSession.id, userId).length > 0;
+    
+    return hasCompletedSessions || hasCurrentPicks;
   });
 
   if (playerIds.length === 0) {
