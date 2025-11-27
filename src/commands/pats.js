@@ -4,7 +4,10 @@ import {
   ActionRowBuilder, 
   ButtonBuilder,
   ButtonStyle,
-  StringSelectMenuBuilder
+  StringSelectMenuBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle
 } from 'discord.js';
 import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory, updateGameResult } from '../utils/patsData.js';
 import { getTeamAbbreviation, fetchCBSSportsScores } from '../utils/oddsApi.js';
@@ -223,6 +226,31 @@ export async function handleDashboardButton(interaction) {
       // Show player selection for viewing other stats
       await interaction.deferUpdate();
       await showPlayerSelection(interaction);
+    } else if (interaction.customId === 'pats_search_player') {
+      // Show modal for player search
+      const modal = new ModalBuilder()
+        .setCustomId('pats_player_search_modal')
+        .setTitle('Search for Player');
+
+      const usernameInput = new TextInputBuilder()
+        .setCustomId('player_username')
+        .setLabel('Player Username')
+        .setPlaceholder('Enter username to search...')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMinLength(1)
+        .setMaxLength(32);
+
+      const firstRow = new ActionRowBuilder().addComponents(usernameInput);
+      modal.addComponents(firstRow);
+
+      await interaction.showModal(modal);
+      return; // Don't defer for modals
+    } else if (interaction.customId.startsWith('pats_view_player_')) {
+      // View specific player's stats from search results
+      await interaction.deferUpdate();
+      const userId = interaction.customId.replace('pats_view_player_', '');
+      await showUserStats(interaction, userId);
     } else if (interaction.customId === 'pats_stats_menu_back') {
       // Return to dashboard from stats menu
       await interaction.deferUpdate();
@@ -733,25 +761,85 @@ async function showStatsMenu(interaction) {
  * Show player selection for viewing other player's stats
  */
 async function showPlayerSelection(interaction) {
+  const embed = new EmbedBuilder()
+    .setTitle('📊 View Other Player Stats')
+    .setDescription('**Search for any player by username:**\n\nClick the button below to search for a player.')
+    .setColor(0x5865F2)
+    .setTimestamp();
+
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_search_player')
+      .setLabel('Search Player')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🔍'),
+    new ButtonBuilder()
+      .setCustomId('pats_stats_menu_back')
+      .setLabel('Back')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('◀️')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [buttons]
+  });
+}
+
+/**
+ * Calculate Levenshtein distance for fuzzy matching
+ */
+function levenshteinDistance(str1, str2) {
+  const s1 = str1.toLowerCase();
+  const s2 = str2.toLowerCase();
+  const len1 = s1.length;
+  const len2 = s2.length;
+  
+  const matrix = Array(len2 + 1).fill(null).map(() => Array(len1 + 1).fill(0));
+  
+  for (let i = 0; i <= len1; i++) matrix[0][i] = i;
+  for (let j = 0; j <= len2; j++) matrix[j][0] = j;
+  
+  for (let j = 1; j <= len2; j++) {
+    for (let i = 1; i <= len1; i++) {
+      const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1,
+        matrix[j - 1][i] + 1,
+        matrix[j - 1][i - 1] + cost
+      );
+    }
+  }
+  
+  return matrix[len2][len1];
+}
+
+/**
+ * Search for players by username with fuzzy matching
+ */
+async function searchPlayers(interaction, searchQuery) {
   const { readPATSData } = await import('../utils/patsData.js');
   const data = readPATSData();
   
   // Get all users who have played
-  const playerIds = Object.keys(data.users)
-    .filter(userId => userId !== interaction.user.id) // Exclude current user
-    .filter(userId => {
-      const user = data.users[userId];
-      return (user.sessions || 0) > 0; // Only show players with at least 1 session
-    });
+  const playerIds = Object.keys(data.users).filter(userId => {
+    const user = data.users[userId];
+    return (user.sessions || 0) > 0;
+  });
 
   if (playerIds.length === 0) {
     const embed = new EmbedBuilder()
-      .setTitle('📊 View Other Player Stats')
-      .setDescription('No other players have participated in PATS yet.')
+      .setTitle('🔍 Player Search')
+      .setDescription('No players have participated in PATS yet.')
       .setColor(0x808080)
       .setTimestamp();
 
     const backButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_search_player')
+        .setLabel('Search Again')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('🔍'),
       new ButtonBuilder()
         .setCustomId('pats_stats_menu_back')
         .setLabel('Back')
@@ -766,55 +854,116 @@ async function showPlayerSelection(interaction) {
     return;
   }
 
-  // Fetch Discord usernames from guild
+  // Fetch all player info with fuzzy match scoring
   const players = [];
   for (const userId of playerIds) {
     const user = data.users[userId];
     let displayName = user.username || userId;
     
-    // Try to fetch actual Discord username
     try {
       const member = await interaction.guild.members.fetch(userId);
-      displayName = member.user.username;
+      displayName = member.user.displayName || member.user.username;
     } catch (error) {
-      // User might have left the server, use stored username or ID
-      console.log(`[PATS] Could not fetch member ${userId}:`, error.message);
+      // User might have left, use stored name
     }
     
-    players.push({
-      userId,
-      username: displayName,
-      sessions: user.sessions || 0,
-      winRate: user.totalWins && user.totalLosses 
-        ? ((user.totalWins / (user.totalWins + user.totalLosses)) * 100).toFixed(1)
-        : '0.0'
-    });
+    // Calculate match score
+    const lowerQuery = searchQuery.toLowerCase();
+    const lowerName = displayName.toLowerCase();
+    
+    // Exact match scores highest
+    if (lowerName === lowerQuery) {
+      players.push({ userId, displayName, user, score: 0 });
+    }
+    // Starts with query scores high
+    else if (lowerName.startsWith(lowerQuery)) {
+      players.push({ userId, displayName, user, score: 1 });
+    }
+    // Contains query scores medium
+    else if (lowerName.includes(lowerQuery)) {
+      players.push({ userId, displayName, user, score: 2 });
+    }
+    // Use Levenshtein distance for fuzzy matching
+    else {
+      const distance = levenshteinDistance(searchQuery, displayName);
+      // Only include if distance is reasonable (less than half the query length + 3)
+      if (distance <= Math.max(3, Math.floor(searchQuery.length / 2) + 1)) {
+        players.push({ userId, displayName, user, score: distance + 3 });
+      }
+    }
   }
 
-  // Sort by win rate
-  players.sort((a, b) => parseFloat(b.winRate) - parseFloat(a.winRate));
+  // Sort by score (lower is better)
+  players.sort((a, b) => a.score - b.score);
 
+  if (players.length === 0) {
+    const embed = new EmbedBuilder()
+      .setTitle('🔍 Player Search')
+      .setDescription(`No players found matching **"${searchQuery}"**\n\nTry searching with a different username or check the spelling.`)
+      .setColor(0xFF6B6B)
+      .setTimestamp();
+
+    const buttons = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_search_player')
+        .setLabel('Search Again')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('🔍'),
+      new ButtonBuilder()
+        .setCustomId('pats_stats_menu_back')
+        .setLabel('Back')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️')
+    );
+
+    await interaction.editReply({
+      embeds: [embed],
+      components: [buttons]
+    });
+    return;
+  }
+
+  // Show top 5 results
+  const topResults = players.slice(0, 5);
+  
   const embed = new EmbedBuilder()
-    .setTitle('📊 View Other Player Stats')
-    .setDescription('**Select a player to view their statistics:**')
+    .setTitle('🔍 Player Search Results')
+    .setDescription(`**Search:** "${searchQuery}"\n\n${topResults.length === 1 ? 'Found 1 match:' : `Found ${topResults.length} matches:`}`)
     .setColor(0x5865F2)
     .setTimestamp();
 
-  // Create dropdown menu with players (max 25 options)
-  const options = players.slice(0, 25).map(player => ({
-    label: player.username,
-    description: `${player.sessions} sessions • ${player.winRate}% win rate`,
-    value: player.userId
-  }));
+  // Add field for each result
+  topResults.forEach((player, index) => {
+    const totalGames = player.user.totalWins + player.user.totalLosses;
+    const winRate = totalGames > 0 
+      ? ((player.user.totalWins / totalGames) * 100).toFixed(1)
+      : '0.0';
+    
+    embed.addFields({
+      name: `${index + 1}. ${player.displayName}`,
+      value: `${player.user.sessions || 0} sessions • ${winRate}% win rate`,
+      inline: false
+    });
+  });
 
-  const selectMenu = new ActionRowBuilder().addComponents(
-    new StringSelectMenuBuilder()
-      .setCustomId('pats_player_select')
-      .setPlaceholder('Choose a player...')
-      .addOptions(options)
-  );
+  // Create buttons for top results (up to 5)
+  const buttons = [];
+  topResults.forEach((player, index) => {
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId(`pats_view_player_${player.userId}`)
+        .setLabel(`${index + 1}. ${player.displayName.substring(0, 70)}`)
+        .setStyle(ButtonStyle.Primary)
+    );
+  });
 
-  const backButton = new ActionRowBuilder().addComponents(
+  // Add search again and back buttons
+  buttons.push(
+    new ButtonBuilder()
+      .setCustomId('pats_search_player')
+      .setLabel('Search Again')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🔍'),
     new ButtonBuilder()
       .setCustomId('pats_stats_menu_back')
       .setLabel('Back')
@@ -822,9 +971,15 @@ async function showPlayerSelection(interaction) {
       .setEmoji('◀️')
   );
 
+  // Split into rows (5 buttons per row max)
+  const rows = [];
+  for (let i = 0; i < buttons.length; i += 5) {
+    rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+  }
+
   await interaction.editReply({
     embeds: [embed],
-    components: [selectMenu, backButton]
+    components: rows
   });
 }
 
@@ -1228,6 +1383,13 @@ export async function handlePlayerSelection(interaction) {
   await interaction.deferUpdate();
   const selectedUserId = interaction.values[0];
   await showUserStats(interaction, selectedUserId);
+}
+
+/**
+ * Handle player search from modal
+ */
+export async function handlePlayerSearch(interaction, searchQuery) {
+  await searchPlayers(interaction, searchQuery);
 }
 
 /**

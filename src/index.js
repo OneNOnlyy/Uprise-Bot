@@ -1126,6 +1126,27 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     }
   }
+  
+  // Handle modal submission for player search
+  if (interaction.isModalSubmit() && interaction.customId === 'pats_player_search_modal') {
+    try {
+      await interaction.deferUpdate();
+      const searchQuery = interaction.fields.getTextInputValue('player_username');
+      await patsCommand.handlePlayerSearch(interaction, searchQuery);
+    } catch (error) {
+      console.error('Error handling player search modal:', error);
+      const errorMessage = { 
+        content: '❌ There was an error searching for that player!', 
+        ephemeral: true 
+      };
+      
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(errorMessage);
+      } else {
+        await interaction.reply(errorMessage);
+      }
+    }
+  }
 });
 
 client.on(Events.Error, (error) => {
