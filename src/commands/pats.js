@@ -837,8 +837,15 @@ async function searchPlayers(interaction, searchQuery) {
     // Check if user has picks in current active session
     const hasCurrentPicks = activeSession && getUserPicks(activeSession.id, userId).length > 0;
     
-    return hasCompletedSessions || hasCurrentPicks;
+    const included = hasCompletedSessions || hasCurrentPicks;
+    if (included) {
+      console.log(`[PLAYER SEARCH] Including user: ${user.username || userId} (sessions: ${user.sessions}, currentPicks: ${hasCurrentPicks})`);
+    }
+    
+    return included;
   });
+  
+  console.log(`[PLAYER SEARCH] Total players to search: ${playerIds.length}`);
 
   if (playerIds.length === 0) {
     const embed = new EmbedBuilder()
