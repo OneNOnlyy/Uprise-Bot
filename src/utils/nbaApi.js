@@ -17,20 +17,21 @@ function getHeaders() {
  */
 export async function getUpcomingBlazersGames(daysAhead = 14, includePast = false) {
   try {
-    const today = new Date();
+    // Get current time in Pacific Time (where Trail Blazers play)
+    const nowPT = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+    const now = new Date(nowPT);
     
-    // If includePast is true, start from yesterday to catch today's games
-    const startDate = new Date(today);
+    const startDate = new Date(now);
     if (includePast) {
-      startDate.setDate(today.getDate() - 1);
+      startDate.setDate(now.getDate() - 1);
     }
     const startDateStr = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
     
-    const endDate = new Date(today);
-    endDate.setDate(today.getDate() + daysAhead);
+    const endDate = new Date(now);
+    endDate.setDate(now.getDate() + daysAhead);
     const endDateStr = endDate.toISOString().split('T')[0];
     
-    console.log(`🔍 Fetching games from ${startDateStr} to ${endDateStr}...`);
+    console.log(`🔍 Fetching games from ${startDateStr} to ${endDateStr} (PT: ${nowPT})...`);
     
     // Fetch games for the Trail Blazers
     const url = `${BALLDONTLIE_API_BASE}/games?team_ids[]=${BLAZERS_TEAM_ID}&start_date=${startDateStr}&end_date=${endDateStr}&per_page=100`;
@@ -45,9 +46,27 @@ export async function getUpcomingBlazersGames(daysAhead = 14, includePast = fals
     }
     
     const data = await response.json();
-    console.log(`✅ Found ${data.data?.length || 0} Trail Blazers games`);
+    let games = data.data || [];
     
-    return data.data || [];
+    // Filter out games that have already started (unless includePast is true)
+    if (!includePast) {
+      games = games.filter(game => {
+        if (!game.status) return true; // Keep games without status
+        
+        const gameTime = new Date(game.status);
+        const isUpcoming = gameTime > now;
+        
+        if (!isUpcoming) {
+          console.log(`🚫 Filtering out past game: ${game.visitor_team?.abbreviation} @ ${game.home_team?.abbreviation} (${gameTime.toISOString()})`);
+        }
+        
+        return isUpcoming;
+      });
+    }
+    
+    console.log(`✅ Found ${games.length} ${includePast ? '' : 'upcoming '}Trail Blazers games`);
+    
+    return games;
   } catch (error) {
     console.error('Error fetching games from BallDontLie API:', error);
     return [];
