@@ -404,10 +404,28 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
         const $elem = $(elem);
         const text = $elem.text().trim();
         
+        // Skip elements that contain all team names (like navigation menus)
+        // If the text is too long, it's probably a menu with all teams
+        if (text.length > 200) {
+          return; // Skip this element
+        }
+        
         // Check if this element contains any of our team name variations
-        const matchesTeamName = teamNameVariations.some(variation => 
-          text === variation || text.toLowerCase().includes(variation.toLowerCase())
-        );
+        // Must be an exact match or close to it (not just contained in a long list)
+        const matchesTeamName = teamNameVariations.some(variation => {
+          const lowerText = text.toLowerCase();
+          const lowerVariation = variation.toLowerCase();
+          
+          // Exact match
+          if (lowerText === lowerVariation) return true;
+          
+          // Text is just the team name plus some extra characters (like icons)
+          if (lowerText.includes(lowerVariation) && text.length < lowerVariation.length + 30) {
+            return true;
+          }
+          
+          return false;
+        });
         
         if (matchesTeamName) {
           console.log(`[ESPN Injuries Page] ✓ Found team match in "${text}" using selector ${selector}`);
