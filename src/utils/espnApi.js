@@ -343,10 +343,44 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
     const injuries = [];
     
     // Create variations of team name to search for
+    // ESPN injuries page typically uses just city names without mascots
+    const cityName = teamName
+      .replace(/ Hawks?$/, '')
+      .replace(/ Celtics$/, '')
+      .replace(/ Nets$/, '')
+      .replace(/ Hornets$/, '')
+      .replace(/ Bulls$/, '')
+      .replace(/ Cavaliers$/, '')
+      .replace(/ Mavericks$/, '')
+      .replace(/ Nuggets$/, '')
+      .replace(/ Pistons$/, '')
+      .replace(/ Warriors$/, '')
+      .replace(/ Rockets$/, '')
+      .replace(/ Pacers$/, '')
+      .replace(/ Clippers$/, '')
+      .replace(/ Lakers$/, '')
+      .replace(/ Grizzlies$/, '')
+      .replace(/ Heat$/, '')
+      .replace(/ Bucks$/, '')
+      .replace(/ Timberwolves$/, '')
+      .replace(/ Pelicans$/, '')
+      .replace(/ Knicks$/, '')
+      .replace(/ Thunder$/, '')
+      .replace(/ Magic$/, '')
+      .replace(/ 76ers$/, '')
+      .replace(/ Suns$/, '')
+      .replace(/ Trail Blazers$/, '')
+      .replace(/ Kings$/, '')
+      .replace(/ Spurs$/, '')
+      .replace(/ Raptors$/, '')
+      .replace(/ Jazz$/, '')
+      .replace(/ Wizards$/, '')
+      .trim();
+    
     const teamNameVariations = [
-      teamName,
-      teamName.replace(' Thunder', '').replace(' Blazers', '').replace(' Mavericks', '').replace(' Cavaliers', ''),
-      teamAbbr
+      teamName,        // Full name: "Oklahoma City Thunder"
+      cityName,        // City only: "Oklahoma City"
+      teamAbbr         // Abbreviation: "OKC"
     ];
     
     console.log(`[ESPN Injuries Page] Looking for team name variations: ${teamNameVariations.join(', ')}`);
