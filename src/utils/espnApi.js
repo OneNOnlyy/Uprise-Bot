@@ -152,16 +152,18 @@ function extractStatusFromComment(comment) {
   const commentLower = comment.toLowerCase();
   
   // Check for status keywords in order of specificity
-  if (commentLower.includes('doubtful')) {
+  // Use word boundaries to avoid false matches (e.g., "about" shouldn't match "out")
+  if (/\bdoubtful\b/i.test(comment)) {
     return 'Doubtful';
   }
-  if (commentLower.includes('questionable')) {
+  if (/\bquestionable\b/i.test(comment)) {
     return 'Questionable';
   }
-  if (commentLower.includes('probable')) {
+  if (/\bprobable\b/i.test(comment)) {
     return 'Probable';
   }
-  if (commentLower.includes('out')) {
+  // For "out", be more specific - look for contexts like "out for", "is out", "ruled out"
+  if (/\b(is out|ruled out|out for|out indefinitely|out \d+|sits out)\b/i.test(comment)) {
     return 'Out';
   }
   
@@ -1327,6 +1329,7 @@ export async function fetchAllInjuryReports() {
 
           if (cleanPlayerName && status) {
             const normalizedStatus = normalizeInjuryStatus(status, injury);
+            console.log(`[CBS] ${cleanPlayerName}: Status="${status}" -> "${normalizedStatus}", Injury="${injury}", Updated="${updated}"`);
             tableInjuries.push({
               player: fixPlayerName(cleanPlayerName),
               status: normalizedStatus,
@@ -1415,6 +1418,20 @@ export function formatInjuries(injuries) {
     if (typeof desc === 'object' && desc !== null) {
       desc = desc.type || desc.detail || JSON.stringify(desc);
     }
-    return `❌ ${inj.player} - ${inj.status} (${desc})`;
+    
+    // Build injury line with optional return date
+    let injuryLine = `❌ ${inj.player} - ${inj.status}`;
+    
+    // Add description
+    if (desc && desc !== 'Injury') {
+      injuryLine += ` (${desc})`;
+    }
+    
+    // Add return date if available (from CBS "updated" field)
+    if (inj.updated && inj.updated.trim() && inj.updated !== 'Updated') {
+      injuryLine += ` • Est. Return: ${inj.updated}`;
+    }
+    
+    return injuryLine;
   }).join('\n');
 }
