@@ -482,14 +482,34 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
               if (tableText.includes('STATUS') || tableText.includes('COMMENT') || tableText.includes('EST. RETURN') ||
                   tableText.includes('Day-To-Day') || tableText.includes('Out') || tableText.includes('Doubtful') || tableText.includes('Questionable')) {
                 // Check if this could be our team's table by looking at nearby text
-                // Get the section this table is in
-                const tableSection = $table.closest('div, section, article');
-                const sectionText = tableSection.text();
+                // Get the immediate parent container (not too large)
+                const immediateContainer = $table.parent();
+                const containerText = immediateContainer.text();
                 
-                // If the section mentions our team name
-                if (teamNameVariations.some(v => sectionText.toLowerCase().includes(v.toLowerCase()))) {
+                // The team name should appear NEAR this table (in parent or sibling)
+                // Look for team header immediately before the table
+                const prevSiblings = $table.prevAll().slice(0, 3); // Check up to 3 elements before
+                let foundTeamHeader = false;
+                
+                prevSiblings.each((i, sibling) => {
+                  const siblingText = $(sibling).text();
+                  if (teamNameVariations.some(v => siblingText.toLowerCase().includes(v.toLowerCase()))) {
+                    foundTeamHeader = true;
+                    return false; // break
+                  }
+                });
+                
+                // Also check if the immediate parent contains the team name
+                if (!foundTeamHeader && teamNameVariations.some(v => containerText.toLowerCase().includes(v.toLowerCase()))) {
+                  // Make sure it's not a huge container with multiple teams
+                  if (containerText.length < 5000) { // Reasonable size for a single team section
+                    foundTeamHeader = true;
+                  }
+                }
+                
+                if (foundTeamHeader) {
                   teamSection = $table;
-                  console.log(`[ESPN Injuries Page] ✓ Found table via section text match (${$table.prop('tagName')})`);
+                  console.log(`[ESPN Injuries Page] ✓ Found table via nearby team header (${$table.prop('tagName')})`);
                   return false; // break
                 }
               }
