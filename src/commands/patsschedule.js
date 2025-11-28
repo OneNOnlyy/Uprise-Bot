@@ -1022,7 +1022,7 @@ export async function showConfigurationMenu(interaction) {
   
   // Calculate announcement time
   const announcementTime = new Date(firstGameTime);
-  announcementTime.setHours(announcementTime.getHours() - config.notifications.announcement.hoursBefore);
+  announcementTime.setTime(announcementTime.getTime() - (config.notifications.announcement.hoursBefore * 60 * 60 * 1000));
   
   const embed = new EmbedBuilder()
     .setTitle('⚙️ Configure Session')
@@ -1593,7 +1593,7 @@ export async function createScheduledSession(interaction) {
     
     // Calculate announcement time
     const announcementTime = new Date(firstGameTime);
-    announcementTime.setHours(announcementTime.getHours() - config.notifications.announcement.hoursBefore);
+    announcementTime.setTime(announcementTime.getTime() - (config.notifications.announcement.hoursBefore * 60 * 60 * 1000));
     
     // Build game details
     const gameDetails = selectedGames.map(game => ({
