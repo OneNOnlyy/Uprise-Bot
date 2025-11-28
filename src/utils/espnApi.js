@@ -429,20 +429,60 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
         
         if (matchesTeamName) {
           console.log(`[ESPN Injuries Page] ✓ Found team match in "${text}" using selector ${selector}`);
-          // Find the nearest table after this element
+          
+          // Try multiple strategies to find the associated injury table
+          // Strategy 1: Look in closest container
           teamSection = $elem.closest('div, section, article').find('table').first();
+          
+          // Strategy 2: Look for next table sibling
           if (teamSection.length === 0) {
-            // Try looking for table as next sibling or in parent
             teamSection = $elem.nextAll('table').first();
-            if (teamSection.length === 0) {
-              teamSection = $elem.parent().find('table').first();
-            }
           }
           
-          if (teamSection.length > 0) {
+          // Strategy 3: Look in parent
+          if (teamSection.length === 0) {
+            teamSection = $elem.parent().find('table').first();
+          }
+          
+          // Strategy 4: Look for table in parent's parent (sometimes nested deeply)
+          if (teamSection.length === 0) {
+            teamSection = $elem.parent().parent().find('table').first();
+          }
+          
+          // Strategy 5: Find the element's parent section and look for ANY table after this team element
+          if (teamSection.length === 0) {
+            // Get all tables on the page
+            const allTables = $('table');
+            const elemIndex = $elem.index();
+            
+            // Find the first table that comes after this element in the DOM
+            allTables.each((tableIdx, table) => {
+              const $table = $(table);
+              // Check if this table comes after our team element
+              // Simple heuristic: if the table contains injury-related headers
+              const tableText = $table.text();
+              if (tableText.includes('STATUS') || tableText.includes('COMMENT') || tableText.includes('EST. RETURN')) {
+                // Check if this could be the Bulls' table by looking at nearby text
+                // Get the section this table is in
+                const tableSection = $table.closest('div, section, article');
+                const sectionText = tableSection.text();
+                
+                // If the section mentions our team name
+                if (teamNameVariations.some(v => sectionText.includes(v))) {
+                  teamSection = $table;
+                  console.log(`[ESPN Injuries Page] ✓ Found table via section text match`);
+                  return false; // break
+                }
+              }
+            });
+          }
+          
+          if (teamSection && teamSection.length > 0) {
             console.log(`[ESPN Injuries Page] ✓ Found injuries table for ${teamName}`);
             foundTeam = true;
             return false; // break out of each loop
+          } else {
+            console.log(`[ESPN Injuries Page] ⚠ Found team header but no table for ${teamName}`);
           }
         }
       });
