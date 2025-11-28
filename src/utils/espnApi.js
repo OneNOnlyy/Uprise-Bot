@@ -342,6 +342,15 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
     const $ = cheerio.load(html);
     const injuries = [];
     
+    // Create variations of team name to search for
+    const teamNameVariations = [
+      teamName,
+      teamName.replace(' Thunder', '').replace(' Blazers', '').replace(' Mavericks', '').replace(' Cavaliers', ''),
+      teamAbbr
+    ];
+    
+    console.log(`[ESPN Injuries Page] Looking for team name variations: ${teamNameVariations.join(', ')}`);
+    
     // Strategy: Find team section, then collect all injury rows until next team
     let inTargetTeam = false;
     let foundTeam = false;
@@ -351,15 +360,19 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
       const $elem = $(elem);
       const text = $elem.text().trim();
       
-      // Check if this is a team header - look for team name match
-      if (text === teamName || text.includes(teamName)) {
-        // Verify it's actually a team header by checking for logo nearby
+      // Check if this is a team header - look for any team name variation
+      const matchesTeamName = teamNameVariations.some(variation => 
+        text === variation || text.includes(variation)
+      );
+      
+      if (matchesTeamName) {
+        // Verify it's actually a team header by checking for logo nearby or if it's a header
         const hasLogo = $elem.find('img[alt*="' + teamName + '"]').length > 0 || 
                        $elem.parent().find('img[alt*="' + teamName + '"]').length > 0 ||
                        $elem.prev().find('img[alt*="' + teamName + '"]').length > 0;
         
-        if (hasLogo || $elem.is('h2, h3') || $elem.parent().is('h2, h3')) {
-          console.log(`[ESPN Injuries Page] ✓ Found team section for ${teamName}`);
+        if (hasLogo || $elem.is('h2, h3, h4') || $elem.parent().is('h2, h3, h4')) {
+          console.log(`[ESPN Injuries Page] ✓ Found team section for ${teamName} (matched: "${text}")`);
           inTargetTeam = true;
           foundTeam = true;
           return; // continue to next element
@@ -367,9 +380,29 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
       }
       
       // Check if we've moved to a different team section
-      if (inTargetTeam && text.match(/^(Atlanta Hawks|Boston Celtics|Brooklyn Nets|Charlotte Hornets|Chicago Bulls|Cleveland Cavaliers|Dallas Mavericks|Denver Nuggets|Detroit Pistons|Golden State Warriors|Houston Rockets|Indiana Pacers|LA Clippers|Los Angeles Lakers|Los Angeles Clippers|Memphis Grizzlies|Miami Heat|Milwaukee Bucks|Minnesota Timberwolves|New Orleans Pelicans|New York Knicks|Oklahoma City Thunder|Orlando Magic|Philadelphia 76ers|Phoenix Suns|Portland Trail Blazers|Sacramento Kings|San Antonio Spurs|Toronto Raptors|Utah Jazz|Washington Wizards)$/)) {
-        if (text !== teamName && !text.includes(teamName)) {
-          console.log(`[ESPN Injuries Page] Reached next team section: ${text}`);
+      // List of all NBA team names (both full and shortened versions)
+      const allTeamNames = [
+        'Atlanta', 'Boston', 'Brooklyn', 'Charlotte', 'Chicago', 'Cleveland', 
+        'Dallas', 'Denver', 'Detroit', 'Golden State', 'Houston', 'Indiana', 
+        'LA Clippers', 'L.A. Clippers', 'Los Angeles Lakers', 'LA Lakers', 'L.A. Lakers',
+        'Memphis', 'Miami', 'Milwaukee', 'Minnesota', 'New Orleans', 'New York', 
+        'Oklahoma City', 'Orlando', 'Philadelphia', 'Phoenix', 'Portland', 
+        'Sacramento', 'San Antonio', 'Toronto', 'Utah', 'Washington'
+      ];
+      
+      if (inTargetTeam) {
+        // Check if this text matches a different team name
+        const isDifferentTeam = allTeamNames.some(otherTeam => {
+          // Don't consider it a different team if it matches our current team variations
+          if (teamNameVariations.some(v => otherTeam.includes(v) || v.includes(otherTeam))) {
+            return false;
+          }
+          // Check if this is a header for a different team
+          return text === otherTeam || (text.startsWith(otherTeam) && text.length < otherTeam.length + 10);
+        });
+        
+        if (isDifferentTeam) {
+          console.log(`[ESPN Injuries Page] Reached different team section: ${text}`);
           inTargetTeam = false;
         }
       }
