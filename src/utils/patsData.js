@@ -43,8 +43,16 @@ export function readPATSData() {
  * Write PATS data
  */
 export function writePATSData(data) {
-  ensureDataFile();
-  fs.writeFileSync(PATS_FILE, JSON.stringify(data, null, 2));
+  try {
+    ensureDataFile();
+    const jsonData = JSON.stringify(data, null, 2);
+    fs.writeFileSync(PATS_FILE, jsonData);
+    console.log(`[PATS DATA] Successfully wrote ${jsonData.length} bytes to ${PATS_FILE}`);
+    console.log(`[PATS DATA] Current state: ${data.activeSessions.length} active, ${data.history.length} in history`);
+  } catch (error) {
+    console.error(`[PATS DATA] ERROR writing to file:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -429,12 +437,17 @@ export function updateGameResult(sessionId, gameId, result) {
  * Close a PATS session and calculate results
  */
 export function closePATSSession(sessionId, gameResults) {
-  const data = readPATSData();
-  const session = data.activeSessions.find(s => s.id === sessionId);
-  
-  if (!session) {
-    return false;
-  }
+  try {
+    console.log(`[PATS DATA] Starting to close session ${sessionId}`);
+    const data = readPATSData();
+    const session = data.activeSessions.find(s => s.id === sessionId);
+    
+    if (!session) {
+      console.error(`[PATS DATA] Session ${sessionId} not found in active sessions`);
+      return false;
+    }
+    
+    console.log(`[PATS DATA] Found session to close: ${session.date} with ${session.games.length} games`);
   
   // Update any remaining game results that weren't already updated
   // AND ensure overall stats are correctly updated for all games
@@ -584,12 +597,29 @@ export function closePATSSession(sessionId, gameResults) {
   session.results = userResults;
   session.closedAt = new Date().toISOString();
   
+  console.log(`[PATS DATA] Closing session ${sessionId}:`);
+  console.log(`  - Date: ${session.date}`);
+  console.log(`  - Games: ${session.games.length}`);
+  console.log(`  - Participants: ${session.participants.length}`);
+  console.log(`  - Total picks: ${Object.keys(session.picks).length} users made picks`);
+  console.log(`  - Closed at: ${session.closedAt}`);
+  
   // Move to history
   data.history.push(session);
   data.activeSessions = data.activeSessions.filter(s => s.id !== sessionId);
   
+  console.log(`[PATS DATA] Session moved to history. History now has ${data.history.length} sessions`);
+  console.log(`[PATS DATA] Active sessions now has ${data.activeSessions.length} sessions`);
+  
   writePATSData(data);
+  console.log(`[PATS DATA] Data written to file successfully`);
+  
   return userResults;
+  } catch (error) {
+    console.error(`[PATS DATA] ERROR closing session ${sessionId}:`, error);
+    console.error(error.stack);
+    return false;
+  }
 }
 
 /**
