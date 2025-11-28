@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from 'discord.js';
-import { getAllScheduledSessions, getScheduledSession, deleteScheduledSession, getAllTemplates, getTemplate, deleteTemplate, addScheduledSession, saveTemplate } from '../utils/sessionScheduler.js';
+import { getAllScheduledSessions, getScheduledSession, deleteScheduledSession, getAllTemplates, getTemplate, deleteTemplate, addScheduledSession, saveTemplate, updateScheduledSession } from '../utils/sessionScheduler.js';
 import { getESPNGamesForDate } from '../utils/oddsApi.js';
 
 // Store in-progress session configurations (userId -> config)
@@ -356,6 +356,13 @@ export async function showSessionEditor(interaction, sessionId) {
   const date = new Date(session.scheduledDate);
   const firstGameTime = new Date(session.firstGameTime);
   
+  // Calculate hoursBefore if not stored (backward compatibility)
+  let announcementHoursBefore = session.notifications.announcement.hoursBefore;
+  if (session.notifications.announcement.enabled && !announcementHoursBefore) {
+    const announcementTime = new Date(session.notifications.announcement.time);
+    announcementHoursBefore = Math.round((firstGameTime - announcementTime) / (60 * 60 * 1000));
+  }
+  
   const embed = new EmbedBuilder()
     .setTitle(`✏️ Edit Session: ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}`)
     .setDescription('What would you like to edit?')
@@ -367,7 +374,7 @@ export async function showSessionEditor(interaction, sessionId) {
           `**Games:** ${session.games.length}`,
           `**Channel:** <#${session.channelId}>`,
           `**Participants:** ${session.participantType === 'role' ? `<@&${session.roleId}>` : `${session.specificUsers.length} users`}`,
-          `**Announcement:** ${session.notifications.announcement.enabled ? `${session.notifications.announcement.hoursBefore}h before` : 'Disabled'}`,
+          `**Announcement:** ${session.notifications.announcement.enabled ? `${announcementHoursBefore}h before` : 'Disabled'}`,
           `**Reminder:** ${session.notifications.reminder.enabled ? `${session.notifications.reminder.minutesBefore}min before` : 'Disabled'}`,
           `**Warning:** ${session.notifications.warning.enabled ? `${session.notifications.warning.minutesBefore}min before` : 'Disabled'}`
         ].join('\n')
@@ -1553,6 +1560,285 @@ export function setWarningTime(userId, minutes) {
 }
 
 /**
+ * Show announcement editor for existing session
+ */
+export async function showSessionAnnouncementEditor(interaction, sessionId) {
+  const session = getScheduledSession(sessionId);
+  
+  if (!session) {
+    await interaction.editReply({
+      content: '❌ Session not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  // Calculate hoursBefore if not stored
+  let currentHours = session.notifications.announcement.hoursBefore || 0;
+  if (session.notifications.announcement.enabled && !currentHours) {
+    const firstGameTime = new Date(session.firstGameTime);
+    const announcementTime = new Date(session.notifications.announcement.time);
+    currentHours = Math.round((firstGameTime - announcementTime) / (60 * 60 * 1000));
+  }
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📢 Edit Announcement Time')
+    .setDescription('How many hours before the first game should the announcement be sent?')
+    .setColor('#5865F2')
+    .addFields({
+      name: 'Current Setting',
+      value: session.notifications.announcement.enabled 
+        ? `${currentHours} hours before first game`
+        : 'Disabled'
+    });
+  
+  const options = [
+    { label: '1 hour before', value: `1_${sessionId}` },
+    { label: '2 hours before', value: `2_${sessionId}` },
+    { label: '3 hours before', value: `3_${sessionId}` },
+    { label: '4 hours before', value: `4_${sessionId}` },
+    { label: '6 hours before', value: `6_${sessionId}` },
+    { label: '9 hours before', value: `9_${sessionId}` },
+    { label: '12 hours before', value: `12_${sessionId}` },
+    { label: '24 hours before', value: `24_${sessionId}` },
+    { label: 'Disable announcement', value: `0_${sessionId}` }
+  ];
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('schedule_update_announcement')
+    .setPlaceholder('Select announcement time')
+    .addOptions(options);
+  
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+  
+  const buttons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`schedule_edit_${sessionId}`)
+        .setLabel('Back to Editor')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row, buttons]
+  });
+}
+
+/**
+ * Show reminder editor for existing session
+ */
+export async function showSessionReminderEditor(interaction, sessionId) {
+  const session = getScheduledSession(sessionId);
+  
+  if (!session) {
+    await interaction.editReply({
+      content: '❌ Session not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  const embed = new EmbedBuilder()
+    .setTitle('⏰ Edit Reminder Time')
+    .setDescription('How many minutes before the first game should the reminder DM be sent?')
+    .setColor('#5865F2')
+    .addFields({
+      name: 'Current Setting',
+      value: session.notifications.reminder.enabled 
+        ? `${session.notifications.reminder.minutesBefore} minutes before first game`
+        : 'Disabled'
+    });
+  
+  const options = [
+    { label: '15 minutes before', value: `15_${sessionId}` },
+    { label: '30 minutes before', value: `30_${sessionId}` },
+    { label: '45 minutes before', value: `45_${sessionId}` },
+    { label: '60 minutes before', value: `60_${sessionId}` },
+    { label: '90 minutes before', value: `90_${sessionId}` },
+    { label: '120 minutes before', value: `120_${sessionId}` },
+    { label: 'Disable reminder', value: `0_${sessionId}` }
+  ];
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('schedule_update_reminder')
+    .setPlaceholder('Select reminder time')
+    .addOptions(options);
+  
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+  
+  const buttons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`schedule_edit_${sessionId}`)
+        .setLabel('Back to Editor')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row, buttons]
+  });
+}
+
+/**
+ * Show warning editor for existing session
+ */
+export async function showSessionWarningEditor(interaction, sessionId) {
+  const session = getScheduledSession(sessionId);
+  
+  if (!session) {
+    await interaction.editReply({
+      content: '❌ Session not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  const embed = new EmbedBuilder()
+    .setTitle('⚠️ Edit Warning Time')
+    .setDescription('How many minutes before the first game should the final warning be sent?')
+    .setColor('#5865F2')
+    .addFields({
+      name: 'Current Setting',
+      value: session.notifications.warning.enabled 
+        ? `${session.notifications.warning.minutesBefore} minutes before first game`
+        : 'Disabled'
+    });
+  
+  const options = [
+    { label: '5 minutes before', value: `5_${sessionId}` },
+    { label: '10 minutes before', value: `10_${sessionId}` },
+    { label: '15 minutes before', value: `15_${sessionId}` },
+    { label: '20 minutes before', value: `20_${sessionId}` },
+    { label: '30 minutes before', value: `30_${sessionId}` },
+    { label: 'Disable warning', value: `0_${sessionId}` }
+  ];
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('schedule_update_warning')
+    .setPlaceholder('Select warning time')
+    .addOptions(options);
+  
+  const row = new ActionRowBuilder().addComponents(selectMenu);
+  
+  const buttons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`schedule_edit_${sessionId}`)
+        .setLabel('Back to Editor')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row, buttons]
+  });
+}
+
+/**
+ * Update existing session announcement time
+ */
+export async function updateSessionAnnouncement(interaction, hours, sessionId) {
+  const session = getScheduledSession(sessionId);
+  
+  if (!session) {
+    await interaction.followUp({
+      content: '❌ Session not found.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  const hoursNum = parseInt(hours);
+  const firstGameTime = new Date(session.firstGameTime);
+  
+  // Calculate new announcement time
+  const announcementTime = new Date(firstGameTime);
+  announcementTime.setTime(announcementTime.getTime() - (hoursNum * 60 * 60 * 1000));
+  
+  // Update session
+  updateScheduledSession(sessionId, {
+    notifications: {
+      ...session.notifications,
+      announcement: {
+        enabled: hoursNum > 0,
+        time: hoursNum > 0 ? announcementTime.toISOString() : null,
+        hoursBefore: hoursNum
+      }
+    }
+  });
+  
+  await showSessionEditor(interaction, sessionId);
+}
+
+/**
+ * Update existing session reminder time
+ */
+export async function updateSessionReminder(interaction, minutes, sessionId) {
+  const session = getScheduledSession(sessionId);
+  
+  if (!session) {
+    await interaction.followUp({
+      content: '❌ Session not found.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  const minutesNum = parseInt(minutes);
+  
+  // Update session
+  updateScheduledSession(sessionId, {
+    notifications: {
+      ...session.notifications,
+      reminder: {
+        enabled: minutesNum > 0,
+        minutesBefore: minutesNum
+      }
+    }
+  });
+  
+  await showSessionEditor(interaction, sessionId);
+}
+
+/**
+ * Update existing session warning time
+ */
+export async function updateSessionWarning(interaction, minutes, sessionId) {
+  const session = getScheduledSession(sessionId);
+  
+  if (!session) {
+    await interaction.followUp({
+      content: '❌ Session not found.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  const minutesNum = parseInt(minutes);
+  
+  // Update session
+  updateScheduledSession(sessionId, {
+    notifications: {
+      ...session.notifications,
+      warning: {
+        enabled: minutesNum > 0,
+        minutesBefore: minutesNum
+      }
+    }
+  });
+  
+  await showSessionEditor(interaction, sessionId);
+}
+
+/**
  * Create the scheduled session
  */
 export async function createScheduledSession(interaction) {
@@ -1616,7 +1902,8 @@ export async function createScheduledSession(interaction) {
       notifications: {
         announcement: {
           enabled: config.notifications.announcement.enabled,
-          time: announcementTime.toISOString()
+          time: announcementTime.toISOString(),
+          hoursBefore: config.notifications.announcement.hoursBefore
         },
         reminder: {
           enabled: config.notifications.reminder.enabled,

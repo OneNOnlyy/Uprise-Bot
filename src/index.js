@@ -994,6 +994,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
         patsscheduleCommand.setWarningTime(interaction.user.id, minutes);
         await patsscheduleCommand.showConfigurationMenu(interaction);
       }
+      // Handle updating existing session notifications
+      else if (interaction.customId === 'schedule_update_announcement') {
+        await interaction.deferUpdate();
+        const [hours, sessionId] = interaction.values[0].split('_');
+        await patsscheduleCommand.updateSessionAnnouncement(interaction, hours, sessionId);
+      }
+      else if (interaction.customId === 'schedule_update_reminder') {
+        await interaction.deferUpdate();
+        const [minutes, sessionId] = interaction.values[0].split('_');
+        await patsscheduleCommand.updateSessionReminder(interaction, minutes, sessionId);
+      }
+      else if (interaction.customId === 'schedule_update_warning') {
+        await interaction.deferUpdate();
+        const [minutes, sessionId] = interaction.values[0].split('_');
+        await patsscheduleCommand.updateSessionWarning(interaction, minutes, sessionId);
+      }
       else if (interaction.customId === 'schedule_create_session') {
         await interaction.deferUpdate();
         await patsscheduleCommand.createScheduledSession(interaction);
@@ -1051,26 +1067,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (interaction.customId.startsWith('schedule_edit_announcement_')) {
         const sessionId = interaction.customId.replace('schedule_edit_announcement_', '');
         await interaction.deferUpdate();
-        await interaction.followUp({
-          content: '🚧 Notification editing coming soon! For now, delete and recreate the session.',
-          ephemeral: true
-        });
+        await patsscheduleCommand.showSessionAnnouncementEditor(interaction, sessionId);
       }
       else if (interaction.customId.startsWith('schedule_edit_reminder_')) {
         const sessionId = interaction.customId.replace('schedule_edit_reminder_', '');
         await interaction.deferUpdate();
-        await interaction.followUp({
-          content: '🚧 Notification editing coming soon! For now, delete and recreate the session.',
-          ephemeral: true
-        });
+        await patsscheduleCommand.showSessionReminderEditor(interaction, sessionId);
       }
       else if (interaction.customId.startsWith('schedule_edit_warning_')) {
         const sessionId = interaction.customId.replace('schedule_edit_warning_', '');
         await interaction.deferUpdate();
-        await interaction.followUp({
-          content: '🚧 Notification editing coming soon! For now, delete and recreate the session.',
-          ephemeral: true
-        });
+        await patsscheduleCommand.showSessionWarningEditor(interaction, sessionId);
       }
       else if (interaction.customId.startsWith('schedule_edit_') && !interaction.customId.includes('_channel_') && !interaction.customId.includes('_participants_') && !interaction.customId.includes('_announcement_') && !interaction.customId.includes('_reminder_') && !interaction.customId.includes('_warning_')) {
         // This is the general edit button (schedule_edit_{sessionId})
