@@ -603,9 +603,8 @@ export async function startSessionNow(interaction, sessionId) {
       return;
     }
     
-    // Get the date for this session
-    const sessionDate = new Date(session.firstGameTime);
-    const dateStr = sessionDate.toISOString().split('T')[0];
+    // Get the date for this session (use scheduledDate to avoid timezone conversion issues)
+    const dateStr = session.scheduledDate; // Already in YYYY-MM-DD format
     
     // Import necessary functions
     const { fetchGamesForSession, clearGamesCache, prefetchMatchupInfo } = await import('../utils/dataCache.js');
