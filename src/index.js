@@ -1015,6 +1015,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const [minutes, sessionId] = interaction.values[0].split('_');
         await patsscheduleCommand.updateSessionWarning(interaction, minutes, sessionId);
       }
+      else if (interaction.customId.startsWith('schedule_update_channel_')) {
+        const sessionId = interaction.customId.replace('schedule_update_channel_', '');
+        await interaction.deferUpdate();
+        const channelId = interaction.values[0];
+        await patsscheduleCommand.updateSessionChannel(interaction, channelId, sessionId);
+      }
+      else if (interaction.customId.startsWith('schedule_update_participant_role_')) {
+        const sessionId = interaction.customId.replace('schedule_update_participant_role_', '');
+        await interaction.deferUpdate();
+        const roleId = interaction.values[0];
+        await patsscheduleCommand.updateSessionParticipantRole(interaction, roleId, sessionId);
+      }
       else if (interaction.customId === 'schedule_create_session') {
         await interaction.deferUpdate();
         await patsscheduleCommand.createScheduledSession(interaction);
@@ -1056,18 +1068,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (interaction.customId.startsWith('schedule_edit_channel_')) {
         const sessionId = interaction.customId.replace('schedule_edit_channel_', '');
         await interaction.deferUpdate();
-        await interaction.followUp({
-          content: '🚧 Channel editing coming soon! For now, delete and recreate the session.',
-          ephemeral: true
-        });
+        await patsscheduleCommand.showSessionChannelEditor(interaction, sessionId);
       }
       else if (interaction.customId.startsWith('schedule_edit_participants_')) {
         const sessionId = interaction.customId.replace('schedule_edit_participants_', '');
         await interaction.deferUpdate();
-        await interaction.followUp({
-          content: '🚧 Participant editing coming soon! For now, delete and recreate the session.',
-          ephemeral: true
-        });
+        await patsscheduleCommand.showSessionParticipantEditor(interaction, sessionId);
       }
       else if (interaction.customId.startsWith('schedule_edit_announcement_')) {
         const sessionId = interaction.customId.replace('schedule_edit_announcement_', '');
@@ -1089,6 +1095,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const sessionId = interaction.customId.replace('schedule_edit_', '');
         await interaction.deferUpdate();
         await patsscheduleCommand.showSessionEditor(interaction, sessionId);
+      }
+      else if (interaction.customId.startsWith('schedule_participant_role_')) {
+        const sessionId = interaction.customId.replace('schedule_participant_role_', '');
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showSessionParticipantRoleSelector(interaction, sessionId);
+      }
+      else if (interaction.customId.startsWith('schedule_participant_users_')) {
+        const sessionId = interaction.customId.replace('schedule_participant_users_', '');
+        await patsscheduleCommand.showSessionParticipantUsersModal(interaction, sessionId);
+      }
+      else if (interaction.customId.startsWith('schedule_participant_back_')) {
+        const sessionId = interaction.customId.replace('schedule_participant_back_', '');
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showSessionParticipantEditor(interaction, sessionId);
       }
       else if (interaction.customId.startsWith('schedule_delete_')) {
         const sessionId = interaction.customId.replace('schedule_delete_', '');
@@ -1126,6 +1146,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (interaction.customId === 'schedule_modal_users') {
         await interaction.deferUpdate();
         await patsscheduleCommand.handleUserModalSubmit(interaction);
+      }
+      else if (interaction.customId.startsWith('schedule_update_participant_users_')) {
+        const sessionId = interaction.customId.replace('schedule_update_participant_users_', '');
+        await patsscheduleCommand.updateSessionParticipantUsers(interaction, sessionId);
       }
     } catch (error) {
       console.error('Error handling schedule modal:', error);

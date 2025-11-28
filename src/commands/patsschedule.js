@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { getAllScheduledSessions, getScheduledSession, deleteScheduledSession, getAllTemplates, getTemplate, deleteTemplate, addScheduledSession, saveTemplate, updateScheduledSession } from '../utils/sessionScheduler.js';
 import { getESPNGamesForDate } from '../utils/oddsApi.js';
 
@@ -1876,6 +1876,317 @@ export async function updateSessionWarning(interaction, minutes, sessionId) {
   });
   
   await showSessionEditor(interaction, sessionId);
+}
+
+/**
+ * Show channel editor for scheduled session
+ */
+export async function showSessionChannelEditor(interaction, sessionId) {
+  const session = getScheduledSession(sessionId);
+  
+  if (!session) {
+    await interaction.editReply({
+      content: '❌ Session not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📍 Edit Channel')
+    .setDescription('Select a new channel for this scheduled session.')
+    .setColor('#5865F2')
+    .addFields({
+      name: 'Current Channel',
+      value: `<#${session.channelId}>`
+    });
+  
+  const channelSelect = new ChannelSelectMenuBuilder()
+    .setCustomId(`schedule_update_channel_${sessionId}`)
+    .setPlaceholder('Select a channel')
+    .setChannelTypes([ChannelType.GuildText]);
+  
+  const row = new ActionRowBuilder().addComponents(channelSelect);
+  
+  const buttons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`schedule_edit_${sessionId}`)
+        .setLabel('Back to Editor')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row, buttons]
+  });
+}
+
+/**
+ * Update scheduled session channel
+ */
+export async function updateSessionChannel(interaction, channelId, sessionId) {
+  const session = getScheduledSession(sessionId);
+  
+  if (!session) {
+    await interaction.followUp({
+      content: '❌ Session not found.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Update session
+  updateScheduledSession(sessionId, {
+    channelId: channelId
+  });
+  
+  await interaction.editReply({
+    content: `✅ Channel updated to <#${channelId}>`,
+    embeds: [],
+    components: []
+  });
+  
+  setTimeout(async () => {
+    await showSessionEditor(interaction, sessionId);
+  }, 1500);
+}
+
+/**
+ * Show participant type selection for scheduled session editing
+ */
+export async function showSessionParticipantEditor(interaction, sessionId) {
+  const session = getScheduledSession(sessionId);
+  
+  if (!session) {
+    await interaction.editReply({
+      content: '❌ Session not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  const embed = new EmbedBuilder()
+    .setTitle('👥 Edit Participants')
+    .setDescription('Select the participant type for this scheduled session.')
+    .setColor('#5865F2')
+    .addFields({
+      name: 'Current Participants',
+      value: session.participantType === 'role'
+        ? `Role: <@&${session.roleId}>`
+        : `${session.specificUsers.length} specific user${session.specificUsers.length === 1 ? '' : 's'}`
+    });
+  
+  const typeButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`schedule_participant_role_${sessionId}`)
+        .setLabel('By Role')
+        .setEmoji('🎭')
+        .setStyle(session.participantType === 'role' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`schedule_participant_users_${sessionId}`)
+        .setLabel('Specific Users')
+        .setEmoji('👤')
+        .setStyle(session.participantType === 'users' ? ButtonStyle.Primary : ButtonStyle.Secondary)
+    );
+  
+  const backButton = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`schedule_edit_${sessionId}`)
+        .setLabel('Back to Editor')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [typeButtons, backButton]
+  });
+}
+
+/**
+ * Show role selector for scheduled session participants
+ */
+export async function showSessionParticipantRoleSelector(interaction, sessionId) {
+  const session = getScheduledSession(sessionId);
+  
+  if (!session) {
+    await interaction.editReply({
+      content: '❌ Session not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  const embed = new EmbedBuilder()
+    .setTitle('🎭 Select Participant Role')
+    .setDescription('Select the role that can participate in this scheduled session.')
+    .setColor('#5865F2');
+  
+  if (session.participantType === 'role' && session.roleId) {
+    embed.addFields({
+      name: 'Current Role',
+      value: `<@&${session.roleId}>`
+    });
+  }
+  
+  const roleSelect = new RoleSelectMenuBuilder()
+    .setCustomId(`schedule_update_participant_role_${sessionId}`)
+    .setPlaceholder('Select a role');
+  
+  const row = new ActionRowBuilder().addComponents(roleSelect);
+  
+  const buttons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`schedule_participant_back_${sessionId}`)
+        .setLabel('Back')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row, buttons]
+  });
+}
+
+/**
+ * Update scheduled session participant role
+ */
+export async function updateSessionParticipantRole(interaction, roleId, sessionId) {
+  const session = getScheduledSession(sessionId);
+  
+  if (!session) {
+    await interaction.followUp({
+      content: '❌ Session not found.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Update session
+  updateScheduledSession(sessionId, {
+    participantType: 'role',
+    roleId: roleId,
+    specificUsers: []
+  });
+  
+  await interaction.editReply({
+    content: `✅ Participants updated to role <@&${roleId}>`,
+    embeds: [],
+    components: []
+  });
+  
+  setTimeout(async () => {
+    await showSessionEditor(interaction, sessionId);
+  }, 1500);
+}
+
+/**
+ * Show modal for adding specific users to scheduled session
+ */
+export async function showSessionParticipantUsersModal(interaction, sessionId) {
+  const session = getScheduledSession(sessionId);
+  
+  if (!session) {
+    await interaction.editReply({
+      content: '❌ Session not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  const currentUsers = session.participantType === 'users' && session.specificUsers.length > 0
+    ? session.specificUsers.map(id => `<@${id}>`).join(' ')
+    : '';
+  
+  const modal = new ModalBuilder()
+    .setCustomId(`schedule_update_participant_users_${sessionId}`)
+    .setTitle('Specific Participants');
+  
+  const usersInput = new TextInputBuilder()
+    .setCustomId('users')
+    .setLabel('User Mentions or IDs (space-separated)')
+    .setStyle(TextInputStyle.Paragraph)
+    .setPlaceholder('@user1 @user2 or 123456789 987654321')
+    .setValue(currentUsers)
+    .setRequired(true);
+  
+  const row = new ActionRowBuilder().addComponents(usersInput);
+  modal.addComponents(row);
+  
+  await interaction.showModal(modal);
+}
+
+/**
+ * Update scheduled session specific users
+ */
+export async function updateSessionParticipantUsers(interaction, sessionId) {
+  const userInput = interaction.fields.getTextInputValue('users');
+  const userIds = [];
+  const notFound = [];
+  
+  // Parse mentions and IDs
+  const mentions = userInput.match(/<@!?(\d+)>/g) || [];
+  const rawIds = userInput.split(/\s+/).filter(id => /^\d+$/.test(id));
+  
+  const allIds = [
+    ...mentions.map(m => m.match(/\d+/)[0]),
+    ...rawIds
+  ];
+  
+  // Validate users exist
+  for (const id of allIds) {
+    try {
+      await interaction.guild.members.fetch(id);
+      userIds.push(id);
+    } catch {
+      notFound.push(id);
+    }
+  }
+  
+  if (userIds.length === 0) {
+    await interaction.reply({
+      content: '❌ No valid users found. Please mention users or provide valid user IDs.',
+      ephemeral: true
+    });
+    return;
+  }
+  
+  // Update session
+  updateScheduledSession(sessionId, {
+    participantType: 'users',
+    roleId: null,
+    specificUsers: userIds
+  });
+  
+  let message = `✅ Participants updated to ${userIds.length} specific user${userIds.length === 1 ? '' : 's'}.`;
+  if (notFound.length > 0) {
+    message += `\n⚠️ Could not find: ${notFound.join(', ')}`;
+  }
+  
+  await interaction.reply({
+    content: message,
+    ephemeral: true
+  });
+  
+  // Wait a moment then show the editor again
+  setTimeout(async () => {
+    try {
+      await showSessionEditor(interaction, sessionId);
+    } catch (error) {
+      // If we can't edit the original message, send a new one
+      console.error('Error showing session editor:', error);
+    }
+  }, 2000);
 }
 
 /**
