@@ -1634,15 +1634,15 @@ export async function showSessionAnnouncementEditor(interaction, sessionId) {
     });
   
   const options = [
-    { label: '1 hour before', value: `1_${sessionId}` },
-    { label: '2 hours before', value: `2_${sessionId}` },
-    { label: '3 hours before', value: `3_${sessionId}` },
-    { label: '4 hours before', value: `4_${sessionId}` },
-    { label: '6 hours before', value: `6_${sessionId}` },
-    { label: '9 hours before', value: `9_${sessionId}` },
-    { label: '12 hours before', value: `12_${sessionId}` },
-    { label: '24 hours before', value: `24_${sessionId}` },
-    { label: 'Disable announcement', value: `0_${sessionId}` }
+    { label: '1 hour before', value: `1|${sessionId}` },
+    { label: '2 hours before', value: `2|${sessionId}` },
+    { label: '3 hours before', value: `3|${sessionId}` },
+    { label: '4 hours before', value: `4|${sessionId}` },
+    { label: '6 hours before', value: `6|${sessionId}` },
+    { label: '9 hours before', value: `9|${sessionId}` },
+    { label: '12 hours before', value: `12|${sessionId}` },
+    { label: '24 hours before', value: `24|${sessionId}` },
+    { label: 'Disable announcement', value: `0|${sessionId}` }
   ];
   
   const selectMenu = new StringSelectMenuBuilder()
@@ -1694,13 +1694,13 @@ export async function showSessionReminderEditor(interaction, sessionId) {
     });
   
   const options = [
-    { label: '15 minutes before', value: `15_${sessionId}` },
-    { label: '30 minutes before', value: `30_${sessionId}` },
-    { label: '45 minutes before', value: `45_${sessionId}` },
-    { label: '60 minutes before', value: `60_${sessionId}` },
-    { label: '90 minutes before', value: `90_${sessionId}` },
-    { label: '120 minutes before', value: `120_${sessionId}` },
-    { label: 'Disable reminder', value: `0_${sessionId}` }
+    { label: '15 minutes before', value: `15|${sessionId}` },
+    { label: '30 minutes before', value: `30|${sessionId}` },
+    { label: '45 minutes before', value: `45|${sessionId}` },
+    { label: '60 minutes before', value: `60|${sessionId}` },
+    { label: '90 minutes before', value: `90|${sessionId}` },
+    { label: '120 minutes before', value: `120|${sessionId}` },
+    { label: 'Disable reminder', value: `0|${sessionId}` }
   ];
   
   const selectMenu = new StringSelectMenuBuilder()
@@ -1752,12 +1752,12 @@ export async function showSessionWarningEditor(interaction, sessionId) {
     });
   
   const options = [
-    { label: '5 minutes before', value: `5_${sessionId}` },
-    { label: '10 minutes before', value: `10_${sessionId}` },
-    { label: '15 minutes before', value: `15_${sessionId}` },
-    { label: '20 minutes before', value: `20_${sessionId}` },
-    { label: '30 minutes before', value: `30_${sessionId}` },
-    { label: 'Disable warning', value: `0_${sessionId}` }
+    { label: '5 minutes before', value: `5|${sessionId}` },
+    { label: '10 minutes before', value: `10|${sessionId}` },
+    { label: '15 minutes before', value: `15|${sessionId}` },
+    { label: '20 minutes before', value: `20|${sessionId}` },
+    { label: '30 minutes before', value: `30|${sessionId}` },
+    { label: 'Disable warning', value: `0|${sessionId}` }
   ];
   
   const selectMenu = new StringSelectMenuBuilder()

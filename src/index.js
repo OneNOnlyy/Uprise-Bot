@@ -1002,17 +1002,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
       // Handle updating existing session notifications
       else if (interaction.customId === 'schedule_update_announcement') {
         await interaction.deferUpdate();
-        const [hours, sessionId] = interaction.values[0].split('_');
+        const [hours, sessionId] = interaction.values[0].split('|');
         await patsscheduleCommand.updateSessionAnnouncement(interaction, hours, sessionId);
       }
       else if (interaction.customId === 'schedule_update_reminder') {
         await interaction.deferUpdate();
-        const [minutes, sessionId] = interaction.values[0].split('_');
+        const [minutes, sessionId] = interaction.values[0].split('|');
         await patsscheduleCommand.updateSessionReminder(interaction, minutes, sessionId);
       }
       else if (interaction.customId === 'schedule_update_warning') {
         await interaction.deferUpdate();
-        const [minutes, sessionId] = interaction.values[0].split('_');
+        const [minutes, sessionId] = interaction.values[0].split('|');
         await patsscheduleCommand.updateSessionWarning(interaction, minutes, sessionId);
       }
       else if (interaction.customId.startsWith('schedule_update_channel_')) {
