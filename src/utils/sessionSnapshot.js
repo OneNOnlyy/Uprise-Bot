@@ -2,8 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getCachedInjuryReports } from './dataCache.js';
-import { getTeamActiveRoster } from './oddsApi.js';
-import { getInjuriesForTeam, getTeamAbbreviation } from './espnApi.js';
+import { getTeamActiveRoster, getTeamAbbreviation } from './oddsApi.js';
+import { getInjuriesForTeam } from './espnApi.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
