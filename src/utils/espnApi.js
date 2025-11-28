@@ -470,34 +470,19 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
     const allRows = $('tr, div[class*="Row"], div[class*="TR"]').toArray();
     console.log(`[ESPN Injuries Page] Found ${allRows.length} total rows on page`);
     
-    // Get the DOM positions of our boundaries
-    const ourHeaderElement = ourTeamHeader.element.get(0);
-    const nextHeaderElement = nextTeamHeader ? nextTeamHeader.element.get(0) : null;
+    // Since Cheerio doesn't support compareDocumentPosition, we'll use a different approach:
+    // Find our header's position in ALL elements, then find rows between it and next header
+    const allElementsArray = allElements.toArray();
+    const ourHeaderPosition = allElementsArray.indexOf(ourTeamHeader.element.get(0));
+    const nextHeaderPosition = nextTeamHeader ? allElementsArray.indexOf(nextTeamHeader.element.get(0)) : allElementsArray.length;
     
-    // Helper function to check if element A comes after element B in DOM order
-    const isAfter = (elemA, elemB) => {
-      const position = elemB.compareDocumentPosition(elemA);
-      return (position & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-    };
+    console.log(`[ESPN Injuries Page] Our header is at element index ${ourHeaderPosition}, next header at ${nextHeaderPosition}`);
     
-    const isBefore = (elemA, elemB) => {
-      const position = elemB.compareDocumentPosition(elemA);
-      return (position & Node.DOCUMENT_POSITION_PRECEDING) !== 0;
-    };
-    
-    // Filter rows that are between our team header and the next team header
+    // Filter rows that appear between the two header positions
     const allRowElements = allRows.filter(row => {
-      // Row must come after our team header
-      if (!isAfter(row, ourHeaderElement)) {
-        return false;
-      }
-      
-      // If there's a next team header, row must come before it
-      if (nextHeaderElement && !isBefore(row, nextHeaderElement)) {
-        return false;
-      }
-      
-      return true;
+      const rowPosition = allElementsArray.indexOf(row);
+      const isBetween = rowPosition > ourHeaderPosition && rowPosition < nextHeaderPosition;
+      return isBetween && rowPosition !== -1;
     });
     
     console.log(`[ESPN Injuries Page] Found ${allRowElements.length} rows between headers`);
