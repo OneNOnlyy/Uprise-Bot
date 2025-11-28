@@ -481,36 +481,56 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
               const tableText = $table.text();
               if (tableText.includes('STATUS') || tableText.includes('COMMENT') || tableText.includes('EST. RETURN') ||
                   tableText.includes('Day-To-Day') || tableText.includes('Out') || tableText.includes('Doubtful') || tableText.includes('Questionable')) {
-                // Check if this could be our team's table by looking at nearby text
-                // Get the immediate parent container (not too large)
-                const immediateContainer = $table.parent();
-                const containerText = immediateContainer.text();
                 
-                // The team name should appear NEAR this table (in parent or sibling)
-                // Look for team header immediately before the table
-                const prevSiblings = $table.prevAll().slice(0, 3); // Check up to 3 elements before
-                let foundTeamHeader = false;
+                // Look for team header immediately before the table (within 3 elements)
+                const prevSiblings = $table.prevAll().slice(0, 3);
+                let matchedTeamInHeader = false;
+                let otherTeamInHeader = false;
                 
                 prevSiblings.each((i, sibling) => {
-                  const siblingText = $(sibling).text();
-                  if (teamNameVariations.some(v => siblingText.toLowerCase().includes(v.toLowerCase()))) {
-                    foundTeamHeader = true;
-                    return false; // break
+                  const siblingText = $(sibling).text().trim();
+                  
+                  // Check if this header matches OUR team
+                  if (teamNameVariations.some(v => {
+                    const lowerSibText = siblingText.toLowerCase();
+                    const lowerVar = v.toLowerCase();
+                    return lowerSibText === lowerVar || 
+                           (lowerSibText.includes(lowerVar) && siblingText.length < lowerVar.length + 30);
+                  })) {
+                    matchedTeamInHeader = true;
+                    console.log(`[ESPN Injuries Page] Found matching team header: "${siblingText}"`);
                   }
+                  
+                  // Check if this header contains a DIFFERENT team name (potential false match)
+                  // Look for other NBA team cities/names
+                  const otherTeamKeywords = ['Hawks', 'Celtics', 'Nets', 'Hornets', 'Bulls', 'Cavaliers', 
+                    'Mavericks', 'Nuggets', 'Pistons', 'Warriors', 'Rockets', 'Pacers', 'Clippers', 
+                    'Lakers', 'Grizzlies', 'Heat', 'Bucks', 'Timberwolves', 'Pelicans', 'Knicks', 
+                    'Thunder', 'Magic', '76ers', 'Suns', 'Blazers', 'Kings', 'Spurs', 'Raptors', 
+                    'Jazz', 'Wizards', 'Atlanta', 'Boston', 'Brooklyn', 'Charlotte', 'Chicago', 
+                    'Cleveland', 'Dallas', 'Denver', 'Detroit', 'Golden State', 'Houston', 'Indiana', 
+                    'Los Angeles', 'Memphis', 'Miami', 'Milwaukee', 'Minnesota', 'New Orleans', 
+                    'New York', 'Oklahoma City', 'Orlando', 'Philadelphia', 'Phoenix', 'Portland', 
+                    'Sacramento', 'San Antonio', 'Toronto', 'Utah', 'Washington'];
+                  
+                  // Filter out our own team's keywords
+                  const ourTeamLower = teamName.toLowerCase();
+                  otherTeamKeywords.forEach(keyword => {
+                    if (!ourTeamLower.includes(keyword.toLowerCase()) && 
+                        siblingText.toLowerCase().includes(keyword.toLowerCase())) {
+                      otherTeamInHeader = true;
+                      console.log(`[ESPN Injuries Page] Found different team in header: "${siblingText}" (contains "${keyword}")`);
+                    }
+                  });
                 });
                 
-                // Also check if the immediate parent contains the team name
-                if (!foundTeamHeader && teamNameVariations.some(v => containerText.toLowerCase().includes(v.toLowerCase()))) {
-                  // Make sure it's not a huge container with multiple teams
-                  if (containerText.length < 5000) { // Reasonable size for a single team section
-                    foundTeamHeader = true;
-                  }
-                }
-                
-                if (foundTeamHeader) {
+                // Only accept this table if we found our team's header and NO other team's header
+                if (matchedTeamInHeader && !otherTeamInHeader) {
                   teamSection = $table;
                   console.log(`[ESPN Injuries Page] ✓ Found table via nearby team header (${$table.prop('tagName')})`);
                   return false; // break
+                } else if (otherTeamInHeader) {
+                  console.log(`[ESPN Injuries Page] ✗ Rejected table - belongs to different team`);
                 }
               }
             });
