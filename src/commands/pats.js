@@ -829,17 +829,19 @@ async function searchPlayers(interaction, searchQuery) {
   const { getActiveSession, getUserPicks } = await import('../utils/patsData.js');
   const activeSession = getActiveSession();
   
-  // Get all users who have played (sessions > 0) OR have made picks in current session
+  // Get all users who have played (have stats) OR have made picks in current session
   const playerIds = Object.keys(data.users).filter(userId => {
     const user = data.users[userId];
-    const hasCompletedSessions = (user.sessions || 0) > 0;
+    
+    // Check if user has any completed games (wins, losses, or pushes)
+    const hasGames = (user.totalWins || 0) + (user.totalLosses || 0) + (user.totalPushes || 0) > 0;
     
     // Check if user has picks in current active session
     const hasCurrentPicks = activeSession && getUserPicks(activeSession.id, userId).length > 0;
     
-    const included = hasCompletedSessions || hasCurrentPicks;
+    const included = hasGames || hasCurrentPicks;
     if (included) {
-      console.log(`[PLAYER SEARCH] Including user: ${user.username || userId} (sessions: ${user.sessions}, currentPicks: ${hasCurrentPicks})`);
+      console.log(`[PLAYER SEARCH] Including user: ${user.username || userId} (games: ${(user.totalWins || 0) + (user.totalLosses || 0) + (user.totalPushes || 0)}, sessions: ${user.sessions}, currentPicks: ${hasCurrentPicks})`);
     }
     
     return included;
