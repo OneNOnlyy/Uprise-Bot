@@ -487,11 +487,16 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
                 let matchedTeamInHeader = false;
                 let otherTeamInHeader = false;
                 
+                console.log(`[ESPN Injuries Page] Checking table ${tableIdx + 1}, prevSiblings count: ${prevSiblings.length}`);
+                
                 prevSiblings.each((i, sibling) => {
                   const siblingText = $(sibling).text().trim();
                   
+                  console.log(`[ESPN Injuries Page]   Sibling ${i + 1} length: ${siblingText.length}, text: "${siblingText.substring(0, 80)}..."`);
+                  
                   // Skip if this is the table itself or too long (likely contains injury data)
                   if (siblingText.length > 300) {
+                    console.log(`[ESPN Injuries Page]   -> Skipping (too long)`);
                     return; // continue to next sibling
                   }
                   
@@ -503,7 +508,7 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
                            (lowerSibText.includes(lowerVar) && siblingText.length < lowerVar.length + 30);
                   })) {
                     matchedTeamInHeader = true;
-                    console.log(`[ESPN Injuries Page] Found matching team header: "${siblingText.substring(0, 50)}..."`);
+                    console.log(`[ESPN Injuries Page]   -> ✓ MATCHED our team!`);
                   }
                   
                   // Check if this SHORT header element contains a DIFFERENT team name
@@ -525,7 +530,7 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
                       if (!ourTeamLower.includes(keyword.toLowerCase()) && 
                           siblingText.toLowerCase().includes(keyword.toLowerCase())) {
                         otherTeamInHeader = true;
-                        console.log(`[ESPN Injuries Page] Found different team in header: "${siblingText.substring(0, 50)}..." (contains "${keyword}")`);
+                        console.log(`[ESPN Injuries Page]   -> ✗ Found other team: "${keyword}"`);
                       }
                     });
                   }
@@ -536,8 +541,10 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
                   teamSection = $table;
                   console.log(`[ESPN Injuries Page] ✓ Found table via nearby team header (${$table.prop('tagName')})`);
                   return false; // break
-                } else if (otherTeamInHeader) {
-                  console.log(`[ESPN Injuries Page] ✗ Rejected table - belongs to different team`);
+                } else if (matchedTeamInHeader && otherTeamInHeader) {
+                  console.log(`[ESPN Injuries Page] ✗ Rejected table - matched our team but also found other team`);
+                } else if (!matchedTeamInHeader) {
+                  console.log(`[ESPN Injuries Page] ✗ Rejected table - no match for our team in headers`);
                 }
               }
             });
