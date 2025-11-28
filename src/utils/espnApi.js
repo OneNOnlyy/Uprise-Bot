@@ -398,22 +398,34 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
       'Sacramento', 'San Antonio', 'Toronto', 'Utah', 'Washington'];
     
     // Find all elements that could be team headers
-    $('h2, h3, h4, .TeamName, .TeamLinks__Link, [class*="Team"]').each((i, elem) => {
+    // Cast a wide net - any text element on the page
+    const allElements = $('*');
+    console.log(`[ESPN Injuries Page] Scanning ${allElements.length} elements for team headers...`);
+    
+    allElements.each((i, elem) => {
       const $elem = $(elem);
       const text = $elem.text().trim();
       
-      // Must be short (team headers are concise) and contain a team keyword
-      if (text.length > 0 && text.length < 100) {
+      // Must be short (team headers are concise, not entire sections), have text, and contain a team keyword
+      if (text.length > 0 && text.length < 150) {
         const containsTeamKeyword = teamHeaderKeywords.some(keyword => 
           text.toLowerCase().includes(keyword.toLowerCase())
         );
         
         if (containsTeamKeyword) {
-          allTeamHeaders.push({
-            element: $elem,
-            text: text,
-            index: i
-          });
+          // But make sure it's not just a child of another team header we already have
+          const isDuplicate = allTeamHeaders.some(existing => 
+            existing.element.get(0) === $elem.parent().get(0) || 
+            $elem.get(0) === existing.element.parent().get(0)
+          );
+          
+          if (!isDuplicate) {
+            allTeamHeaders.push({
+              element: $elem,
+              text: text,
+              index: i
+            });
+          }
         }
       }
     });
