@@ -2,8 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getCachedInjuryReports } from './dataCache.js';
-import { getRosterForTeam } from './dataCache.js';
-import { getInjuriesForTeam } from './espnApi.js';
+import { getTeamActiveRoster } from './oddsApi.js';
+import { getInjuriesForTeam, getTeamAbbreviation } from './espnApi.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -162,8 +162,9 @@ export async function createSessionSnapshot(session) {
           injuryRefs[team] = saveInjuryData(team, teamInjuries);
         }
         
-        // Get roster data
-        const roster = await getRosterForTeam(team);
+        // Get roster data - need team abbreviation
+        const teamAbbr = getTeamAbbreviation(team);
+        const roster = await getTeamActiveRoster(teamAbbr);
         if (roster && roster.length > 0) {
           rosterRefs[team] = saveRosterData(team, roster);
         }
