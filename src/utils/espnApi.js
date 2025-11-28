@@ -490,6 +490,11 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
                 prevSiblings.each((i, sibling) => {
                   const siblingText = $(sibling).text().trim();
                   
+                  // Skip if this is the table itself or too long (likely contains injury data)
+                  if (siblingText.length > 300) {
+                    return; // continue to next sibling
+                  }
+                  
                   // Check if this header matches OUR team
                   if (teamNameVariations.some(v => {
                     const lowerSibText = siblingText.toLowerCase();
@@ -498,30 +503,32 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
                            (lowerSibText.includes(lowerVar) && siblingText.length < lowerVar.length + 30);
                   })) {
                     matchedTeamInHeader = true;
-                    console.log(`[ESPN Injuries Page] Found matching team header: "${siblingText}"`);
+                    console.log(`[ESPN Injuries Page] Found matching team header: "${siblingText.substring(0, 50)}..."`);
                   }
                   
-                  // Check if this header contains a DIFFERENT team name (potential false match)
-                  // Look for other NBA team cities/names
-                  const otherTeamKeywords = ['Hawks', 'Celtics', 'Nets', 'Hornets', 'Bulls', 'Cavaliers', 
-                    'Mavericks', 'Nuggets', 'Pistons', 'Warriors', 'Rockets', 'Pacers', 'Clippers', 
-                    'Lakers', 'Grizzlies', 'Heat', 'Bucks', 'Timberwolves', 'Pelicans', 'Knicks', 
-                    'Thunder', 'Magic', '76ers', 'Suns', 'Blazers', 'Kings', 'Spurs', 'Raptors', 
-                    'Jazz', 'Wizards', 'Atlanta', 'Boston', 'Brooklyn', 'Charlotte', 'Chicago', 
-                    'Cleveland', 'Dallas', 'Denver', 'Detroit', 'Golden State', 'Houston', 'Indiana', 
-                    'Los Angeles', 'Memphis', 'Miami', 'Milwaukee', 'Minnesota', 'New Orleans', 
-                    'New York', 'Oklahoma City', 'Orlando', 'Philadelphia', 'Phoenix', 'Portland', 
-                    'Sacramento', 'San Antonio', 'Toronto', 'Utah', 'Washington'];
-                  
-                  // Filter out our own team's keywords
-                  const ourTeamLower = teamName.toLowerCase();
-                  otherTeamKeywords.forEach(keyword => {
-                    if (!ourTeamLower.includes(keyword.toLowerCase()) && 
-                        siblingText.toLowerCase().includes(keyword.toLowerCase())) {
-                      otherTeamInHeader = true;
-                      console.log(`[ESPN Injuries Page] Found different team in header: "${siblingText}" (contains "${keyword}")`);
-                    }
-                  });
+                  // Check if this SHORT header element contains a DIFFERENT team name
+                  // Only check in short headers (< 100 chars) to avoid false positives from comments
+                  if (siblingText.length < 100) {
+                    const otherTeamKeywords = ['Hawks', 'Celtics', 'Nets', 'Hornets', 'Bulls', 'Cavaliers', 
+                      'Mavericks', 'Nuggets', 'Pistons', 'Warriors', 'Rockets', 'Pacers', 'Clippers', 
+                      'Lakers', 'Grizzlies', 'Heat', 'Bucks', 'Timberwolves', 'Pelicans', 'Knicks', 
+                      'Thunder', 'Magic', '76ers', 'Suns', 'Blazers', 'Kings', 'Spurs', 'Raptors', 
+                      'Jazz', 'Wizards', 'Atlanta', 'Boston', 'Brooklyn', 'Charlotte', 'Chicago', 
+                      'Cleveland', 'Dallas', 'Denver', 'Detroit', 'Golden State', 'Houston', 'Indiana', 
+                      'Los Angeles', 'Memphis', 'Miami', 'Milwaukee', 'Minnesota', 'New Orleans', 
+                      'New York', 'Oklahoma City', 'Orlando', 'Philadelphia', 'Phoenix', 'Portland', 
+                      'Sacramento', 'San Antonio', 'Toronto', 'Utah', 'Washington'];
+                    
+                    // Filter out our own team's keywords
+                    const ourTeamLower = teamName.toLowerCase();
+                    otherTeamKeywords.forEach(keyword => {
+                      if (!ourTeamLower.includes(keyword.toLowerCase()) && 
+                          siblingText.toLowerCase().includes(keyword.toLowerCase())) {
+                        otherTeamInHeader = true;
+                        console.log(`[ESPN Injuries Page] Found different team in header: "${siblingText.substring(0, 50)}..." (contains "${keyword}")`);
+                      }
+                    });
+                  }
                 });
                 
                 // Only accept this table if we found our team's header and NO other team's header
