@@ -706,11 +706,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
           interaction.customId.startsWith('pats_no_session_') ||
           interaction.customId === 'pats_search_player' ||
           interaction.customId === 'pats_player_selection_back' ||
+          interaction.customId === 'pats_past_sessions_back' ||
+          interaction.customId.startsWith('pats_view_historical_') ||
+          interaction.customId.startsWith('pats_historical_') ||
+          interaction.customId.startsWith('pats_back_to_historical_') ||
           interaction.customId.startsWith('pats_view_player_')) {
         await patsCommand.handleDashboardButton(interaction);
       }
-      // Handle player selection dropdown
-      else if (interaction.customId === 'pats_player_select') {
+      // Handle player selection dropdown and past session selection
+      else if (interaction.customId === 'pats_player_select' || 
+               interaction.customId === 'pats_select_past_session' ||
+               interaction.customId === 'pats_select_historical_game_detail') {
         await patsCommand.handlePlayerSelection(interaction);
       }
       // Handle everyone's picks navigation

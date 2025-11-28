@@ -11,6 +11,7 @@ import {
 } from 'discord.js';
 import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory, updateGameResult } from '../utils/patsData.js';
 import { getTeamAbbreviation, fetchCBSSportsScores } from '../utils/oddsApi.js';
+import { getUserSessionSnapshots, loadSessionSnapshot, loadInjuryData, loadRosterData } from '../utils/sessionSnapshot.js';
 
 /**
  * FAIL-SAFE: Fix spreads where one is 0 but the other isn't (they should be inverse)
@@ -226,6 +227,10 @@ export async function handleDashboardButton(interaction) {
       // Show player selection for viewing other stats
       await interaction.deferUpdate();
       await showPlayerSelection(interaction, false);
+    } else if (interaction.customId === 'pats_stats_menu_past_sessions') {
+      // Show past sessions browser
+      await interaction.deferUpdate();
+      await showPastSessionsBrowser(interaction);
     } else if (interaction.customId === 'pats_search_player') {
       // Show modal for player search
       const modal = new ModalBuilder()
@@ -259,6 +264,30 @@ export async function handleDashboardButton(interaction) {
       // Return to dashboard from stats menu
       await interaction.deferUpdate();
       await showDashboard(interaction);
+    } else if (interaction.customId === 'pats_past_sessions_back') {
+      // Return to past sessions browser
+      await interaction.deferUpdate();
+      await showPastSessionsBrowser(interaction);
+    } else if (interaction.customId.startsWith('pats_view_historical_games_')) {
+      // View games from historical session
+      await interaction.deferUpdate();
+      const sessionId = interaction.customId.replace('pats_view_historical_games_', '');
+      await showHistoricalGames(interaction, sessionId);
+    } else if (interaction.customId.startsWith('pats_view_historical_picks_')) {
+      // View user's picks from historical session
+      await interaction.deferUpdate();
+      const sessionId = interaction.customId.replace('pats_view_historical_picks_', '');
+      await showHistoricalPicks(interaction, sessionId);
+    } else if (interaction.customId.startsWith('pats_historical_game_detail_')) {
+      // View detailed game info from historical session
+      await interaction.deferUpdate();
+      const [sessionId, gameId] = interaction.customId.replace('pats_historical_game_detail_', '').split('_');
+      await showHistoricalGameDetail(interaction, sessionId, gameId);
+    } else if (interaction.customId.startsWith('pats_back_to_historical_')) {
+      // Return to historical dashboard
+      await interaction.deferUpdate();
+      const sessionId = interaction.customId.replace('pats_back_to_historical_', '');
+      await showHistoricalDashboard(interaction, sessionId);
     } else if (interaction.customId === 'pats_dashboard_refresh') {
       // Fetch fresh CBS scores and update session before showing dashboard
       
@@ -737,7 +766,7 @@ async function showStatsMenu(interaction) {
     .setColor(0x5865F2)
     .setTimestamp();
 
-  const buttons = new ActionRowBuilder().addComponents(
+  const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('pats_stats_menu_my_stats')
       .setLabel('My Stats')
@@ -747,7 +776,15 @@ async function showStatsMenu(interaction) {
       .setCustomId('pats_stats_menu_other_stats')
       .setLabel('View Other Player')
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji('👥'),
+      .setEmoji('👥')
+  );
+  
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_stats_menu_past_sessions')
+      .setLabel('View Past Sessions')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('📜'),
     new ButtonBuilder()
       .setCustomId('pats_stats_menu_back')
       .setLabel('Back to Dashboard')
@@ -757,7 +794,7 @@ async function showStatsMenu(interaction) {
 
   await interaction.editReply({
     embeds: [embed],
-    components: [buttons]
+    components: [row1, row2]
   });
 }
 
@@ -1420,8 +1457,18 @@ export async function handleEveryonePicksNavigation(interaction) {
  */
 export async function handlePlayerSelection(interaction) {
   await interaction.deferUpdate();
-  const selectedUserId = interaction.values[0];
-  await showUserStats(interaction, selectedUserId);
+  
+  // Check if this is a past session selection, game detail selection, or player selection
+  if (interaction.customId === 'pats_select_past_session') {
+    const sessionId = interaction.values[0];
+    await showHistoricalDashboard(interaction, sessionId);
+  } else if (interaction.customId === 'pats_select_historical_game_detail') {
+    const [sessionId, gameId] = interaction.values[0].split('_');
+    await showHistoricalGameDetail(interaction, sessionId, gameId);
+  } else {
+    const selectedUserId = interaction.values[0];
+    await showUserStats(interaction, selectedUserId);
+  }
 }
 
 /**
@@ -1613,3 +1660,485 @@ async function showTutorial(interaction) {
     components: [buttons]
   });
 }
+
+/**
+ * Show past sessions browser
+ */
+async function showPastSessionsBrowser(interaction) {
+  const userSessions = getUserSessionSnapshots(interaction.user.id);
+  
+  if (userSessions.length === 0) {
+    const embed = new EmbedBuilder()
+      .setTitle('📜 Your Past Sessions')
+      .setDescription('No past sessions found. Complete a PATS session to see it here!')
+      .setColor(0x808080);
+    
+    const backButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_stats_menu_back')
+        .setLabel('Back to Stats Menu')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️')
+    );
+    
+    await interaction.editReply({
+      embeds: [embed],
+      components: [backButton]
+    });
+    return;
+  }
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📜 Your Past Sessions')
+    .setDescription(`View your complete dashboard from previous PATS sessions.\n\n**${userSessions.length} session${userSessions.length === 1 ? '' : 's'} available**`)
+    .setColor(0x5865F2);
+  
+  // Show most recent 10 sessions
+  const recentSessions = userSessions.slice(0, 10);
+  const sessionList = recentSessions.map((session, index) => {
+    const dateStr = new Date(session.date).toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    });
+    
+    const result = session.userResult || { wins: 0, losses: 0, pushes: 0 };
+    const record = `${result.wins}-${result.losses}-${result.pushes}`;
+    
+    return `**${index + 1}.** ${dateStr} - ${record} (${session.userPicks.length} picks)`;
+  }).join('\n');
+  
+  embed.addFields({
+    name: '🗓️ Recent Sessions',
+    value: sessionList,
+    inline: false
+  });
+  
+  // Create dropdown to select a session
+  const sessionOptions = recentSessions.map((session, index) => {
+    const dateStr = new Date(session.date).toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    });
+    const result = session.userResult || { wins: 0, losses: 0, pushes: 0 };
+    const record = `${result.wins}-${result.losses}-${result.pushes}`;
+    
+    return {
+      label: `${dateStr} - ${record}`,
+      description: `${session.gameCount} games, ${session.userPicks.length} picks made`,
+      value: session.sessionId
+    };
+  });
+  
+  const selectMenu = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('pats_select_past_session')
+      .setPlaceholder('Select a session to view')
+      .addOptions(sessionOptions)
+  );
+  
+  const backButton = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_stats_menu_back')
+      .setLabel('Back to Stats Menu')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('◀️')
+  );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [selectMenu, backButton]
+  });
+}
+
+/**
+ * Show historical dashboard for a past session
+ */
+async function showHistoricalDashboard(interaction, sessionId) {
+  const snapshot = loadSessionSnapshot(sessionId);
+  
+  if (!snapshot) {
+    await interaction.editReply({
+      content: '❌ Session data not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  const userId = interaction.user.id;
+  const userPicks = snapshot.picks[userId] || [];
+  const userResult = snapshot.results?.[userId] || { wins: 0, losses: 0, pushes: 0, missedPicks: 0 };
+  
+  const dateStr = new Date(snapshot.date).toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  });
+  
+  const record = `${userResult.wins}-${userResult.losses}-${userResult.pushes}`;
+  
+  const embed = new EmbedBuilder()
+    .setTitle(`📜 Historical Dashboard - ${dateStr}`)
+    .setDescription(`**Final Results:** ${record}`)
+    .setColor(userResult.wins > userResult.losses ? 0x00FF00 : userResult.wins < userResult.losses ? 0xFF0000 : 0xFFA500)
+    .setTimestamp(new Date(snapshot.closedAt))
+    .addFields(
+      {
+        name: '📊 Your Performance',
+        value: [
+          `**Record:** ${record}`,
+          `**Picks Made:** ${userPicks.length}/${snapshot.games.length}`,
+          userResult.missedPicks > 0 ? `**Missed Picks:** ${userResult.missedPicks}` : null
+        ].filter(Boolean).join('\n'),
+        inline: true
+      },
+      {
+        name: '📅 Session Info',
+        value: [
+          `**Date:** ${snapshot.date}`,
+          `**Total Games:** ${snapshot.games.length}`,
+          `**Participants:** ${snapshot.participants.length}`
+        ].join('\n'),
+        inline: true
+      }
+    );
+  
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`pats_view_historical_games_${sessionId}`)
+      .setLabel('View Games')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🎮'),
+    new ButtonBuilder()
+      .setCustomId(`pats_view_historical_picks_${sessionId}`)
+      .setLabel('Your Picks')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🎯'),
+    new ButtonBuilder()
+      .setCustomId('pats_past_sessions_back')
+      .setLabel('Back to Sessions')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('◀️')
+  );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [buttons]
+  });
+}
+
+/**
+ * Show historical games list
+ */
+async function showHistoricalGames(interaction, sessionId) {
+  const snapshot = loadSessionSnapshot(sessionId);
+  
+  if (!snapshot) {
+    await interaction.editReply({
+      content: '❌ Session data not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  const dateStr = new Date(snapshot.date).toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  });
+  
+  const embed = new EmbedBuilder()
+    .setTitle(`🎮 Games - ${dateStr}`)
+    .setDescription(`All ${snapshot.games.length} games from this session with final scores and spreads.`)
+    .setColor(0x5865F2)
+    .setTimestamp(new Date(snapshot.closedAt));
+  
+  // Group games and show them
+  const gamesList = snapshot.games.slice(0, 10).map((game, index) => {
+    const result = game.result;
+    const homeSpread = game.homeSpread || 0;
+    const awaySpread = game.awaySpread || 0;
+    
+    let statusText = '';
+    if (result && result.status === 'Final') {
+      const winner = result.homeScore > result.awayScore ? '🏠' : '✈️';
+      statusText = `\n📊 **Final:** ${game.awayTeam} ${result.awayScore}, ${game.homeTeam} ${result.homeScore} ${winner}`;
+    }
+    
+    return `**${index + 1}. ${game.awayTeam}** @ **${game.homeTeam}**\n🎯 Spread: ${game.awayTeam} ${awaySpread > 0 ? '+' : ''}${awaySpread} | ${game.homeTeam} ${homeSpread > 0 ? '+' : ''}${homeSpread}${statusText}`;
+  }).join('\n\n');
+  
+  embed.addFields({
+    name: snapshot.games.length <= 10 ? 'All Games' : `Showing 10 of ${snapshot.games.length} Games`,
+    value: gamesList,
+    inline: false
+  });
+  
+  // Create select menu for game details
+  const gameOptions = snapshot.games.slice(0, 25).map((game, index) => {
+    const result = game.result;
+    const scoreText = result ? `${result.awayScore}-${result.homeScore}` : 'No result';
+    
+    return {
+      label: `${game.awayTeam} @ ${game.homeTeam}`,
+      description: scoreText,
+      value: `${sessionId}_${game.id}`
+    };
+  });
+  
+  const selectMenu = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('pats_select_historical_game_detail')
+      .setPlaceholder('Select a game for detailed info')
+      .addOptions(gameOptions)
+  );
+  
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`pats_back_to_historical_${sessionId}`)
+      .setLabel('Back to Dashboard')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('◀️')
+  );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [selectMenu, buttons]
+  });
+}
+
+/**
+ * Show historical user picks
+ */
+async function showHistoricalPicks(interaction, sessionId) {
+  const snapshot = loadSessionSnapshot(sessionId);
+  
+  if (!snapshot) {
+    await interaction.editReply({
+      content: '❌ Session data not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  const userId = interaction.user.id;
+  const userPicks = snapshot.picks[userId] || [];
+  const userResult = snapshot.results?.[userId] || { wins: 0, losses: 0, pushes: 0, missedPicks: 0 };
+  
+  const dateStr = new Date(snapshot.date).toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  });
+  
+  const record = `${userResult.wins}-${userResult.losses}-${userResult.pushes}`;
+  
+  const embed = new EmbedBuilder()
+    .setTitle(`🎯 Your Picks - ${dateStr}`)
+    .setDescription(`**Final Record:** ${record}`)
+    .setColor(userResult.wins > userResult.losses ? 0x00FF00 : userResult.wins < userResult.losses ? 0xFF0000 : 0xFFA500)
+    .setTimestamp(new Date(snapshot.closedAt));
+  
+  if (userPicks.length === 0) {
+    embed.addFields({
+      name: 'No Picks Made',
+      value: 'You did not make any picks in this session.',
+      inline: false
+    });
+  } else {
+    // Sort picks by game start time
+    const sortedPicks = userPicks.map(pick => {
+      const game = snapshot.games.find(g => g.id === pick.gameId);
+      return { ...pick, game };
+    }).sort((a, b) => new Date(a.game.commenceTime) - new Date(b.game.commenceTime));
+    
+    const picksList = sortedPicks.slice(0, 15).map(pick => {
+      const game = pick.game;
+      const result = game.result;
+      const pickedTeam = pick.pick === 'home' ? game.homeTeam : game.awayTeam;
+      const spread = pick.pick === 'home' ? game.homeSpread : game.awaySpread;
+      
+      let resultEmoji = '⏳';
+      if (result && result.status === 'Final') {
+        const homeScore = result.homeScore;
+        const awayScore = result.awayScore;
+        const adjustedHomeScore = homeScore + game.homeSpread;
+        const adjustedAwayScore = awayScore + game.awaySpread;
+        
+        if (pick.pick === 'home') {
+          if (adjustedHomeScore === awayScore) resultEmoji = '🟡'; // Push
+          else if (adjustedHomeScore > awayScore) resultEmoji = '✅'; // Win
+          else resultEmoji = '❌'; // Loss
+        } else {
+          if (adjustedAwayScore === homeScore) resultEmoji = '🟡'; // Push
+          else if (adjustedAwayScore > homeScore) resultEmoji = '✅'; // Win
+          else resultEmoji = '❌'; // Loss
+        }
+      }
+      
+      const ddText = pick.isDoubleDown ? ' 🔥 DD' : '';
+      return `${resultEmoji} **${pickedTeam}** ${spread > 0 ? '+' : ''}${spread}${ddText}`;
+    }).join('\n');
+    
+    embed.addFields({
+      name: `Your Picks (${userPicks.length})`,
+      value: picksList,
+      inline: false
+    });
+    
+    if (userResult.missedPicks > 0) {
+      embed.addFields({
+        name: '⚠️ Missed Picks',
+        value: `You missed ${userResult.missedPicks} pick${userResult.missedPicks === 1 ? '' : 's'} (automatic loss${userResult.missedPicks === 1 ? '' : 'ses'})`,
+        inline: false
+      });
+    }
+  }
+  
+  embed.setFooter({ text: '✅ Win | ❌ Loss | 🟡 Push | 🔥 Double-Down' });
+  
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`pats_back_to_historical_${sessionId}`)
+      .setLabel('Back to Dashboard')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('◀️')
+  );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [buttons]
+  });
+}
+
+/**
+ * Show historical game detail with injuries and rosters
+ */
+async function showHistoricalGameDetail(interaction, sessionId, gameId) {
+  const snapshot = loadSessionSnapshot(sessionId);
+  
+  if (!snapshot) {
+    await interaction.editReply({
+      content: '❌ Session data not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  const game = snapshot.games.find(g => g.id === gameId);
+  if (!game) {
+    await interaction.editReply({
+      content: '❌ Game not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  const { homeSpread, awaySpread } = fixZeroSpreads(game);
+  const result = game.result;
+  
+  const embed = new EmbedBuilder()
+    .setTitle(`🏀 ${game.awayTeam} @ ${game.homeTeam}`)
+    .setColor(0x5865F2)
+    .addFields(
+      {
+        name: '🎯 Spread',
+        value: [
+          `**${game.awayTeam}:** ${awaySpread > 0 ? '+' : ''}${awaySpread}`,
+          `**${game.homeTeam}:** ${homeSpread > 0 ? '+' : ''}${homeSpread}`
+        ].join('\n'),
+        inline: true
+      }
+    );
+  
+  if (result && result.status === 'Final') {
+    embed.addFields({
+      name: '📊 Final Score',
+      value: [
+        `**${game.awayTeam}:** ${result.awayScore}`,
+        `**${game.homeTeam}:** ${result.homeScore}`
+      ].join('\n'),
+      inline: true
+    });
+    
+    // Calculate spread result
+    const adjustedHomeScore = result.homeScore + homeSpread;
+    const adjustedAwayScore = result.awayScore + awaySpread;
+    
+    let spreadResult = '';
+    if (adjustedHomeScore === adjustedAwayScore) {
+      spreadResult = '🟡 **Push** (Tie after spread)';
+    } else if (adjustedHomeScore > adjustedAwayScore) {
+      spreadResult = `✅ **${game.homeTeam} covered**`;
+    } else {
+      spreadResult = `✅ **${game.awayTeam} covered**`;
+    }
+    
+    embed.addFields({
+      name: '🎯 Spread Result',
+      value: spreadResult,
+      inline: false
+    });
+  }
+  
+  // Load and display injury data if available
+  const homeInjuryRef = snapshot.injuryRefs[game.homeTeam];
+  const awayInjuryRef = snapshot.injuryRefs[game.awayTeam];
+  
+  if (homeInjuryRef || awayInjuryRef) {
+    let injuryText = '';
+    
+    if (awayInjuryRef) {
+      const injuryData = loadInjuryData(awayInjuryRef);
+      if (injuryData && injuryData.data && injuryData.data.length > 0) {
+        injuryText += `**${game.awayTeam}:**\n` + injuryData.data.slice(0, 3).map(inj => 
+          `• ${inj.playerName} - ${inj.status}`
+        ).join('\n');
+        if (injuryData.data.length > 3) injuryText += `\n...and ${injuryData.data.length - 3} more`;
+        injuryText += '\n\n';
+      }
+    }
+    
+    if (homeInjuryRef) {
+      const injuryData = loadInjuryData(homeInjuryRef);
+      if (injuryData && injuryData.data && injuryData.data.length > 0) {
+        injuryText += `**${game.homeTeam}:**\n` + injuryData.data.slice(0, 3).map(inj => 
+          `• ${inj.playerName} - ${inj.status}`
+        ).join('\n');
+        if (injuryData.data.length > 3) injuryText += `\n...and ${injuryData.data.length - 3} more`;
+      }
+    }
+    
+    if (injuryText) {
+      embed.addFields({
+        name: '🏥 Injuries (at session time)',
+        value: injuryText,
+        inline: false
+      });
+    }
+  }
+  
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`pats_view_historical_games_${sessionId}`)
+      .setLabel('Back to Games')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('◀️')
+  );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [buttons]
+  });
+}
+

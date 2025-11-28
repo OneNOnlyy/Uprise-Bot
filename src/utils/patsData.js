@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createSessionSnapshot } from './sessionSnapshot.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -613,6 +614,18 @@ export function closePATSSession(sessionId, gameResults) {
   
   writePATSData(data);
   console.log(`[PATS DATA] Data written to file successfully`);
+  
+  // Create session snapshot for historical dashboard viewing
+  console.log(`[PATS DATA] Creating session snapshot...`);
+  createSessionSnapshot(session).then(success => {
+    if (success) {
+      console.log(`[PATS DATA] Session snapshot created successfully`);
+    } else {
+      console.error(`[PATS DATA] Failed to create session snapshot`);
+    }
+  }).catch(error => {
+    console.error(`[PATS DATA] Error creating session snapshot:`, error);
+  });
   
   return userResults;
   } catch (error) {
