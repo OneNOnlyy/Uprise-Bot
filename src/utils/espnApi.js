@@ -503,13 +503,18 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
     console.log(`[ESPN Injuries Page] Found ${allRowElements.length} rows between headers`);
     
     // Parse the rows
-    allRowElements.forEach((row) => {
+    allRowElements.forEach((row, idx) => {
       const $row = $(row);
       
       // Try to find cells (td or div cells)
       let cells = $row.find('td');
       if (cells.length === 0) {
         cells = $row.find('div[class*="Cell"], div[class*="TD"]');
+      }
+      
+      // Debug logging for first few rows
+      if (idx < 3) {
+        console.log(`[ESPN Injuries Page]   Row ${idx}: ${cells.length} cells, text: "${$row.text().trim().substring(0, 100)}"`);
       }
       
       if (cells.length >= 5) {
