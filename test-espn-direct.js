@@ -143,37 +143,48 @@ async function testESPNInjuriesPage(teamAbbr, teamName) {
     const allRows = $('tr, div[class*="Row"], div[class*="TR"]').toArray();
     console.log(`[ESPN Injuries Page] Found ${allRows.length} total rows on page`);
     
-    // Get the DOM positions of our boundaries
-    const ourHeaderElement = ourTeamHeader.element.get(0);
-    const nextHeaderElement = nextTeamHeader ? nextTeamHeader.element.get(0) : null;
+    // Since Cheerio doesn't support compareDocumentPosition, we'll use a different approach:
+    // Find our header's position in ALL elements, then find rows between it and next header
+    const ourHeaderPosition = allElements.indexOf(ourTeamHeader.element[0]);
+    const nextHeaderPosition = nextTeamHeader ? allElements.indexOf(nextTeamHeader.element[0]) : allElements.length;
     
-    console.log(`[ESPN Injuries Page] ourHeaderElement type:`, ourHeaderElement?.constructor?.name);
-    console.log(`[ESPN Injuries Page] nextHeaderElement type:`, nextHeaderElement?.constructor?.name);
-    console.log(`[ESPN Injuries Page] Sample row type:`, allRows[0]?.constructor?.name);
+    console.log(`[ESPN Injuries Page] Our header is at element index ${ourHeaderPosition}, next header at ${nextHeaderPosition}`);
     
-    // Helper function to check if element A comes after element B in DOM order
-    const isAfter = (elemA, elemB) => {
-      const position = elemB.compareDocumentPosition(elemA);
-      return (position & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-    };
+    // Debug: Show what elements are between the headers
+    console.log(`[ESPN Injuries Page] Elements between headers (positions ${ourHeaderPosition} to ${nextHeaderPosition}):`);
+    for (let i = ourHeaderPosition + 1; i < nextHeaderPosition && i < ourHeaderPosition + 10; i++) {
+      const elem = allElements[i];
+      const $elem = $(elem);
+      const tagName = elem.tagName || elem.name || 'unknown';
+      const className = $(elem).attr('class') || 'no-class';
+      const text = $elem.text().substring(0, 60).trim();
+      console.log(`  Position ${i}: <${tagName}> class="${className}", text="${text}"`);
+    }
     
-    const isBefore = (elemA, elemB) => {
-      const position = elemB.compareDocumentPosition(elemA);
-      return (position & Node.DOCUMENT_POSITION_PRECEDING) !== 0;
-    };
+    // Debug: Show first few rows and their positions
+    console.log(`[ESPN Injuries Page] First 5 rows positions:`);
+    allRows.slice(0, 5).forEach((row, idx) => {
+      const rowPosition = allElements.indexOf(row);
+      const rowText = $(row).text().substring(0, 60);
+      console.log(`  Row ${idx}: position=${rowPosition}, text="${rowText}"`);
+    });
     
-    // Debug: check a few rows manually
-    if (allRows.length > 0) {
-      console.log(`[ESPN Injuries Page] DEBUG: Testing first 3 rows:`);
-      allRows.slice(0, 3).forEach((row, idx) => {
-        try {
-          const afterOur = isAfter(row, ourHeaderElement);
-          const beforeNext = nextHeaderElement ? isBefore(row, nextHeaderElement) : true;
-          const rowText = $(row).text().substring(0, 60);
-          console.log(`  Row ${idx}: afterOur=${afterOur}, beforeNext=${beforeNext}, text="${rowText}"`);
-        } catch (e) {
-          console.log(`  Row ${idx}: ERROR - ${e.message}`);
-        }
+    // Filter rows that appear between the two header positions
+    const allRowElements = allRows.filter(row => {
+      const rowPosition = allElements.indexOf(row);
+      const isBetween = rowPosition > ourHeaderPosition && rowPosition < nextHeaderPosition;
+      return isBetween && rowPosition !== -1;
+    });
+    
+    console.log(`[ESPN Injuries Page] Found ${allRowElements.length} rows between headers`);
+    
+    // Debug: If we found rows, show first 3
+    if (allRowElements.length > 0) {
+      console.log(`[ESPN Injuries Page] First 3 filtered rows:`);
+      allRowElements.slice(0, 3).forEach((row, idx) => {
+        const rowText = $(row).text().substring(0, 80);
+        const cells = $(row).find('td, div[class*="Cell"], div[class*="TD"]');
+        console.log(`  Row ${idx}: ${cells.length} cells, text="${rowText}"`);
       });
     }
     

@@ -471,18 +471,40 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
     console.log(`[ESPN Injuries Page] Found ${allRows.length} total rows on page`);
     
     // Since Cheerio doesn't support compareDocumentPosition, we'll use a different approach:
-    // Find our header's position in ALL elements, then find rows between it and next header
+    // Find elements between the headers and look for rows within them
     const allElementsArray = allElements.toArray();
     const ourHeaderPosition = allElementsArray.indexOf(ourTeamHeader.element.get(0));
     const nextHeaderPosition = nextTeamHeader ? allElementsArray.indexOf(nextTeamHeader.element.get(0)) : allElementsArray.length;
     
     console.log(`[ESPN Injuries Page] Our header is at element index ${ourHeaderPosition}, next header at ${nextHeaderPosition}`);
     
-    // Filter rows that appear between the two header positions
-    const allRowElements = allRows.filter(row => {
+    // Debug: Show first few rows and their positions
+    console.log(`[ESPN Injuries Page] First 5 rows positions:`);
+    allRows.slice(0, 5).forEach((row, idx) => {
       const rowPosition = allElementsArray.indexOf(row);
-      const isBetween = rowPosition > ourHeaderPosition && rowPosition < nextHeaderPosition;
-      return isBetween && rowPosition !== -1;
+      const rowText = $(row).text().substring(0, 60);
+      console.log(`  Row ${idx}: position=${rowPosition}, text="${rowText}"`);
+    });
+    
+    // NEW STRATEGY: Find container elements between headers, then find rows within those containers
+    const containersBetweenHeaders = [];
+    for (let i = ourHeaderPosition + 1; i < nextHeaderPosition; i++) {
+      const elem = allElementsArray[i];
+      const $elem = $(elem);
+      // Look for table containers
+      if ($elem.is('table, div[class*="Table"], div[class*="responsive"]')) {
+        containersBetweenHeaders.push($elem);
+      }
+    }
+    
+    console.log(`[ESPN Injuries Page] Found ${containersBetweenHeaders.length} table containers between headers`);
+    
+    // Find rows within those containers
+    let allRowElements = [];
+    containersBetweenHeaders.forEach(container => {
+      const rowsInContainer = container.find('tr, div[class*="Row"], div[class*="TR"]').toArray();
+      console.log(`[ESPN Injuries Page] Container has ${rowsInContainer.length} rows`);
+      allRowElements = allRowElements.concat(rowsInContainer);
     });
     
     console.log(`[ESPN Injuries Page] Found ${allRowElements.length} rows between headers`);
