@@ -465,36 +465,42 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
     
     console.log(`[ESPN Injuries Page] Extracting injuries between "${ourTeamHeader.text}" and ${nextTeamHeader ? `"${nextTeamHeader.text}"` : 'end of page'}`);
     
-    // Get all elements after our header
-    const $startElement = ourTeamHeader.element;
-    let currentElement = $startElement.get(0);
-    const allRowElements = [];
+    // NEW APPROACH: Instead of walking siblings, find all rows on the page and filter by position
+    // Get all potential injury rows on the entire page
+    const allRows = $('tr, div[class*="Row"], div[class*="TR"]').toArray();
+    console.log(`[ESPN Injuries Page] Found ${allRows.length} total rows on page`);
     
-    // Walk through DOM collecting all elements until we hit the next team header or end of document
-    while (currentElement) {
-      currentElement = currentElement.nextSibling || currentElement.parentNode?.nextSibling;
-      
-      if (!currentElement) break;
-      
-      // Check if we've reached the next team header
-      if (nextTeamHeader && currentElement === nextTeamHeader.element.get(0)) {
-        break;
+    // Get the DOM positions of our boundaries
+    const ourHeaderElement = ourTeamHeader.element.get(0);
+    const nextHeaderElement = nextTeamHeader ? nextTeamHeader.element.get(0) : null;
+    
+    // Helper function to check if element A comes after element B in DOM order
+    const isAfter = (elemA, elemB) => {
+      const position = elemB.compareDocumentPosition(elemA);
+      return (position & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    };
+    
+    const isBefore = (elemA, elemB) => {
+      const position = elemB.compareDocumentPosition(elemA);
+      return (position & Node.DOCUMENT_POSITION_PRECEDING) !== 0;
+    };
+    
+    // Filter rows that are between our team header and the next team header
+    const allRowElements = allRows.filter(row => {
+      // Row must come after our team header
+      if (!isAfter(row, ourHeaderElement)) {
+        return false;
       }
       
-      const $current = $(currentElement);
-      
-      // Look for table rows (tr or div rows) in this section
-      $current.find('tr, div[class*="Row"], div[class*="TR"]').each((i, row) => {
-        allRowElements.push(row);
-      });
-      
-      // Also check if current element itself is a row
-      if ($current.is('tr, div[class*="Row"], div[class*="TR"]')) {
-        allRowElements.push(currentElement);
+      // If there's a next team header, row must come before it
+      if (nextHeaderElement && !isBefore(row, nextHeaderElement)) {
+        return false;
       }
-    }
+      
+      return true;
+    });
     
-    console.log(`[ESPN Injuries Page] Found ${allRowElements.length} potential injury rows`);
+    console.log(`[ESPN Injuries Page] Found ${allRowElements.length} rows between headers`);
     
     // Parse the rows
     allRowElements.forEach((row) => {
