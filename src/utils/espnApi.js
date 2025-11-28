@@ -140,6 +140,65 @@ function normalizeTeamName(teamName) {
 }
 
 /**
+ * Extract injury status from comment text
+ * Looks for keywords like "Probable", "Questionable", "Doubtful" in comments
+ * and returns the status if found, otherwise returns null
+ */
+function extractStatusFromComment(comment) {
+  if (!comment || typeof comment !== 'string') {
+    return null;
+  }
+  
+  const commentLower = comment.toLowerCase();
+  
+  // Check for status keywords in order of specificity
+  if (commentLower.includes('doubtful')) {
+    return 'Doubtful';
+  }
+  if (commentLower.includes('questionable')) {
+    return 'Questionable';
+  }
+  if (commentLower.includes('probable')) {
+    return 'Probable';
+  }
+  if (commentLower.includes('out')) {
+    return 'Out';
+  }
+  
+  return null;
+}
+
+/**
+ * Normalize injury status based on comment text
+ * If comment contains specific status keywords, override the generic status
+ */
+function normalizeInjuryStatus(status, comment) {
+  // If status is generic (like "Day-to-Day"), check comment for more specific status
+  const genericStatuses = ['day-to-day', 'day to day', 'active', 'injury'];
+  const statusLower = (status || '').toLowerCase();
+  
+  // Check if current status is generic or if we should check comment
+  const isGenericStatus = genericStatuses.some(generic => statusLower.includes(generic));
+  
+  // Try to extract a more specific status from comment
+  const commentStatus = extractStatusFromComment(comment);
+  
+  // If we found a status in comment and current is generic, use comment status
+  if (commentStatus && isGenericStatus) {
+    console.log(`[Status Override] "${status}" → "${commentStatus}" (from comment: "${comment}")`);
+    return commentStatus;
+  }
+  
+  // If comment has a status even if current isn't generic, still might want to use it
+  // (e.g., if scraper got wrong status but comment is clear)
+  if (commentStatus && statusLower !== commentStatus.toLowerCase()) {
+    console.log(`[Status Check] Comment suggests "${commentStatus}" but keeping original "${status}" (comment: "${comment}")`);
+  }
+  
+  return status;
+}
+
+/**
  * Scrape injuries from ESPN's injury report page
  */
 async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
@@ -221,12 +280,13 @@ async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
         
         if (playerName && playerName !== 'NAME' && playerName !== '' && 
             status && status !== 'STATUS' && status !== 'Date') {
+          const normalizedStatus = normalizeInjuryStatus(status, description);
           injuries.push({
             player: playerName,
-            status: status,
+            status: normalizedStatus,
             description: description || 'Injury'
           });
-          console.log(`[Scraper] Table method: ${playerName} - ${status} (${description})`);
+          console.log(`[Scraper] Table method: ${playerName} - ${normalizedStatus} (${description})`);
         }
       }
     });
@@ -241,12 +301,13 @@ async function scrapeInjuriesFromESPN(teamAbbr, teamName) {
         const description = $card.find('span[class*="Injury"], div[class*="Injury"], span[class*="Comment"]').first().text().trim();
         
         if (playerName && status) {
+          const normalizedStatus = normalizeInjuryStatus(status, description);
           injuries.push({
             player: playerName,
-            status: status,
+            status: normalizedStatus,
             description: description || 'Injury'
           });
-          console.log(`[Scraper] Card method: ${playerName} - ${status} (${description})`);
+          console.log(`[Scraper] Card method: ${playerName} - ${normalizedStatus} (${description})`);
         }
       });
     }
@@ -322,11 +383,12 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
           const comment = $(cells.eq(4)).text().trim();
           
           if (playerName && status && comment && playerName.length > 1) {
-            console.log(`[ESPN Injuries Page] ${teamName}: ${playerName} - ${status}`);
+            const normalizedStatus = normalizeInjuryStatus(status, comment);
+            console.log(`[ESPN Injuries Page] ${teamName}: ${playerName} - ${normalizedStatus}`);
             
             injuries.push({
               player: fixPlayerName(playerName),
-              status: status,
+              status: normalizedStatus,
               description: position || 'Injury',
               comment: comment
             });
@@ -556,13 +618,17 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
                 comment = injury.shortComment;
               }
               
+              // Normalize status based on description and comment
+              const commentText = comment || description;
+              const normalizedStatus = normalizeInjuryStatus(status, commentText);
+              
               injuries.push({
                 player: playerName,
-                status: status,
+                status: normalizedStatus,
                 description: description,
                 comment: comment
               });
-              console.log(`[Scraper] Game Summary: ${playerName} - ${status} (${description})`);
+              console.log(`[Scraper] Game Summary: ${playerName} - ${normalizedStatus} (${description})`);
             }
           } else {
             console.log(`[Scraper] ✓ MATCH but no injuries array for ${teamName}`);
@@ -636,10 +702,13 @@ async function fetchInjuriesFromBallDontLie(teamName) {
             console.log(`[Scraper] Found injuries in scoreboard for ${teamName}`);
             for (const injury of targetTeam.injuries) {
               const playerName = fixPlayerName(injury.athlete?.displayName || injury.athlete?.name || 'Unknown');
+              const status = injury.status || 'Out';
+              const description = injury.details?.type || injury.type || 'Injury';
+              const normalizedStatus = normalizeInjuryStatus(status, description);
               injuries.push({
                 player: playerName,
-                status: injury.status || 'Out',
-                description: injury.details?.type || injury.type || 'Injury'
+                status: normalizedStatus,
+                description: description
               });
             }
           } else {
@@ -739,12 +808,13 @@ async function scrapeInjuriesFromRotoWire(teamName) {
                              $row.find('td:nth-child(2), td:nth-child(3)').text().trim();
           
           if (playerName && playerName.length > 2 && status && status.length > 0) {
+            const normalizedStatus = normalizeInjuryStatus(status, description);
             injuries.push({
               player: playerName,
-              status: status,
+              status: normalizedStatus,
               description: description || 'Injury'
             });
-            console.log(`[Scraper] RotoWire found: ${playerName} - ${status} (${description})`);
+            console.log(`[Scraper] RotoWire found: ${playerName} - ${normalizedStatus} (${description})`);
           }
         });
       }
@@ -973,6 +1043,10 @@ async function getInjuriesFromScoreboard(teamAbbr) {
                   description: injury.details?.type || injury.type || 'Injury',
                   comment: comment
                 };
+                // Normalize status based on comment/description
+                const commentText = comment || injuryData.description;
+                injuryData.status = normalizeInjuryStatus(status, commentText);
+                
                 injuries.push(injuryData);
                 console.log(`[ESPN] Scoreboard injury: ${injuryData.player} - ${injuryData.status} (${injuryData.description})`);
               });
@@ -1179,9 +1253,10 @@ export async function fetchAllInjuryReports() {
                 
                 // Skip the complex parsing and use the full name directly
                 if (cleanPlayerName && status) {
+                  const normalizedStatus = normalizeInjuryStatus(status, injury);
                   tableInjuries.push({
                     player: fixPlayerName(cleanPlayerName),
-                    status: status,
+                    status: normalizedStatus,
                     description: injury || 'Injury',
                     position: position,
                     updated: updated
@@ -1251,9 +1326,10 @@ export async function fetchAllInjuryReports() {
           }
 
           if (cleanPlayerName && status) {
+            const normalizedStatus = normalizeInjuryStatus(status, injury);
             tableInjuries.push({
               player: fixPlayerName(cleanPlayerName),
-              status: status,
+              status: normalizedStatus,
               description: injury || 'Injury',
               position: position,
               updated: updated
