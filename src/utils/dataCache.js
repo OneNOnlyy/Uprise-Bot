@@ -165,7 +165,9 @@ export function clearCache() {
   cache.matchupLastUpdated.clear();
   cache.teamInfo.clear();
   cache.teamLastUpdated.clear();
-  console.log('[Cache] ✅ Cache cleared');
+  cache.injuryReports = null;
+  cache.injuryReportsLastUpdated = null;
+  console.log('[Cache] ✅ All caches cleared (including injuries)');
 }
 
 /**
