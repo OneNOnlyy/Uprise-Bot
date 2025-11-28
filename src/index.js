@@ -546,9 +546,8 @@ async function startScheduledSession(client, session) {
       return;
     }
     
-    // Get the date for this session
-    const sessionDate = new Date(session.firstGameTime);
-    const dateStr = sessionDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+    // Get the date for this session (use scheduledDate to avoid timezone conversion issues)
+    const dateStr = session.scheduledDate; // Already in YYYY-MM-DD format
     
     // Import the patsstart command
     const patsstartCommand = await import('./commands/patsstart.js');
