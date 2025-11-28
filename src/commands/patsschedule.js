@@ -672,7 +672,21 @@ export async function showDateSelection(interaction) {
   
   try {
     // Fetch next 7 days of games IN PARALLEL for speed
-    const today = new Date();
+    // Get current date in Pacific Time
+    const nowUTC = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const parts = formatter.formatToParts(nowUTC);
+    const year = parts.find(p => p.type === 'year').value;
+    const month = parts.find(p => p.type === 'month').value;
+    const day = parts.find(p => p.type === 'day').value;
+    const today = new Date(`${year}-`${month}-`${day}T00:00:00`);
+    
+    console.log(`[PATS SCHEDULE] Current date in Pacific Time: `${today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`);
     const datePromises = [];
     
     for (let i = 0; i < 7; i++) {
@@ -1879,4 +1893,6 @@ export async function handleUserModalSubmit(interaction) {
     await showConfigurationMenu(interaction);
   }, 2000);
 }
+
+
 
