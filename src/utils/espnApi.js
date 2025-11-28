@@ -388,6 +388,7 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
     // ESPN's injuries page structure: Each team has a section with a header and a table
     // Try to find team sections more efficiently
     let teamSection = null;
+    let foundTeam = false;
     
     // Strategy 1: Look for specific selectors that ESPN typically uses
     const possibleSelectors = [
