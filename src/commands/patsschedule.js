@@ -276,6 +276,46 @@ export async function showSessionManager(interaction, sessionId) {
   
   const firstGame = session.gameDetails[0];
   
+  // Format notification times
+  let announcementText = '❌ Disabled';
+  if (session.notifications.announcement.enabled) {
+    const announcementTime = new Date(session.notifications.announcement.time);
+    announcementText = `✅ ${announcementTime.toLocaleString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      hour: 'numeric', 
+      minute: '2-digit',
+      timeZone: 'America/Los_Angeles',
+      timeZoneName: 'short'
+    })}`;
+  }
+  
+  let reminderText = '❌ Disabled';
+  if (session.notifications.reminder.enabled) {
+    const reminderTime = new Date(firstGameTime.getTime() - (session.notifications.reminder.minutesBefore * 60 * 1000));
+    reminderText = `✅ ${reminderTime.toLocaleString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      hour: 'numeric', 
+      minute: '2-digit',
+      timeZone: 'America/Los_Angeles',
+      timeZoneName: 'short'
+    })} (${session.notifications.reminder.minutesBefore} min before)`;
+  }
+  
+  let warningText = '❌ Disabled';
+  if (session.notifications.warning.enabled) {
+    const warningTime = new Date(firstGameTime.getTime() - (session.notifications.warning.minutesBefore * 60 * 1000));
+    warningText = `✅ ${warningTime.toLocaleString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      hour: 'numeric', 
+      minute: '2-digit',
+      timeZone: 'America/Los_Angeles',
+      timeZoneName: 'short'
+    })} (${session.notifications.warning.minutesBefore} min before)`;
+  }
+  
   const embed = new EmbedBuilder()
     .setTitle(`⚙️ Manage Session: ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}`)
     .setColor('#5865F2')
@@ -293,9 +333,9 @@ export async function showSessionManager(interaction, sessionId) {
       {
         name: '🔔 Notifications',
         value: [
-          `**Announcement:** ${session.notifications.announcement.enabled ? '✅ Enabled' : '❌ Disabled'}`,
-          `**Reminder:** ${session.notifications.reminder.enabled ? `✅ ${session.notifications.reminder.minutesBefore} min before` : '❌ Disabled'}`,
-          `**Warning:** ${session.notifications.warning.enabled ? `✅ ${session.notifications.warning.minutesBefore} min before` : '❌ Disabled'}`
+          `**Announcement:** ${announcementText}`,
+          `**Reminder:** ${reminderText}`,
+          `**Warning:** ${warningText}`
         ].join('\n')
       },
       {
