@@ -385,233 +385,136 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
     
     console.log(`[ESPN Injuries Page] Looking for team name variations: ${teamNameVariations.join(', ')}`);
     
-    // ESPN's injuries page structure: Each team has a section with a header and a table
-    // Try to find team sections more efficiently
-    let teamSection = null;
-    let foundTeam = false;
+    // NEW APPROACH: Find all team headers on the page, then extract injuries between headers
+    const allTeamHeaders = [];
+    const teamHeaderKeywords = ['Hawks', 'Celtics', 'Nets', 'Hornets', 'Bulls', 'Cavaliers', 
+      'Mavericks', 'Nuggets', 'Pistons', 'Warriors', 'Rockets', 'Pacers', 'Clippers', 
+      'Lakers', 'Grizzlies', 'Heat', 'Bucks', 'Timberwolves', 'Pelicans', 'Knicks', 
+      'Thunder', 'Magic', '76ers', 'Suns', 'Blazers', 'Kings', 'Spurs', 'Raptors', 
+      'Jazz', 'Wizards', 'Atlanta', 'Boston', 'Brooklyn', 'Charlotte', 'Chicago', 
+      'Cleveland', 'Dallas', 'Denver', 'Detroit', 'Golden State', 'Houston', 'Indiana', 
+      'Los Angeles', 'Memphis', 'Miami', 'Milwaukee', 'Minnesota', 'New Orleans', 
+      'New York', 'Oklahoma City', 'Orlando', 'Philadelphia', 'Phoenix', 'Portland', 
+      'Sacramento', 'San Antonio', 'Toronto', 'Utah', 'Washington'];
     
-    // Strategy 1: Look for specific selectors that ESPN typically uses
-    const possibleSelectors = [
-      '.TeamLinks__Link, .TeamName, .team-name, [class*="team"], [class*="Team"]',
-      'h2, h3, h4, .ResponsiveTable__Header',
-      'a[href*="/team/"]'
-    ];
-    
-    for (const selector of possibleSelectors) {
-      $(selector).each((i, elem) => {
-        if (teamSection) return; // Already found it
-        
-        const $elem = $(elem);
-        const text = $elem.text().trim();
-        
-        // Skip elements that contain all team names (like navigation menus)
-        // If the text is too long, it's probably a menu with all teams
-        if (text.length > 200) {
-          return; // Skip this element
-        }
-        
-        // Check if this element contains any of our team name variations
-        // Must be an exact match or close to it (not just contained in a long list)
-        const matchesTeamName = teamNameVariations.some(variation => {
-          const lowerText = text.toLowerCase();
-          const lowerVariation = variation.toLowerCase();
-          
-          // Exact match
-          if (lowerText === lowerVariation) return true;
-          
-          // Text is just the team name plus some extra characters (like icons)
-          if (lowerText.includes(lowerVariation) && text.length < lowerVariation.length + 30) {
-            return true;
-          }
-          
-          return false;
-        });
-        
-        if (matchesTeamName) {
-          console.log(`[ESPN Injuries Page] ✓ Found team match in "${text}" using selector ${selector}`);
-          
-          // Try multiple strategies to find the associated injury table
-          // ESPN might use div-based tables or actual HTML tables
-          
-          // Strategy 1: Look for HTML <table> in closest container
-          teamSection = $elem.closest('div, section, article').find('table').first();
-          
-          // Strategy 2: Look for div-based tables (ESPN often uses these)
-          if (teamSection.length === 0) {
-            const divTable = $elem.closest('div, section, article').find('div.Table, div.ResponsiveTable, div[class*="Table"]').first();
-            if (divTable.length > 0) {
-              teamSection = divTable;
-              console.log(`[ESPN Injuries Page] Found div-based table`);
-            }
-          }
-          
-          // Strategy 3: Look for next table sibling
-          if (teamSection.length === 0) {
-            teamSection = $elem.nextAll('table').first();
-          }
-          
-          // Strategy 4: Look for next div table sibling
-          if (teamSection.length === 0) {
-            teamSection = $elem.nextAll('div.Table, div.ResponsiveTable, div[class*="Table"]').first();
-          }
-          
-          // Strategy 5: Look in parent
-          if (teamSection.length === 0) {
-            teamSection = $elem.parent().find('table, div.Table, div.ResponsiveTable').first();
-          }
-          
-          // Strategy 6: Look for table in parent's parent (sometimes nested deeply)
-          if (teamSection.length === 0) {
-            teamSection = $elem.parent().parent().find('table, div.Table, div.ResponsiveTable').first();
-          }
-          
-          // Strategy 7: Find the element's parent section and look for ANY table after this team element
-          if (teamSection.length === 0) {
-            // Get all tables and table-like divs on the page
-            const allTables = $('table, div.Table, div.ResponsiveTable, div[class*="InjuryTable"], div[class*="injury"]');
-            const elemIndex = $elem.index();
-            
-            console.log(`[ESPN Injuries Page] Searching through ${allTables.length} potential table elements`);
-            
-            // Find the first table that comes after this element in the DOM
-            allTables.each((tableIdx, table) => {
-              const $table = $(table);
-              // Check if this table comes after our team element
-              // Simple heuristic: if the table contains injury-related headers or data
-              const tableText = $table.text();
-              if (tableText.includes('STATUS') || tableText.includes('COMMENT') || tableText.includes('EST. RETURN') ||
-                  tableText.includes('Day-To-Day') || tableText.includes('Out') || tableText.includes('Doubtful') || tableText.includes('Questionable')) {
-                
-                // Look for team header immediately before the table (within 3 elements)
-                const prevSiblings = $table.prevAll().slice(0, 3);
-                let matchedTeamInHeader = false;
-                let otherTeamInHeader = false;
-                
-                console.log(`[ESPN Injuries Page] Checking table ${tableIdx + 1}, prevSiblings count: ${prevSiblings.length}`);
-                
-                prevSiblings.each((i, sibling) => {
-                  const siblingText = $(sibling).text().trim();
-                  
-                  console.log(`[ESPN Injuries Page]   Sibling ${i + 1} length: ${siblingText.length}, text: "${siblingText.substring(0, 80)}..."`);
-                  
-                  // Skip if this is the table itself or too long (likely contains injury data)
-                  if (siblingText.length > 300) {
-                    console.log(`[ESPN Injuries Page]   -> Skipping (too long)`);
-                    return; // continue to next sibling
-                  }
-                  
-                  // Check if this header matches OUR team
-                  if (teamNameVariations.some(v => {
-                    const lowerSibText = siblingText.toLowerCase();
-                    const lowerVar = v.toLowerCase();
-                    return lowerSibText === lowerVar || 
-                           (lowerSibText.includes(lowerVar) && siblingText.length < lowerVar.length + 30);
-                  })) {
-                    matchedTeamInHeader = true;
-                    console.log(`[ESPN Injuries Page]   -> ✓ MATCHED our team!`);
-                  }
-                  
-                  // Check if this SHORT header element contains a DIFFERENT team name
-                  // Only check in short headers (< 100 chars) to avoid false positives from comments
-                  if (siblingText.length < 100) {
-                    const otherTeamKeywords = ['Hawks', 'Celtics', 'Nets', 'Hornets', 'Bulls', 'Cavaliers', 
-                      'Mavericks', 'Nuggets', 'Pistons', 'Warriors', 'Rockets', 'Pacers', 'Clippers', 
-                      'Lakers', 'Grizzlies', 'Heat', 'Bucks', 'Timberwolves', 'Pelicans', 'Knicks', 
-                      'Thunder', 'Magic', '76ers', 'Suns', 'Blazers', 'Kings', 'Spurs', 'Raptors', 
-                      'Jazz', 'Wizards', 'Atlanta', 'Boston', 'Brooklyn', 'Charlotte', 'Chicago', 
-                      'Cleveland', 'Dallas', 'Denver', 'Detroit', 'Golden State', 'Houston', 'Indiana', 
-                      'Los Angeles', 'Memphis', 'Miami', 'Milwaukee', 'Minnesota', 'New Orleans', 
-                      'New York', 'Oklahoma City', 'Orlando', 'Philadelphia', 'Phoenix', 'Portland', 
-                      'Sacramento', 'San Antonio', 'Toronto', 'Utah', 'Washington'];
-                    
-                    // Filter out our own team's keywords
-                    const ourTeamLower = teamName.toLowerCase();
-                    otherTeamKeywords.forEach(keyword => {
-                      if (!ourTeamLower.includes(keyword.toLowerCase()) && 
-                          siblingText.toLowerCase().includes(keyword.toLowerCase())) {
-                        otherTeamInHeader = true;
-                        console.log(`[ESPN Injuries Page]   -> ✗ Found other team: "${keyword}"`);
-                      }
-                    });
-                  }
-                });
-                
-                // Only accept this table if we found our team's header and NO other team's header
-                if (matchedTeamInHeader && !otherTeamInHeader) {
-                  teamSection = $table;
-                  console.log(`[ESPN Injuries Page] ✓ Found table via nearby team header (${$table.prop('tagName')})`);
-                  return false; // break
-                } else if (matchedTeamInHeader && otherTeamInHeader) {
-                  console.log(`[ESPN Injuries Page] ✗ Rejected table - matched our team but also found other team`);
-                } else if (!matchedTeamInHeader) {
-                  console.log(`[ESPN Injuries Page] ✗ Rejected table - no match for our team in headers`);
-                }
-              }
-            });
-          }
-          
-          if (teamSection && teamSection.length > 0) {
-            console.log(`[ESPN Injuries Page] ✓ Found injuries table for ${teamName}`);
-            foundTeam = true;
-            return false; // break out of each loop
-          } else {
-            console.log(`[ESPN Injuries Page] ⚠ Found team header but no table for ${teamName}`);
-          }
-        }
-      });
+    // Find all elements that could be team headers
+    $('h2, h3, h4, .TeamName, .TeamLinks__Link, [class*="Team"]').each((i, elem) => {
+      const $elem = $(elem);
+      const text = $elem.text().trim();
       
-      if (foundTeam) break;
-    }
-    
-    // If we found the team section, parse the injury table (HTML table or div-based)
-    if (teamSection && teamSection.length > 0) {
-      // Try HTML table rows first
-      let rows = teamSection.find('tr');
-      
-      // If no <tr> elements, try div-based table rows
-      if (rows.length === 0) {
-        rows = teamSection.find('div.Table__TR, div[class*="TableRow"], div[class*="Row"]');
+      // Must be short (team headers are concise) and contain a team keyword
+      if (text.length > 0 && text.length < 100) {
+        const containsTeamKeyword = teamHeaderKeywords.some(keyword => 
+          text.toLowerCase().includes(keyword.toLowerCase())
+        );
+        
+        if (containsTeamKeyword) {
+          allTeamHeaders.push({
+            element: $elem,
+            text: text,
+            index: i
+          });
+        }
       }
-      
-      console.log(`[ESPN Injuries Page] Found ${rows.length} rows in table`);
-      
-      rows.each((i, row) => {
-        const $row = $(row);
-        // Try regular td cells first
-        let cells = $row.find('td');
-        
-        // If no <td>, try div-based cells
-        if (cells.length === 0) {
-          cells = $row.find('div.Table__TD, div[class*="TableCell"], div[class*="Cell"]');
-        }
-        
-        if (cells.length >= 5) {
-          const playerName = $(cells.eq(0)).text().trim();
-          const position = $(cells.eq(1)).text().trim();
-          const date = $(cells.eq(2)).text().trim();
-          const status = $(cells.eq(3)).text().trim();
-          const comment = $(cells.eq(4)).text().trim();
-          
-          if (playerName && status && comment && playerName.length > 1 && playerName !== 'NAME') {
-            const normalizedStatus = normalizeInjuryStatus(status, comment);
-            console.log(`[ESPN Injuries Page] ${teamName}: ${playerName} - ${normalizedStatus} (${comment}), Est. Return: ${date || 'N/A'}`);
-            
-            injuries.push({
-              player: fixPlayerName(playerName),
-              status: normalizedStatus,
-              description: position || 'Injury',
-              comment: comment,
-              updated: date || null
-            });
-          }
-        }
+    });
+    
+    console.log(`[ESPN Injuries Page] Found ${allTeamHeaders.length} potential team headers`);
+    
+    // Find our team's header
+    let ourTeamHeaderIndex = -1;
+    let ourTeamHeader = null;
+    
+    for (let i = 0; i < allTeamHeaders.length; i++) {
+      const header = allTeamHeaders[i];
+      const matchesOurTeam = teamNameVariations.some(variation => {
+        const lowerText = header.text.toLowerCase();
+        const lowerVar = variation.toLowerCase();
+        return lowerText === lowerVar || 
+               (lowerText.includes(lowerVar) && header.text.length < lowerVar.length + 30);
       });
+      
+      if (matchesOurTeam) {
+        ourTeamHeaderIndex = i;
+        ourTeamHeader = header;
+        console.log(`[ESPN Injuries Page] ✓ Found our team header at position ${i}: "${header.text}"`);
+        break;
+      }
     }
     
-    if (!foundTeam) {
+    if (!ourTeamHeader) {
       console.log(`[ESPN Injuries Page] Could not find ${teamName} on page`);
       console.log(`[ESPN Injuries Page] Tried variations: ${teamNameVariations.join(', ')}`);
+      console.log(`[ESPN Injuries Page] Found 0 injuries for ${teamName}`);
+      return [];
     }
+    
+    // Get the next team's header (or null if we're the last team)
+    const nextTeamHeader = allTeamHeaders[ourTeamHeaderIndex + 1] || null;
+    
+    console.log(`[ESPN Injuries Page] Extracting injuries between "${ourTeamHeader.text}" and ${nextTeamHeader ? `"${nextTeamHeader.text}"` : 'end of page'}`);
+    
+    // Get all elements after our header
+    const $startElement = ourTeamHeader.element;
+    let currentElement = $startElement.get(0);
+    const allRowElements = [];
+    
+    // Walk through DOM collecting all elements until we hit the next team header or end of document
+    while (currentElement) {
+      currentElement = currentElement.nextSibling || currentElement.parentNode?.nextSibling;
+      
+      if (!currentElement) break;
+      
+      // Check if we've reached the next team header
+      if (nextTeamHeader && currentElement === nextTeamHeader.element.get(0)) {
+        break;
+      }
+      
+      const $current = $(currentElement);
+      
+      // Look for table rows (tr or div rows) in this section
+      $current.find('tr, div[class*="Row"], div[class*="TR"]').each((i, row) => {
+        allRowElements.push(row);
+      });
+      
+      // Also check if current element itself is a row
+      if ($current.is('tr, div[class*="Row"], div[class*="TR"]')) {
+        allRowElements.push(currentElement);
+      }
+    }
+    
+    console.log(`[ESPN Injuries Page] Found ${allRowElements.length} potential injury rows`);
+    
+    // Parse the rows
+    allRowElements.forEach((row) => {
+      const $row = $(row);
+      
+      // Try to find cells (td or div cells)
+      let cells = $row.find('td');
+      if (cells.length === 0) {
+        cells = $row.find('div[class*="Cell"], div[class*="TD"]');
+      }
+      
+      if (cells.length >= 5) {
+        const playerName = $(cells.eq(0)).text().trim();
+        const position = $(cells.eq(1)).text().trim();
+        const date = $(cells.eq(2)).text().trim();
+        const status = $(cells.eq(3)).text().trim();
+        const comment = $(cells.eq(4)).text().trim();
+        
+        if (playerName && status && comment && playerName.length > 1 && playerName !== 'NAME') {
+          const normalizedStatus = normalizeInjuryStatus(status, comment);
+          console.log(`[ESPN Injuries Page] ${teamName}: ${playerName} - ${normalizedStatus} (${comment}), Est. Return: ${date || 'N/A'}`);
+          
+          injuries.push({
+            player: fixPlayerName(playerName),
+            status: normalizedStatus,
+            description: position || 'Injury',
+            comment: comment,
+            updated: date || null
+          });
+        }
+      }
+    });
     
     console.log(`[ESPN Injuries Page] Found ${injuries.length} injuries for ${teamName}`);
     return injuries;
