@@ -431,46 +431,65 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
           console.log(`[ESPN Injuries Page] ✓ Found team match in "${text}" using selector ${selector}`);
           
           // Try multiple strategies to find the associated injury table
-          // Strategy 1: Look in closest container
+          // ESPN might use div-based tables or actual HTML tables
+          
+          // Strategy 1: Look for HTML <table> in closest container
           teamSection = $elem.closest('div, section, article').find('table').first();
           
-          // Strategy 2: Look for next table sibling
+          // Strategy 2: Look for div-based tables (ESPN often uses these)
+          if (teamSection.length === 0) {
+            const divTable = $elem.closest('div, section, article').find('div.Table, div.ResponsiveTable, div[class*="Table"]').first();
+            if (divTable.length > 0) {
+              teamSection = divTable;
+              console.log(`[ESPN Injuries Page] Found div-based table`);
+            }
+          }
+          
+          // Strategy 3: Look for next table sibling
           if (teamSection.length === 0) {
             teamSection = $elem.nextAll('table').first();
           }
           
-          // Strategy 3: Look in parent
+          // Strategy 4: Look for next div table sibling
           if (teamSection.length === 0) {
-            teamSection = $elem.parent().find('table').first();
+            teamSection = $elem.nextAll('div.Table, div.ResponsiveTable, div[class*="Table"]').first();
           }
           
-          // Strategy 4: Look for table in parent's parent (sometimes nested deeply)
+          // Strategy 5: Look in parent
           if (teamSection.length === 0) {
-            teamSection = $elem.parent().parent().find('table').first();
+            teamSection = $elem.parent().find('table, div.Table, div.ResponsiveTable').first();
           }
           
-          // Strategy 5: Find the element's parent section and look for ANY table after this team element
+          // Strategy 6: Look for table in parent's parent (sometimes nested deeply)
           if (teamSection.length === 0) {
-            // Get all tables on the page
-            const allTables = $('table');
+            teamSection = $elem.parent().parent().find('table, div.Table, div.ResponsiveTable').first();
+          }
+          
+          // Strategy 7: Find the element's parent section and look for ANY table after this team element
+          if (teamSection.length === 0) {
+            // Get all tables and table-like divs on the page
+            const allTables = $('table, div.Table, div.ResponsiveTable, div[class*="InjuryTable"], div[class*="injury"]');
             const elemIndex = $elem.index();
+            
+            console.log(`[ESPN Injuries Page] Searching through ${allTables.length} potential table elements`);
             
             // Find the first table that comes after this element in the DOM
             allTables.each((tableIdx, table) => {
               const $table = $(table);
               // Check if this table comes after our team element
-              // Simple heuristic: if the table contains injury-related headers
+              // Simple heuristic: if the table contains injury-related headers or data
               const tableText = $table.text();
-              if (tableText.includes('STATUS') || tableText.includes('COMMENT') || tableText.includes('EST. RETURN')) {
-                // Check if this could be the Bulls' table by looking at nearby text
+              if (tableText.includes('STATUS') || tableText.includes('COMMENT') || tableText.includes('EST. RETURN') ||
+                  tableText.includes('Day-To-Day') || tableText.includes('Out') || tableText.includes('Doubtful') || tableText.includes('Questionable')) {
+                // Check if this could be our team's table by looking at nearby text
                 // Get the section this table is in
                 const tableSection = $table.closest('div, section, article');
                 const sectionText = tableSection.text();
                 
                 // If the section mentions our team name
-                if (teamNameVariations.some(v => sectionText.includes(v))) {
+                if (teamNameVariations.some(v => sectionText.toLowerCase().includes(v.toLowerCase()))) {
                   teamSection = $table;
-                  console.log(`[ESPN Injuries Page] ✓ Found table via section text match`);
+                  console.log(`[ESPN Injuries Page] ✓ Found table via section text match (${$table.prop('tagName')})`);
                   return false; // break
                 }
               }
@@ -490,11 +509,27 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
       if (foundTeam) break;
     }
     
-    // If we found the team section, parse the injury table
+    // If we found the team section, parse the injury table (HTML table or div-based)
     if (teamSection && teamSection.length > 0) {
-      teamSection.find('tr').each((i, row) => {
+      // Try HTML table rows first
+      let rows = teamSection.find('tr');
+      
+      // If no <tr> elements, try div-based table rows
+      if (rows.length === 0) {
+        rows = teamSection.find('div.Table__TR, div[class*="TableRow"], div[class*="Row"]');
+      }
+      
+      console.log(`[ESPN Injuries Page] Found ${rows.length} rows in table`);
+      
+      rows.each((i, row) => {
         const $row = $(row);
-        const cells = $row.find('td');
+        // Try regular td cells first
+        let cells = $row.find('td');
+        
+        // If no <td>, try div-based cells
+        if (cells.length === 0) {
+          cells = $row.find('div.Table__TD, div[class*="TableCell"], div[class*="Cell"]');
+        }
         
         if (cells.length >= 5) {
           const playerName = $(cells.eq(0)).text().trim();
@@ -505,13 +540,14 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
           
           if (playerName && status && comment && playerName.length > 1 && playerName !== 'NAME') {
             const normalizedStatus = normalizeInjuryStatus(status, comment);
-            console.log(`[ESPN Injuries Page] ${teamName}: ${playerName} - ${normalizedStatus}`);
+            console.log(`[ESPN Injuries Page] ${teamName}: ${playerName} - ${normalizedStatus} (${comment}), Est. Return: ${date || 'N/A'}`);
             
             injuries.push({
               player: fixPlayerName(playerName),
               status: normalizedStatus,
               description: position || 'Injury',
-              comment: comment
+              comment: comment,
+              updated: date || null
             });
           }
         }
@@ -1071,17 +1107,35 @@ export async function getTeamInfo(teamName) {
       const hasComments = injuries.some(inj => inj.comment && inj.comment.length > 0);
       if (!hasComments) {
         console.log(`[ESPN] Injuries found but missing comments, checking ESPN injuries page...`);
+        console.log(`[ESPN] Requesting injuries page for: abbr="${team.abbreviation}", name="${normalizedName}", displayName="${team.displayName}"`);
         const pageInjuries = await scrapeInjuriesFromESPNInjuriesPage(team.abbreviation, normalizedName);
         
         if (pageInjuries.length > 0) {
-          // Merge comments from injuries page into existing injuries
-          const pageMap = new Map(pageInjuries.map(inj => [inj.player.toLowerCase(), inj]));
+          // Create map of existing injuries
+          const existingMap = new Map(injuries.map(inj => [inj.player.toLowerCase(), inj]));
           
-          for (const injury of injuries) {
-            const pageInjury = pageMap.get(injury.player.toLowerCase());
-            if (pageInjury && pageInjury.comment) {
-              injury.comment = pageInjury.comment;
-              console.log(`[ESPN] Added comment for ${injury.player}`);
+          // Update existing injuries and add new ones from page
+          for (const pageInjury of pageInjuries) {
+            const existingInjury = existingMap.get(pageInjury.player.toLowerCase());
+            
+            if (existingInjury) {
+              // Update existing injury with page data
+              if (pageInjury.comment) {
+                existingInjury.comment = pageInjury.comment;
+                console.log(`[ESPN] Added comment for ${existingInjury.player}`);
+              }
+              if (pageInjury.status && pageInjury.status !== existingInjury.status) {
+                console.log(`[ESPN] Updated status for ${existingInjury.player}: "${existingInjury.status}" → "${pageInjury.status}"`);
+                existingInjury.status = pageInjury.status;
+              }
+              if (pageInjury.updated) {
+                existingInjury.updated = pageInjury.updated;
+                console.log(`[ESPN] Added Est. Return for ${existingInjury.player}: ${pageInjury.updated}`);
+              }
+            } else {
+              // Add new injury from page that wasn't in original list
+              console.log(`[ESPN] Adding new injury from page: ${pageInjury.player} - ${pageInjury.status}`);
+              injuries.push(pageInjury);
             }
           }
         }
@@ -1547,7 +1601,12 @@ export function formatInjuries(injuries) {
       injuryLine += ` (${desc})`;
     }
     
-    // Add return date if available (from CBS "updated" field)
+    // Add comment if available and different from description
+    if (inj.comment && inj.comment.trim() && inj.comment !== desc) {
+      injuryLine += ` • ${inj.comment}`;
+    }
+    
+    // Add return date if available (from CBS/ESPN "updated" field)
     if (inj.updated && inj.updated.trim() && inj.updated !== 'Updated') {
       injuryLine += ` • Est. Return: ${inj.updated}`;
     }
