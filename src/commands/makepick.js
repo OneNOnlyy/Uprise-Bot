@@ -281,7 +281,7 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
     if (matchupInfo?.away) {
       const awayInfo = matchupInfo.away;
       embed.addFields({
-        name: `� ${game.awayTeam}`,
+        name: `🛫 ${game.awayTeam}`,
         value: `**Record:** ${awayInfo.record}\n**Spread:** ${game.spreadDisplay.away}`,
         inline: true
       });
@@ -291,7 +291,7 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
       }
     } else {
       embed.addFields({
-        name: `� ${game.awayTeam}`,
+        name: `🛫 ${game.awayTeam}`,
         value: `**Spread:** ${game.spreadDisplay.away}`,
         inline: true
       });
@@ -1114,6 +1114,9 @@ export async function handleViewMatchup(interaction) {
     // Check if user is already tracking this game's injuries
     const userIsTracking = isSubscribed(interaction.user.id, gameId);
 
+    // Check if game has started (locked)
+    const isLocked = gameTime < new Date();
+
     const backButton = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`pats_view_roster_${gameId}`)
@@ -1133,6 +1136,7 @@ export async function handleViewMatchup(interaction) {
         .setLabel(userIsTracking ? 'Stop Tracking Injuries' : 'Track Injuries')
         .setStyle(userIsTracking ? ButtonStyle.Danger : ButtonStyle.Success)
         .setEmoji(userIsTracking ? '🔕' : '🔔')
+        .setDisabled(isLocked)
     );
 
     await interaction.editReply({
