@@ -934,13 +934,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.deferUpdate();
         await patsscheduleCommand.showParticipantTypeSelection(interaction);
       }
-      else if (interaction.customId === 'schedule_participants_role') {
-        // Show modal for role input
-        await patsscheduleCommand.showRoleInputModal(interaction);
-      }
-      else if (interaction.customId === 'schedule_participants_users') {
-        // Show modal for user input
-        await patsscheduleCommand.showUserInputModal(interaction);
+      else if (interaction.customId === 'schedule_participants_done') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showConfigurationMenu(interaction);
       }
       else if (interaction.customId === 'schedule_select_channel') {
         const channelId = interaction.values[0];
@@ -948,21 +944,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.deferUpdate();
         await patsscheduleCommand.showConfigurationMenu(interaction);
       }
-      else if (interaction.customId === 'schedule_select_role') {
-        const roleId = interaction.values[0];
-        patsscheduleCommand.setRole(interaction.user.id, roleId);
+      else if (interaction.customId === 'schedule_select_roles') {
+        const roleIds = interaction.values;
+        patsscheduleCommand.setRoles(interaction.user.id, roleIds);
         await interaction.deferUpdate();
-        await patsscheduleCommand.showConfigurationMenu(interaction);
+        await patsscheduleCommand.showParticipantTypeSelection(interaction);
       }
-      else if (interaction.customId === 'schedule_select_user') {
+      else if (interaction.customId === 'schedule_select_users') {
         const userIds = interaction.values;
         patsscheduleCommand.setUsers(interaction.user.id, userIds);
         await interaction.deferUpdate();
-        await patsscheduleCommand.showUserSelection(interaction);
-      }
-      else if (interaction.customId === 'schedule_users_done') {
-        await interaction.deferUpdate();
-        await patsscheduleCommand.showConfigurationMenu(interaction);
+        await patsscheduleCommand.showParticipantTypeSelection(interaction);
       }
       else if (interaction.customId === 'schedule_back_to_config') {
         await interaction.deferUpdate();
@@ -1020,12 +1012,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.deferUpdate();
         const channelId = interaction.values[0];
         await patsscheduleCommand.updateSessionChannel(interaction, channelId, sessionId);
-      }
-      else if (interaction.customId.startsWith('schedule_update_participant_role_')) {
-        const sessionId = interaction.customId.replace('schedule_update_participant_role_', '');
-        await interaction.deferUpdate();
-        const roleId = interaction.values[0];
-        await patsscheduleCommand.updateSessionParticipantRole(interaction, roleId, sessionId);
       }
       else if (interaction.customId === 'schedule_create_session') {
         await interaction.deferUpdate();
@@ -1096,19 +1082,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.deferUpdate();
         await patsscheduleCommand.showSessionEditor(interaction, sessionId);
       }
-      else if (interaction.customId.startsWith('schedule_participant_role_')) {
-        const sessionId = interaction.customId.replace('schedule_participant_role_', '');
+      else if (interaction.customId.startsWith('schedule_update_participant_roles_')) {
+        const sessionId = interaction.customId.replace('schedule_update_participant_roles_', '');
         await interaction.deferUpdate();
-        await patsscheduleCommand.showSessionParticipantRoleSelector(interaction, sessionId);
+        const roleIds = interaction.values;
+        await patsscheduleCommand.updateSessionParticipantRoles(interaction, roleIds, sessionId);
       }
-      else if (interaction.customId.startsWith('schedule_participant_users_')) {
-        const sessionId = interaction.customId.replace('schedule_participant_users_', '');
-        await patsscheduleCommand.showSessionParticipantUsersModal(interaction, sessionId);
-      }
-      else if (interaction.customId.startsWith('schedule_participant_back_')) {
-        const sessionId = interaction.customId.replace('schedule_participant_back_', '');
+      else if (interaction.customId.startsWith('schedule_update_participant_users_')) {
+        const sessionId = interaction.customId.replace('schedule_update_participant_users_', '');
         await interaction.deferUpdate();
-        await patsscheduleCommand.showSessionParticipantEditor(interaction, sessionId);
+        const userIds = interaction.values;
+        await patsscheduleCommand.updateSessionParticipantUsers(interaction, userIds, sessionId);
       }
       else if (interaction.customId.startsWith('schedule_delete_')) {
         const sessionId = interaction.customId.replace('schedule_delete_', '');
@@ -1139,18 +1123,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // Handle modal submissions for scheduling
   if (interaction.isModalSubmit() && interaction.customId.startsWith('schedule_')) {
     try {
-      if (interaction.customId === 'schedule_modal_role') {
-        await interaction.deferUpdate();
-        await patsscheduleCommand.handleRoleModalSubmit(interaction);
-      }
-      else if (interaction.customId === 'schedule_modal_users') {
-        await interaction.deferUpdate();
-        await patsscheduleCommand.handleUserModalSubmit(interaction);
-      }
-      else if (interaction.customId.startsWith('schedule_update_participant_users_')) {
-        const sessionId = interaction.customId.replace('schedule_update_participant_users_', '');
-        await patsscheduleCommand.updateSessionParticipantUsers(interaction, sessionId);
-      }
+      // Modal handlers removed - now using native select menus
     } catch (error) {
       console.error('Error handling schedule modal:', error);
       const errorMessage = { 

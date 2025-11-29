@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, UserSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { getAllScheduledSessions, getScheduledSession, deleteScheduledSession, getAllTemplates, getTemplate, deleteTemplate, addScheduledSession, saveTemplate, updateScheduledSession } from '../utils/sessionScheduler.js';
 import { getESPNGamesForDate } from '../utils/oddsApi.js';
 
@@ -15,9 +15,8 @@ function getSessionConfig(userId) {
       games: [],
       selectedGameIndices: [], // Which games are selected
       channelId: null,
-      participantType: 'role', // 'role' or 'users'
-      roleId: null,
-      specificUsers: [],
+      roleIds: [], // Multiple roles can participate
+      userIds: [], // Multiple users can participate
       notifications: {
         announcement: { enabled: true, hoursBefore: 9 },
         reminder: { enabled: true, minutesBefore: 60 },
@@ -26,6 +25,32 @@ function getSessionConfig(userId) {
     });
   }
   return sessionConfigs.get(userId);
+}
+
+/**
+ * Format participant list for display (supports both new and legacy formats)
+ */
+function formatParticipants(session) {
+  const parts = [];
+  
+  // New format: roleIds and userIds arrays
+  if (session.roleIds && session.roleIds.length > 0) {
+    parts.push(`Roles: ${session.roleIds.map(id => `<@&${id}>`).join(', ')}`);
+  }
+  if (session.userIds && session.userIds.length > 0) {
+    parts.push(`Users: ${session.userIds.map(id => `<@${id}>`).join(', ')}`);
+  }
+  
+  // Legacy format support
+  if (parts.length === 0) {
+    if (session.participantType === 'role' && session.roleId) {
+      parts.push(`<@&${session.roleId}>`);
+    } else if (session.participantType === 'users' && session.specificUsers && session.specificUsers.length > 0) {
+      parts.push(`${session.specificUsers.length} user${session.specificUsers.length === 1 ? '' : 's'}`);
+    }
+  }
+  
+  return parts.length > 0 ? parts.join(' | ') : 'No participants specified';
 }
 
 /**
@@ -162,9 +187,7 @@ export async function showScheduledSessions(interaction) {
       const firstGame = session.gameDetails[0];
       const channelMention = `<#${session.channelId}>`;
       
-      const participantText = session.participantType === 'role' 
-        ? `<@&${session.roleId}>`
-        : `${session.specificUsers.length} user${session.specificUsers.length === 1 ? '' : 's'}`;
+      const participantText = formatParticipants(session);
       
       embed.addFields({
         name: `🟢 ACTIVE: ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`,
@@ -186,9 +209,7 @@ export async function showScheduledSessions(interaction) {
     const firstGame = session.gameDetails[0];
     const channelMention = `<#${session.channelId}>`;
     
-    const participantText = session.participantType === 'role' 
-      ? `<@&${session.roleId}>`
-      : `${session.specificUsers.length} user${session.specificUsers.length === 1 ? '' : 's'}`;
+    const participantText = formatParticipants(session);
     
     embed.addFields({
       name: `${activeSessions.length + index + 1}. ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`,
@@ -270,9 +291,7 @@ export async function showSessionManager(interaction, sessionId) {
     : 'Starting soon';
   
   const channelMention = `<#${session.channelId}>`;
-  const participantText = session.participantType === 'role'
-    ? `<@&${session.roleId}>`
-    : session.specificUsers.map(uid => `<@${uid}>`).join(', ');
+  const participantText = formatParticipants(session);
   
   const firstGame = session.gameDetails[0];
   
@@ -413,7 +432,7 @@ export async function showSessionEditor(interaction, sessionId) {
         value: [
           `**Games:** ${session.games.length}`,
           `**Channel:** <#${session.channelId}>`,
-          `**Participants:** ${session.participantType === 'role' ? `<@&${session.roleId}>` : `${session.specificUsers.length} users`}`,
+          `**Participants:** ${formatParticipants(session)}`,
           `**Announcement:** ${session.notifications.announcement.enabled ? `${announcementHoursBefore}h before` : 'Disabled'}`,
           `**Reminder:** ${session.notifications.reminder.enabled ? `${session.notifications.reminder.minutesBefore}min before` : 'Disabled'}`,
           `**Warning:** ${session.notifications.warning.enabled ? `${session.notifications.warning.minutesBefore}min before` : 'Disabled'}`
@@ -504,9 +523,7 @@ export async function showTemplatesMenu(interaction) {
   
   templates.forEach((template, index) => {
     const channelMention = `<#${template.channelId}>`;
-    const participantText = template.participantType === 'role'
-      ? `<@&${template.roleId}>`
-      : `${template.specificUsers.length} user${template.specificUsers.length === 1 ? '' : 's'}`;
+    const participantText = formatParticipants(template);
     
     const notifIcons = [
       template.notifications.announcement.enabled ? '✅' : '❌',
@@ -626,14 +643,25 @@ export async function startSessionNow(interaction, sessionId) {
       return;
     }
     
-    // Determine participants based on session type
+    // Determine participants based on session configuration
     let participants = [];
-    if (session.participantType === 'role' && session.roleId) {
-      participants = [session.roleId];
-    } else if (session.participantType === 'users' && session.specificUsers) {
-      participants = session.specificUsers;
+    
+    // New format: roleIds and userIds arrays
+    if (session.roleIds && session.roleIds.length > 0) {
+      participants.push(...session.roleIds);
     }
-    // If participantType is 'here', participants stays empty (everyone can join)
+    if (session.userIds && session.userIds.length > 0) {
+      participants.push(...session.userIds);
+    }
+    
+    // Legacy format support
+    if (participants.length === 0) {
+      if (session.participantType === 'role' && session.roleId) {
+        participants = [session.roleId];
+      } else if (session.participantType === 'users' && session.specificUsers) {
+        participants = session.specificUsers;
+      }
+    }
     
     // Create the PATS session
     const patsSession = createPATSSession(dateStr, games, participants);
@@ -668,13 +696,28 @@ export async function startSessionNow(interaction, sessionId) {
     
     // Create participant mention string
     let mentionText = '';
-    if (session.participantType === 'role' && session.roleId) {
-      mentionText = `<@&${session.roleId}>`;
-    } else if (session.participantType === 'users' && session.specificUsers?.length > 0) {
-      mentionText = session.specificUsers.map(uid => `<@${uid}>`).join(' ');
-    } else if (session.participantType === 'here') {
-      mentionText = '@here';
+    const mentions = [];
+    
+    // New format
+    if (session.roleIds && session.roleIds.length > 0) {
+      mentions.push(...session.roleIds.map(id => `<@&${id}>`));
     }
+    if (session.userIds && session.userIds.length > 0) {
+      mentions.push(...session.userIds.map(id => `<@${id}>`));
+    }
+    
+    // Legacy format support
+    if (mentions.length === 0) {
+      if (session.participantType === 'role' && session.roleId) {
+        mentions.push(`<@&${session.roleId}>`);
+      } else if (session.participantType === 'users' && session.specificUsers?.length > 0) {
+        mentions.push(...session.specificUsers.map(uid => `<@${uid}>`));
+      } else if (session.participantType === 'here') {
+        mentions.push('@here');
+      }
+    }
+    
+    mentionText = mentions.join(' ');
     
     // Send announcement to channel
     await channel.send({ 
@@ -1088,9 +1131,9 @@ export async function showConfigurationMenu(interaction) {
       },
       {
         name: '👥 Participants',
-        value: config.participantType === 'role'
-          ? (config.roleId ? `<@&${config.roleId}>` : '❌ Not set - Click "Set Participants" below')
-          : (config.specificUsers.length > 0 ? `${config.specificUsers.length} user(s) selected` : '❌ Not set - Click "Set Participants" below')
+        value: (config.roleIds.length > 0 || config.userIds.length > 0)
+          ? formatParticipants(config)
+          : '❌ Not set - Click "Set Participants" below'
       },
       {
         name: '🔔 Notifications',
@@ -1230,27 +1273,51 @@ export async function showChannelSelection(interaction) {
  * Show participant type selection
  */
 export async function showParticipantTypeSelection(interaction) {
+  const config = getSessionConfig(interaction.user.id);
+  
   const embed = new EmbedBuilder()
-    .setTitle('👥 Select Participant Type')
-    .setDescription('Who should be included in this PATS session?')
+    .setTitle('👥 Select Participants')
+    .setDescription('Choose who should be included in this PATS session.\nYou can select multiple roles and/or users.')
     .setColor('#5865F2');
+  
+  // Show current selections if any
+  if (config.roleIds.length > 0 || config.userIds.length > 0) {
+    let currentText = [];
+    if (config.roleIds.length > 0) {
+      currentText.push(`**Roles:** ${config.roleIds.map(id => `<@&${id}>`).join(', ')}`);
+    }
+    if (config.userIds.length > 0) {
+      currentText.push(`**Users:** ${config.userIds.map(id => `<@${id}>`).join(', ')}`);
+    }
+    embed.addFields({
+      name: 'Current Selection',
+      value: currentText.join('\n')
+    });
+  }
+  
+  const roleSelect = new RoleSelectMenuBuilder()
+    .setCustomId('schedule_select_roles')
+    .setPlaceholder('Select roles (optional)')
+    .setMinValues(0)
+    .setMaxValues(25);
+  
+  const userSelect = new UserSelectMenuBuilder()
+    .setCustomId('schedule_select_users')
+    .setPlaceholder('Select users (optional)')
+    .setMinValues(0)
+    .setMaxValues(25);
+  
+  const roleRow = new ActionRowBuilder().addComponents(roleSelect);
+  const userRow = new ActionRowBuilder().addComponents(userSelect);
   
   const buttons = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
-        .setCustomId('schedule_participants_role')
-        .setLabel('Specific Role')
-        .setEmoji('👥')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('schedule_participants_users')
-        .setLabel('Specific Users')
-        .setEmoji('👤')
-        .setStyle(ButtonStyle.Primary)
-    );
-  
-  const backButton = new ActionRowBuilder()
-    .addComponents(
+        .setCustomId('schedule_participants_done')
+        .setLabel('Done')
+        .setEmoji('✅')
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(config.roleIds.length === 0 && config.userIds.length === 0),
       new ButtonBuilder()
         .setCustomId('schedule_back_to_config')
         .setLabel('Back to Configuration')
@@ -1260,121 +1327,8 @@ export async function showParticipantTypeSelection(interaction) {
   
   await interaction.editReply({
     embeds: [embed],
-    components: [buttons, backButton]
+    components: [roleRow, userRow, buttons]
   });
-}
-
-/**
- * Show role selection menu
- */
-export async function showRoleSelection(interaction) {
-  const embed = new EmbedBuilder()
-    .setTitle('👥 Select Role')
-    .setDescription('Choose the role whose members will participate:')
-    .setColor('#5865F2');
-  
-  const roleSelect = new RoleSelectMenuBuilder()
-    .setCustomId('schedule_select_role')
-    .setPlaceholder('Select a role');
-  
-  const row = new ActionRowBuilder().addComponents(roleSelect);
-  
-  const backButton = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('schedule_config_participants')
-        .setLabel('Back')
-        .setEmoji('⬅️')
-        .setStyle(ButtonStyle.Secondary)
-    );
-  
-  await interaction.editReply({
-    embeds: [embed],
-    components: [row, backButton]
-  });
-}
-
-/**
- * Show user selection menu
- */
-export async function showUserSelection(interaction) {
-  try {
-    const config = getSessionConfig(interaction.user.id);
-    
-    // Check if guild is available
-    if (!interaction.guild) {
-      await interaction.editReply({
-        content: '❌ This command must be used in a server.',
-        embeds: [],
-        components: []
-      });
-      return;
-    }
-    
-    // Get all members (limited to 25 for select menu)
-    const members = await interaction.guild.members.fetch();
-    const users = members
-      .filter(member => !member.user.bot)
-      .map(member => ({
-        label: member.user.username,
-        value: member.id,
-        description: member.displayName !== member.user.username ? member.displayName : undefined
-      }))
-      .slice(0, 25);
-    
-    if (users.length === 0) {
-      await interaction.editReply({
-        content: '❌ No users found in this server.',
-        embeds: [],
-        components: []
-      });
-      return;
-    }
-    
-    const selectedCount = config.specificUsers.length;
-    
-    const embed = new EmbedBuilder()
-      .setTitle('👤 Select Users')
-      .setDescription(`Choose users to participate in this session.\n**Currently selected:** ${selectedCount} user${selectedCount === 1 ? '' : 's'}`)
-      .setColor('#5865F2')
-      .setFooter({ text: 'Select multiple users, then click Done' });
-    
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId('schedule_select_user')
-      .setPlaceholder('Select users')
-      .setMinValues(1)
-      .setMaxValues(Math.min(users.length, 25))
-      .addOptions(users);
-    
-    const row = new ActionRowBuilder().addComponents(selectMenu);
-    
-    const buttons = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('schedule_users_done')
-          .setLabel('Done')
-          .setEmoji('✅')
-          .setStyle(ButtonStyle.Success)
-          .setDisabled(selectedCount === 0),
-        new ButtonBuilder()
-          .setCustomId('schedule_config_participants')
-          .setLabel('Back')
-          .setEmoji('⬅️')
-          .setStyle(ButtonStyle.Secondary)
-      );
-    
-    await interaction.editReply({
-      embeds: [embed],
-      components: [row, buttons]
-    });
-  } catch (error) {
-    console.error('Error in showUserSelection:', error);
-    await interaction.editReply({
-      content: '❌ Error loading users. Please try again.',
-      embeds: [],
-      components: []
-    });
-  }
 }
 
 /**
@@ -1386,13 +1340,11 @@ export function setChannel(userId, channelId) {
 }
 
 /**
- * Update participant role in config
+ * Update participant roles in config
  */
-export function setRole(userId, roleId) {
+export function setRoles(userId, roleIds) {
   const config = getSessionConfig(userId);
-  config.participantType = 'role';
-  config.roleId = roleId;
-  config.specificUsers = [];
+  config.roleIds = roleIds;
 }
 
 /**
@@ -1400,9 +1352,7 @@ export function setRole(userId, roleId) {
  */
 export function setUsers(userId, userIds) {
   const config = getSessionConfig(userId);
-  config.participantType = 'users';
-  config.roleId = null;
-  config.specificUsers = userIds;
+  config.userIds = userIds;
 }
 
 /**
@@ -1933,7 +1883,7 @@ export async function updateSessionChannel(interaction, channelId, sessionId) {
 }
 
 /**
- * Show participant type selection for scheduled session editing
+ * Show participant selection for scheduled session editing
  */
 export async function showSessionParticipantEditor(interaction, sessionId) {
   const session = getScheduledSession(sessionId);
@@ -1949,30 +1899,53 @@ export async function showSessionParticipantEditor(interaction, sessionId) {
   
   const embed = new EmbedBuilder()
     .setTitle('👥 Edit Participants')
-    .setDescription('Select the participant type for this scheduled session.')
-    .setColor('#5865F2')
-    .addFields({
-      name: 'Current Participants',
-      value: session.participantType === 'role'
-        ? `Role: <@&${session.roleId}>`
-        : `${session.specificUsers.length} specific user${session.specificUsers.length === 1 ? '' : 's'}`
+    .setDescription('Select who can participate in this scheduled session.\nYou can select multiple roles and/or users.')
+    .setColor('#5865F2');
+  
+  // Show current selections
+  if ((session.roleIds && session.roleIds.length > 0) || (session.userIds && session.userIds.length > 0)) {
+    let currentText = [];
+    if (session.roleIds && session.roleIds.length > 0) {
+      currentText.push(`**Roles:** ${session.roleIds.map(id => `<@&${id}>`).join(', ')}`);
+    }
+    if (session.userIds && session.userIds.length > 0) {
+      currentText.push(`**Users:** ${session.userIds.map(id => `<@${id}>`).join(', ')}`);
+    }
+    embed.addFields({
+      name: 'Current Selection',
+      value: currentText.join('\n')
     });
+  } else {
+    // Legacy format support
+    if (session.participantType === 'role' && session.roleId) {
+      embed.addFields({
+        name: 'Current Selection',
+        value: `**Role:** <@&${session.roleId}>`
+      });
+    } else if (session.participantType === 'users' && session.specificUsers && session.specificUsers.length > 0) {
+      embed.addFields({
+        name: 'Current Selection',
+        value: `**Users:** ${session.specificUsers.map(id => `<@${id}>`).join(', ')}`
+      });
+    }
+  }
   
-  const typeButtons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId(`schedule_participant_role_${sessionId}`)
-        .setLabel('By Role')
-        .setEmoji('🎭')
-        .setStyle(session.participantType === 'role' ? ButtonStyle.Primary : ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId(`schedule_participant_users_${sessionId}`)
-        .setLabel('Specific Users')
-        .setEmoji('👤')
-        .setStyle(session.participantType === 'users' ? ButtonStyle.Primary : ButtonStyle.Secondary)
-    );
+  const roleSelect = new RoleSelectMenuBuilder()
+    .setCustomId(`schedule_update_participant_roles_${sessionId}`)
+    .setPlaceholder('Select roles (optional)')
+    .setMinValues(0)
+    .setMaxValues(25);
   
-  const backButton = new ActionRowBuilder()
+  const userSelect = new UserSelectMenuBuilder()
+    .setCustomId(`schedule_update_participant_users_${sessionId}`)
+    .setPlaceholder('Select users (optional)')
+    .setMinValues(0)
+    .setMaxValues(25);
+  
+  const roleRow = new ActionRowBuilder().addComponents(roleSelect);
+  const userRow = new ActionRowBuilder().addComponents(userSelect);
+  
+  const buttons = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
         .setCustomId(`schedule_edit_${sessionId}`)
@@ -1983,62 +1956,14 @@ export async function showSessionParticipantEditor(interaction, sessionId) {
   
   await interaction.editReply({
     embeds: [embed],
-    components: [typeButtons, backButton]
+    components: [roleRow, userRow, buttons]
   });
 }
 
 /**
- * Show role selector for scheduled session participants
+ * Update scheduled session participant roles
  */
-export async function showSessionParticipantRoleSelector(interaction, sessionId) {
-  const session = getScheduledSession(sessionId);
-  
-  if (!session) {
-    await interaction.editReply({
-      content: '❌ Session not found.',
-      embeds: [],
-      components: []
-    });
-    return;
-  }
-  
-  const embed = new EmbedBuilder()
-    .setTitle('🎭 Select Participant Role')
-    .setDescription('Select the role that can participate in this scheduled session.')
-    .setColor('#5865F2');
-  
-  if (session.participantType === 'role' && session.roleId) {
-    embed.addFields({
-      name: 'Current Role',
-      value: `<@&${session.roleId}>`
-    });
-  }
-  
-  const roleSelect = new RoleSelectMenuBuilder()
-    .setCustomId(`schedule_update_participant_role_${sessionId}`)
-    .setPlaceholder('Select a role');
-  
-  const row = new ActionRowBuilder().addComponents(roleSelect);
-  
-  const buttons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId(`schedule_participant_back_${sessionId}`)
-        .setLabel('Back')
-        .setEmoji('⬅️')
-        .setStyle(ButtonStyle.Secondary)
-    );
-  
-  await interaction.editReply({
-    embeds: [embed],
-    components: [row, buttons]
-  });
-}
-
-/**
- * Update scheduled session participant role
- */
-export async function updateSessionParticipantRole(interaction, roleId, sessionId) {
+export async function updateSessionParticipantRoles(interaction, roleIds, sessionId) {
   const session = getScheduledSession(sessionId);
   
   if (!session) {
@@ -2049,15 +1974,26 @@ export async function updateSessionParticipantRole(interaction, roleId, sessionI
     return;
   }
   
-  // Update session
-  updateScheduledSession(sessionId, {
-    participantType: 'role',
-    roleId: roleId,
-    specificUsers: []
-  });
+  // Update session - preserve existing userIds
+  const updates = {
+    roleIds: roleIds,
+    // Keep existing userIds if they exist
+    userIds: session.userIds || []
+  };
+  
+  // Remove legacy fields
+  delete updates.participantType;
+  delete updates.roleId;
+  delete updates.specificUsers;
+  
+  updateScheduledSession(sessionId, updates);
+  
+  const message = roleIds.length > 0
+    ? `✅ Role participants updated: ${roleIds.map(id => `<@&${id}>`).join(', ')}`
+    : '✅ Role participants cleared';
   
   await interaction.editReply({
-    content: `✅ Participants updated to role <@&${roleId}>`,
+    content: message,
     embeds: [],
     components: []
   });
@@ -2068,103 +2004,46 @@ export async function updateSessionParticipantRole(interaction, roleId, sessionI
 }
 
 /**
- * Show modal for adding specific users to scheduled session
+ * Update scheduled session participant users
  */
-export async function showSessionParticipantUsersModal(interaction, sessionId) {
+export async function updateSessionParticipantUsers(interaction, userIds, sessionId) {
   const session = getScheduledSession(sessionId);
   
   if (!session) {
-    await interaction.editReply({
+    await interaction.followUp({
       content: '❌ Session not found.',
-      embeds: [],
-      components: []
-    });
-    return;
-  }
-  
-  const currentUsers = session.participantType === 'users' && session.specificUsers.length > 0
-    ? session.specificUsers.map(id => `<@${id}>`).join(' ')
-    : '';
-  
-  const modal = new ModalBuilder()
-    .setCustomId(`schedule_update_participant_users_${sessionId}`)
-    .setTitle('Specific Participants');
-  
-  const usersInput = new TextInputBuilder()
-    .setCustomId('users')
-    .setLabel('User Mentions or IDs (space-separated)')
-    .setStyle(TextInputStyle.Paragraph)
-    .setPlaceholder('@user1 @user2 or 123456789 987654321')
-    .setValue(currentUsers)
-    .setRequired(true);
-  
-  const row = new ActionRowBuilder().addComponents(usersInput);
-  modal.addComponents(row);
-  
-  await interaction.showModal(modal);
-}
-
-/**
- * Update scheduled session specific users
- */
-export async function updateSessionParticipantUsers(interaction, sessionId) {
-  const userInput = interaction.fields.getTextInputValue('users');
-  const userIds = [];
-  const notFound = [];
-  
-  // Parse mentions and IDs
-  const mentions = userInput.match(/<@!?(\d+)>/g) || [];
-  const rawIds = userInput.split(/\s+/).filter(id => /^\d+$/.test(id));
-  
-  const allIds = [
-    ...mentions.map(m => m.match(/\d+/)[0]),
-    ...rawIds
-  ];
-  
-  // Validate users exist
-  for (const id of allIds) {
-    try {
-      await interaction.guild.members.fetch(id);
-      userIds.push(id);
-    } catch {
-      notFound.push(id);
-    }
-  }
-  
-  if (userIds.length === 0) {
-    await interaction.reply({
-      content: '❌ No valid users found. Please mention users or provide valid user IDs.',
       ephemeral: true
     });
     return;
   }
   
-  // Update session
-  updateScheduledSession(sessionId, {
-    participantType: 'users',
-    roleId: null,
-    specificUsers: userIds
-  });
+  // Update session - preserve existing roleIds
+  const updates = {
+    userIds: userIds,
+    // Keep existing roleIds if they exist
+    roleIds: session.roleIds || []
+  };
   
-  let message = `✅ Participants updated to ${userIds.length} specific user${userIds.length === 1 ? '' : 's'}.`;
-  if (notFound.length > 0) {
-    message += `\n⚠️ Could not find: ${notFound.join(', ')}`;
-  }
+  // Remove legacy fields
+  delete updates.participantType;
+  delete updates.roleId;
+  delete updates.specificUsers;
   
-  await interaction.reply({
+  updateScheduledSession(sessionId, updates);
+  
+  const message = userIds.length > 0
+    ? `✅ User participants updated: ${userIds.map(id => `<@${id}>`).join(', ')}`
+    : '✅ User participants cleared';
+  
+  await interaction.editReply({
     content: message,
-    ephemeral: true
+    embeds: [],
+    components: []
   });
   
-  // Wait a moment then show the editor again
   setTimeout(async () => {
-    try {
-      await showSessionEditor(interaction, sessionId);
-    } catch (error) {
-      // If we can't edit the original message, send a new one
-      console.error('Error showing session editor:', error);
-    }
-  }, 2000);
+    await showSessionEditor(interaction, sessionId);
+  }, 1500);
 }
 
 /**
@@ -2192,7 +2071,7 @@ export async function createScheduledSession(interaction) {
     return;
   }
   
-  if (!config.roleId && config.specificUsers.length === 0) {
+  if (config.roleIds.length === 0 && config.userIds.length === 0) {
     await interaction.editReply({
       content: '❌ Error: No participants selected.',
       embeds: [],
@@ -2225,9 +2104,8 @@ export async function createScheduledSession(interaction) {
       firstGameTime: firstGameTime.toISOString(),
       games: selectedGames.map(g => g.id),
       gameDetails: gameDetails,
-      participantType: config.participantType,
-      roleId: config.roleId,
-      specificUsers: config.specificUsers,
+      roleIds: config.roleIds,
+      userIds: config.userIds,
       notifications: {
         announcement: {
           enabled: config.notifications.announcement.enabled,
@@ -2274,7 +2152,7 @@ export async function createScheduledSession(interaction) {
           name: '📍 Configuration',
           value: [
             `**Channel:** <#${config.channelId}>`,
-            `**Participants:** ${config.participantType === 'role' ? `<@&${config.roleId}>` : `${config.specificUsers.length} user(s)`}`
+            `**Participants:** ${formatParticipants(config)}`
           ].join('\n')
         },
         {
