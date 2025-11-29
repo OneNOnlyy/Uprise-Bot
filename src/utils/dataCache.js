@@ -2,31 +2,22 @@
  * Data caching system for PATS
  * Caches NBA game data fetched ONLY during session creation to conserve API calls
  * Odds API has a limit of 500 calls per month, so we only fetch once per session
+ * 
+ * IMPORTANT: Injuries and rosters are NEVER cached - always fetched fresh on-demand
  */
 
 import { getMatchupInfo, getTeamInfo } from './espnApi.js';
 import * as cron from 'node-cron';
 
-// Cache storage
+// Cache storage (only for games/spreads from Odds API)
 const cache = {
   games: null,
   gamesLastUpdated: null,
   gamesDate: null, // Track what date the games are for
-  matchupInfo: new Map(), // gameId -> matchupInfo
-  matchupLastUpdated: new Map(), // gameId -> timestamp
-  teamInfo: new Map(), // teamName -> teamInfo (ESPN scrapes)
-  teamLastUpdated: new Map(), // teamName -> timestamp
-  injuryReports: new Map(), // DEPRECATED - no longer used
-  injuryReportsLastUpdated: null, // DEPRECATED - no longer used
-  isFetchingGames: false,
-  isFetchingInjuries: false // DEPRECATED - no longer used
+  isFetchingGames: false
 };
 
-// Cache settings
-const MATCHUP_CACHE_DURATION = 30 * 1000; // 30 seconds for matchup info (reduced from 60s for fresher injury data)
-const TEAM_CACHE_DURATION = 30 * 1000; // 30 seconds for team info (ESPN scrapes)
-const INJURY_CACHE_DURATION = 2 * 60 * 1000; // DEPRECATED - injury caching disabled
-const CACHE_VERSION = 'v2'; // Increment when injury fetching logic changes
+// No cache settings needed for injuries/rosters - always fresh
 
 /**
  * Initialize the cache system (no auto-refresh for odds)
@@ -96,123 +87,62 @@ export function clearGamesCache() {
 }
 
 /**
- * Get cached matchup info for a specific game
- * Falls back to live fetch if not cached or stale
+ * Get matchup info for a specific game
+ * Always fetches fresh data - no caching for injuries/rosters
  */
 export async function getCachedMatchupInfo(homeTeam, awayTeam, gameId = null, forceRefresh = false) {
-  const cacheKey = `${CACHE_VERSION}_${gameId || `${homeTeam}_${awayTeam}`}`;
+  console.log(`[Data] Fetching fresh matchup info for ${awayTeam} @ ${homeTeam}...`);
   
-  // Check if we have cached data
-  const cachedData = cache.matchupInfo.get(cacheKey);
-  const lastUpdated = cache.matchupLastUpdated.get(cacheKey) || 0;
-  const cacheAge = Date.now() - lastUpdated;
-  
-  // If force refresh requested, skip cache
-  if (forceRefresh) {
-    console.log(`[Cache] 🔄 Force refreshing matchup info for ${awayTeam} @ ${homeTeam}...`);
-  }
-  // If cache is fresh (less than 1 minute old), return it
-  else if (cachedData && cacheAge < MATCHUP_CACHE_DURATION) {
-    console.log(`[Cache] Using cached matchup info for ${awayTeam} @ ${homeTeam} (${Math.floor(cacheAge / 1000)}s old)`);
-    return cachedData;
-  }
-  
-  // Cache is stale or missing, or force refresh requested - fetch new data
-  if (!forceRefresh) {
-    console.log(`[Cache] Fetching fresh matchup info for ${awayTeam} @ ${homeTeam}...`);
-  }
   try {
     const matchupInfo = await getMatchupInfo(homeTeam, awayTeam);
-    
-    // Cache the result
-    cache.matchupInfo.set(cacheKey, matchupInfo);
-    cache.matchupLastUpdated.set(cacheKey, Date.now());
-    
     return matchupInfo;
   } catch (error) {
-    console.error(`[Cache] Error fetching matchup info for ${awayTeam} @ ${homeTeam}:`, error.message);
-    
-    // If we have stale cached data, return it as fallback
-    if (cachedData) {
-      console.log(`[Cache] Using stale cache as fallback (${Math.floor(cacheAge / 1000)}s old)`);
-      return cachedData;
-    }
-    
+    console.error(`[Data] Error fetching matchup info for ${awayTeam} @ ${homeTeam}:`, error.message);
     throw error;
   }
 }
 
 /**
  * Prefetch matchup info for all games in a session
- * Call this when a PATS session starts to warm up the cache
+ * Note: No caching, but this can still warm up ESPN's servers
  */
 export async function prefetchMatchupInfo(games) {
-  console.log(`[Cache] Prefetching matchup info for ${games.length} games...`);
+  console.log(`[Data] Prefetching matchup info for ${games.length} games (no caching)...`);
   
   const fetchPromises = games.map(game => 
     getCachedMatchupInfo(game.homeTeam, game.awayTeam, game.id)
       .catch(err => {
-        console.error(`[Cache] Failed to prefetch ${game.awayTeam} @ ${game.homeTeam}:`, err.message);
+        console.error(`[Data] Failed to prefetch ${game.awayTeam} @ ${game.homeTeam}:`, err.message);
         return null;
       })
   );
   
   await Promise.all(fetchPromises);
-  console.log('[Cache] ✅ Matchup info prefetch complete');
+  console.log('[Data] ✅ Matchup info prefetch complete');
 }
 
 /**
- * Clear the entire cache (useful for testing or troubleshooting)
+ * Clear the entire cache
  */
 export function clearCache() {
   cache.games = null;
   cache.gamesLastUpdated = null;
-  cache.matchupInfo.clear();
-  cache.matchupLastUpdated.clear();
-  cache.teamInfo.clear();
-  cache.teamLastUpdated.clear();
-  cache.injuryReports = null;
-  cache.injuryReportsLastUpdated = null;
-  console.log('[Cache] ✅ All caches cleared (including injuries)');
+  cache.gamesDate = null;
+  console.log('[Cache] ✅ Cache cleared (games only - injuries/rosters never cached)');
 }
 
 /**
- * Get cached team info (ESPN scrape data)
- * Falls back to live fetch if not cached or stale
+ * Get team info (ESPN scrape data)
+ * Always fetches fresh data - no caching for injuries/rosters
  */
 export async function getCachedTeamInfo(teamName) {
-  const cacheKey = `${CACHE_VERSION}_${teamName}`;
+  console.log(`[Data] Fetching fresh team info for ${teamName} (ESPN scrape)...`);
   
-  // Check if we have cached data
-  const cachedData = cache.teamInfo.get(cacheKey);
-  const lastUpdated = cache.teamLastUpdated.get(cacheKey) || 0;
-  const cacheAge = Date.now() - lastUpdated;
-  
-  // If cache is fresh (less than 1 minute old), return it
-  if (cachedData && cacheAge < TEAM_CACHE_DURATION) {
-    console.log(`[Cache] Using cached team info for ${teamName} (${Math.floor(cacheAge / 1000)}s old)`);
-    return cachedData;
-  }
-  
-  // Cache is stale or missing, fetch new data
-  console.log(`[Cache] Fetching fresh team info for ${teamName} (ESPN scrape)...`);
   try {
     const teamInfo = await getTeamInfo(teamName);
-    
-    // Cache the result
-    cache.teamInfo.set(cacheKey, teamInfo);
-    cache.teamLastUpdated.set(cacheKey, Date.now());
-    
     return teamInfo;
   } catch (error) {
-    console.error(`[Cache] Error fetching team info for ${teamName}:`, error.message);
-    
-    // If we have stale cached data, return it as fallback
-    if (cachedData) {
-      console.log(`[Cache] Using stale team cache as fallback (${Math.floor(cacheAge / 1000)}s old)`);
-      return cachedData;
-    }
-    
+    console.error(`[Data] Error fetching team info for ${teamName}:`, error.message);
     throw error;
   }
 }
@@ -228,9 +158,7 @@ export function getCacheStats() {
   return {
     gamesCount: cache.games?.length || 0,
     gamesAge: gamesAge ? `${gamesAge}s` : 'never',
-    matchupsCached: cache.matchupInfo.size,
-    teamsCached: cache.teamInfo.size,
-    isRefreshing: cache.isRefreshing
+    note: 'Injuries and rosters are never cached - always fetched fresh'
   };
 }
 
