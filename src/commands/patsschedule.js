@@ -1199,27 +1199,17 @@ export function deselectAllGames(userId) {
  * Show channel selection menu
  */
 export async function showChannelSelection(interaction) {
-  const channels = interaction.guild.channels.cache
-    .filter(ch => ch.type === ChannelType.GuildText)
-    .sort((a, b) => a.position - b.position)
-    .map(ch => ({
-      label: ch.name,
-      value: ch.id,
-      description: ch.topic ? ch.topic.substring(0, 100) : 'No description'
-    }))
-    .slice(0, 25); // Max 25 options
-  
   const embed = new EmbedBuilder()
     .setTitle('📍 Select Channel')
     .setDescription('Choose the channel where the PATS session will be announced:')
     .setColor('#5865F2');
   
-  const selectMenu = new StringSelectMenuBuilder()
+  const channelSelect = new ChannelSelectMenuBuilder()
     .setCustomId('schedule_select_channel')
     .setPlaceholder('Select a channel')
-    .addOptions(channels);
+    .setChannelTypes([ChannelType.GuildText]);
   
-  const row = new ActionRowBuilder().addComponents(selectMenu);
+  const row = new ActionRowBuilder().addComponents(channelSelect);
   
   const backButton = new ActionRowBuilder()
     .addComponents(
@@ -1278,27 +1268,16 @@ export async function showParticipantTypeSelection(interaction) {
  * Show role selection menu
  */
 export async function showRoleSelection(interaction) {
-  const roles = interaction.guild.roles.cache
-    .filter(role => !role.managed && role.id !== interaction.guild.id) // Exclude @everyone and bot roles
-    .sort((a, b) => b.position - a.position)
-    .map(role => ({
-      label: role.name,
-      value: role.id,
-      description: `${role.members.size} member${role.members.size === 1 ? '' : 's'}`
-    }))
-    .slice(0, 25); // Max 25 options
-  
   const embed = new EmbedBuilder()
     .setTitle('👥 Select Role')
     .setDescription('Choose the role whose members will participate:')
     .setColor('#5865F2');
   
-  const selectMenu = new StringSelectMenuBuilder()
+  const roleSelect = new RoleSelectMenuBuilder()
     .setCustomId('schedule_select_role')
-    .setPlaceholder('Select a role')
-    .addOptions(roles);
+    .setPlaceholder('Select a role');
   
-  const row = new ActionRowBuilder().addComponents(selectMenu);
+  const row = new ActionRowBuilder().addComponents(roleSelect);
   
   const backButton = new ActionRowBuilder()
     .addComponents(
