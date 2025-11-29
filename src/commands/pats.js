@@ -1200,7 +1200,9 @@ async function showUserStats(interaction, targetUserId = null) {
  * Show session history
  */
 async function showSessionHistory(interaction) {
+  console.log(`[PATS] Fetching session history for user ${interaction.user.id}...`);
   const history = getUserSessionHistory(interaction.user.id, 10);
+  console.log(`[PATS] Found ${history.length} sessions in history for this user`);
   
   const embed = new EmbedBuilder()
     .setTitle('📜 Your Session History')
@@ -1209,6 +1211,7 @@ async function showSessionHistory(interaction) {
     .setTimestamp();
 
   if (history.length === 0) {
+    console.log(`[PATS] No history found for user ${interaction.user.id}`);
     embed.setDescription('No session history found. Complete a session to see your history here!');
   } else {
     // Show last 10 sessions
@@ -1675,7 +1678,9 @@ async function showTutorial(interaction) {
  * Show past sessions browser
  */
 async function showPastSessionsBrowser(interaction) {
+  console.log(`[PATS] Fetching session snapshots for user ${interaction.user.id}...`);
   const userSessions = getUserSessionSnapshots(interaction.user.id);
+  console.log(`[PATS] Found ${userSessions.length} session snapshots for this user`);
   
   if (userSessions.length === 0) {
     const embed = new EmbedBuilder()

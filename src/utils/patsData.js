@@ -606,25 +606,32 @@ export function closePATSSession(sessionId, gameResults) {
   console.log(`  - Closed at: ${session.closedAt}`);
   
   // Move to history
+  console.log(`[PATS DATA] Adding session to history array...`);
   data.history.push(session);
   data.activeSessions = data.activeSessions.filter(s => s.id !== sessionId);
   
   console.log(`[PATS DATA] Session moved to history. History now has ${data.history.length} sessions`);
   console.log(`[PATS DATA] Active sessions now has ${data.activeSessions.length} sessions`);
   
+  console.log(`[PATS DATA] Writing data to file...`);
   writePATSData(data);
   console.log(`[PATS DATA] Data written to file successfully`);
+  
+  // Verify history was saved
+  const verifyData = readPATSData();
+  console.log(`[PATS DATA] Verification: History has ${verifyData.history.length} sessions after save`);
   
   // Create session snapshot for historical dashboard viewing
   console.log(`[PATS DATA] Creating session snapshot...`);
   createSessionSnapshot(session).then(success => {
     if (success) {
-      console.log(`[PATS DATA] Session snapshot created successfully`);
+      console.log(`[PATS DATA] Session snapshot created successfully for ${session.id}`);
     } else {
-      console.error(`[PATS DATA] Failed to create session snapshot`);
+      console.error(`[PATS DATA] Failed to create session snapshot for ${session.id}`);
     }
   }).catch(error => {
     console.error(`[PATS DATA] Error creating session snapshot:`, error);
+    console.error(error.stack);
   });
   
   return userResults;
@@ -1009,11 +1016,16 @@ export function updateLeaderboardCache() {
 export function getUserSessionHistory(userId, limit = 10) {
   const data = readPATSData();
   
+  console.log(`[PATS DATA] getUserSessionHistory for user ${userId}`);
+  console.log(`[PATS DATA] Total history sessions: ${data.history.length}`);
+  
   // Get all sessions where user participated
   const userSessions = data.history
     .filter(s => s.results && s.results[userId])
     .sort((a, b) => new Date(b.closedAt) - new Date(a.closedAt)) // Most recent first
     .slice(0, limit);
+  
+  console.log(`[PATS DATA] User participated in ${userSessions.length} sessions`);
   
   return userSessions.map(session => ({
     id: session.id,
@@ -1021,6 +1033,7 @@ export function getUserSessionHistory(userId, limit = 10) {
     closedAt: session.closedAt,
     wins: session.results[userId].wins,
     losses: session.results[userId].losses,
+    pushes: session.results[userId].pushes || 0,
     missedPicks: session.results[userId].missedPicks,
     totalGames: session.games.length,
     picks: session.picks[userId] || [],

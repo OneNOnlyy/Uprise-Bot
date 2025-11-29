@@ -15,15 +15,20 @@ const SNAPSHOT_INDEX_FILE = path.join(DATA_DIR, 'snapshot-index.json');
  * Ensure snapshot directory exists
  */
 function ensureSnapshotDirectory() {
+  console.log(`[SNAPSHOT] Ensuring snapshot directory exists...`);
   if (!fs.existsSync(DATA_DIR)) {
+    console.log(`[SNAPSHOT] Creating DATA_DIR: ${DATA_DIR}`);
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
   if (!fs.existsSync(SNAPSHOTS_DIR)) {
+    console.log(`[SNAPSHOT] Creating SNAPSHOTS_DIR: ${SNAPSHOTS_DIR}`);
     fs.mkdirSync(SNAPSHOTS_DIR, { recursive: true });
   }
   if (!fs.existsSync(SNAPSHOT_INDEX_FILE)) {
+    console.log(`[SNAPSHOT] Creating snapshot index file`);
     fs.writeFileSync(SNAPSHOT_INDEX_FILE, JSON.stringify({ sessions: [] }, null, 2));
   }
+  console.log(`[SNAPSHOT] Snapshot directory ready`);
 }
 
 /**
@@ -280,7 +285,10 @@ export function getSnapshotIndex() {
  * Get session snapshots for a specific user
  */
 export function getUserSessionSnapshots(userId) {
+  console.log(`[SNAPSHOT] Getting snapshots for user ${userId}`);
   const index = readSnapshotIndex();
+  console.log(`[SNAPSHOT] Total sessions in index: ${index.sessions.length}`);
+  
   const userSessions = [];
   
   for (const sessionInfo of index.sessions) {
@@ -294,5 +302,6 @@ export function getUserSessionSnapshots(userId) {
     }
   }
   
+  console.log(`[SNAPSHOT] User participated in ${userSessions.length} sessions`);
   return userSessions;
 }
