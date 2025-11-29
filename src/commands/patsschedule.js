@@ -24,7 +24,17 @@ function getSessionConfig(userId) {
       }
     });
   }
-  return sessionConfigs.get(userId);
+  
+  // Migrate old configs to new format
+  const config = sessionConfigs.get(userId);
+  if (!config.roleIds) {
+    config.roleIds = [];
+  }
+  if (!config.userIds) {
+    config.userIds = [];
+  }
+  
+  return config;
 }
 
 /**
@@ -1131,7 +1141,7 @@ export async function showConfigurationMenu(interaction) {
       },
       {
         name: '👥 Participants',
-        value: (config.roleIds.length > 0 || config.userIds.length > 0)
+        value: ((config.roleIds?.length > 0) || (config.userIds?.length > 0))
           ? formatParticipants(config)
           : '❌ Not set - Click "Set Participants" below'
       },
@@ -2071,7 +2081,7 @@ export async function createScheduledSession(interaction) {
     return;
   }
   
-  if (config.roleIds.length === 0 && config.userIds.length === 0) {
+  if ((config.roleIds?.length || 0) === 0 && (config.userIds?.length || 0) === 0) {
     await interaction.editReply({
       content: '❌ Error: No participants selected.',
       embeds: [],
