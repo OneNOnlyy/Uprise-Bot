@@ -1998,19 +1998,8 @@ export async function updateSessionParticipantRoles(interaction, roleIds, sessio
   
   updateScheduledSession(sessionId, updates);
   
-  const message = roleIds.length > 0
-    ? `✅ Role participants updated: ${roleIds.map(id => `<@&${id}>`).join(', ')}`
-    : '✅ Role participants cleared';
-  
-  await interaction.editReply({
-    content: message,
-    embeds: [],
-    components: []
-  });
-  
-  setTimeout(async () => {
-    await showSessionEditor(interaction, sessionId);
-  }, 1500);
+  // Stay on participant editor to allow further changes
+  await showSessionParticipantEditor(interaction, sessionId);
 }
 
 /**
@@ -2041,19 +2030,8 @@ export async function updateSessionParticipantUsers(interaction, userIds, sessio
   
   updateScheduledSession(sessionId, updates);
   
-  const message = userIds.length > 0
-    ? `✅ User participants updated: ${userIds.map(id => `<@${id}>`).join(', ')}`
-    : '✅ User participants cleared';
-  
-  await interaction.editReply({
-    content: message,
-    embeds: [],
-    components: []
-  });
-  
-  setTimeout(async () => {
-    await showSessionEditor(interaction, sessionId);
-  }, 1500);
+  // Stay on participant editor to allow further changes
+  await showSessionParticipantEditor(interaction, sessionId);
 }
 
 /**
