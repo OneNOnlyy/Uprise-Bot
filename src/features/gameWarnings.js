@@ -87,22 +87,12 @@ async function checkGameWarnings(client) {
             // Check if user has preferences and warnings enabled
             const prefs = getUserPreferences(userId);
             if (!prefs.warnings) {
+              console.log(`⚠️ User ${userId} has warnings disabled, skipping`);
               continue;
             }
             
-            // Check if user has made ANY picks in this session
+            // Get user's picks for this session
             const userPicks = getUserPicks(session.id, userId);
-            
-            // Only send warning if:
-            // 1. User has made at least one pick (engaged with the session), OR
-            // 2. User was tagged in the announcement (participant)
-            const hasAnyPicks = userPicks.length > 0;
-            const wasTagged = session.participants && session.participants.length > 0;
-            
-            if (!hasAnyPicks && !wasTagged) {
-              // Skip users who haven't engaged and weren't tagged
-              continue;
-            }
             
             // Check if user has picked THIS specific game
             const hasPickedThisGame = userPicks.some(p => p.gameId === game.id);
