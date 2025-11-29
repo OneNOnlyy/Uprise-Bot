@@ -191,9 +191,19 @@ function normalizeInjuryStatus(status, comment) {
     return commentStatus;
   }
   
-  // If comment has a status even if current isn't generic, still might want to use it
-  // (e.g., if scraper got wrong status but comment is clear)
+  // If comment has a status that's different from the table status, prioritize:
+  // 1. "Questionable" or "Probable" from comment should override "Out" (more up-to-date)
+  // 2. Otherwise keep the table status
   if (commentStatus && statusLower !== commentStatus.toLowerCase()) {
+    const commentStatusLower = commentStatus.toLowerCase();
+    
+    // If comment says Questionable/Probable but table says Out, trust the comment (more recent)
+    if ((commentStatusLower === 'questionable' || commentStatusLower === 'probable') && statusLower === 'out') {
+      console.log(`[Status Override] "${status}" → "${commentStatus}" (comment more recent: "${comment}")`);
+      return commentStatus;
+    }
+    
+    // For other mismatches, keep original but log
     console.log(`[Status Check] Comment suggests "${commentStatus}" but keeping original "${status}" (comment: "${comment}")`);
   }
   
