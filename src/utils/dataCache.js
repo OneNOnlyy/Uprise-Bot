@@ -99,7 +99,7 @@ export function clearGamesCache() {
  * Get cached matchup info for a specific game
  * Falls back to live fetch if not cached or stale
  */
-export async function getCachedMatchupInfo(homeTeam, awayTeam, gameId = null) {
+export async function getCachedMatchupInfo(homeTeam, awayTeam, gameId = null, forceRefresh = false) {
   const cacheKey = `${CACHE_VERSION}_${gameId || `${homeTeam}_${awayTeam}`}`;
   
   // Check if we have cached data
@@ -107,14 +107,20 @@ export async function getCachedMatchupInfo(homeTeam, awayTeam, gameId = null) {
   const lastUpdated = cache.matchupLastUpdated.get(cacheKey) || 0;
   const cacheAge = Date.now() - lastUpdated;
   
+  // If force refresh requested, skip cache
+  if (forceRefresh) {
+    console.log(`[Cache] 🔄 Force refreshing matchup info for ${awayTeam} @ ${homeTeam}...`);
+  }
   // If cache is fresh (less than 1 minute old), return it
-  if (cachedData && cacheAge < MATCHUP_CACHE_DURATION) {
+  else if (cachedData && cacheAge < MATCHUP_CACHE_DURATION) {
     console.log(`[Cache] Using cached matchup info for ${awayTeam} @ ${homeTeam} (${Math.floor(cacheAge / 1000)}s old)`);
     return cachedData;
   }
   
-  // Cache is stale or missing, fetch new data
-  console.log(`[Cache] Fetching fresh matchup info for ${awayTeam} @ ${homeTeam}...`);
+  // Cache is stale or missing, or force refresh requested - fetch new data
+  if (!forceRefresh) {
+    console.log(`[Cache] Fetching fresh matchup info for ${awayTeam} @ ${homeTeam}...`);
+  }
   try {
     const matchupInfo = await getMatchupInfo(homeTeam, awayTeam);
     

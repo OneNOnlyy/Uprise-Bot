@@ -1046,8 +1046,8 @@ export async function handleViewMatchup(interaction) {
       return;
     }
 
-    // Fetch matchup info - use cache
-    const matchupInfo = await getCachedMatchupInfo(game.homeTeam, game.awayTeam, game.id);
+    // Fetch matchup info - force refresh to always get fresh injury/roster data
+    const matchupInfo = await getCachedMatchupInfo(game.homeTeam, game.awayTeam, game.id, true);
 
     // FAIL-SAFE: Fix spreads before displaying
     const fixedSpreads = fixZeroSpreads(game);
