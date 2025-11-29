@@ -1196,7 +1196,7 @@ export async function showConfigurationMenu(interaction) {
         .setLabel('Schedule Session')
         .setEmoji('✅')
         .setStyle(ButtonStyle.Success)
-        .setDisabled(!config.channelId || (!config.roleId && config.specificUsers.length === 0)),
+        .setDisabled(!config.channelId || ((config.roleIds?.length || 0) === 0 && (config.userIds?.length || 0) === 0)),
       new ButtonBuilder()
         .setCustomId(`schedule_date_${config.selectedDate}`)
         .setLabel('Back to Games')
