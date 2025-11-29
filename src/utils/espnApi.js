@@ -385,41 +385,69 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
     
     console.log(`[ESPN Injuries Page] Looking for team name variations: ${teamNameVariations.join(', ')}`);
     
-    // SIMPLER APPROACH: Find all injury table containers, then match by team name in the text
+    // STRICTER APPROACH: Find tables with team name in a header/title element, not in row content
     const allTables = $('table, div[class*="Table"], div[class*="ResponsiveTable"]');
     console.log(`[ESPN Injuries Page] Found ${allTables.length} potential tables on page`);
     
     let ourTable = null;
+    let bestMatch = null;
+    let bestMatchScore = 0;
+    
     allTables.each((idx, table) => {
       const $table = $(table);
-      const tableText = $table.text();
       
-      // Check if this table contains our team name
-      const matchesOurTeam = teamNameVariations.some(variation => {
-        return tableText.toLowerCase().includes(variation.toLowerCase());
-      });
+      // Look for team name in header elements or at the very beginning of the table
+      // This should be a standalone text element, not buried in a player comment
+      let headerText = '';
       
-      if (matchesOurTeam) {
-        // Make sure it's not a different team's table that just mentions our team in a comment
-        // Check if the table text starts with our team name (within first 200 chars)
-        const firstChars = tableText.substring(0, 200).toLowerCase();
-        const startsWithOurTeam = teamNameVariations.some(variation => 
-          firstChars.includes(variation.toLowerCase())
-        );
-        
-        if (startsWithOurTeam) {
-          console.log(`[ESPN Injuries Page] ✓ Found table for ${teamName} (table ${idx})`);
-          ourTable = $table;
-          return false; // Break the loop
+      // Check for explicit header elements (h1-h6, div with header class, etc.)
+      const $headers = $table.find('h1, h2, h3, h4, h5, h6, div[class*="Header"], div[class*="Title"], span[class*="team"]').first();
+      if ($headers.length > 0) {
+        headerText = $headers.text().trim().toLowerCase();
+      }
+      
+      // If no header found, check the first text node or very first element
+      if (!headerText) {
+        const firstElements = $table.find('*').slice(0, 3);
+        for (let i = 0; i < firstElements.length; i++) {
+          const elemText = $(firstElements[i]).clone().children().remove().end().text().trim();
+          if (elemText.length > 3 && elemText.length < 50) {
+            headerText = elemText.toLowerCase();
+            break;
+          }
         }
+      }
+      
+      if (!headerText) return; // Continue to next table
+      
+      // Score this table based on how well it matches our team
+      let score = 0;
+      for (const variation of teamNameVariations) {
+        const lowerVar = variation.toLowerCase();
+        if (headerText === lowerVar) {
+          score = 100; // Exact match
+          break;
+        } else if (headerText.startsWith(lowerVar)) {
+          score = 50;
+        } else if (headerText.includes(lowerVar) && headerText.length < lowerVar.length + 20) {
+          score = 25;
+        }
+      }
+      
+      if (score > bestMatchScore) {
+        bestMatchScore = score;
+        bestMatch = { table: $table, idx, headerText };
       }
     });
     
-    if (!ourTable) {
+    if (!bestMatch || bestMatchScore < 25) {
       console.log(`[ESPN Injuries Page] Could not find table for ${teamName}`);
       console.log(`[ESPN Injuries Page] Found 0 injuries for ${teamName}`);
       return [];
     }
+    
+    ourTable = bestMatch.table;
+    console.log(`[ESPN Injuries Page] ✓ Found table for ${teamName} (table ${bestMatch.idx}, score ${bestMatchScore}, header: "${bestMatch.headerText}"`);
     
     // Find all rows in our table
     const allRowElements = ourTable.find('tr, div[class*="Row"], div[class*="TR"]').toArray();
@@ -463,6 +491,45 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
     });
     
     console.log(`[ESPN Injuries Page] Found ${injuries.length} injuries for ${teamName}`);
+    
+    // VALIDATION: Check if we accidentally got another team's table
+    // If we have injuries but the table header didn't strongly match, it might be wrong
+    if (injuries.length > 0 && bestMatchScore < 50) {
+      console.log(`[ESPN Injuries Page] Warning: Low confidence match (score ${bestMatchScore}), verifying data...`);
+      
+      // Look for the actual team's table by checking if a better match exists
+      // This is a safety check to prevent cross-contamination
+      const allTeamKeywords = [
+        'Atlanta', 'Boston', 'Brooklyn', 'Charlotte', 'Chicago', 'Cleveland',
+        'Dallas', 'Denver', 'Detroit', 'Golden State', 'Houston', 'Indiana',
+        'LA Clippers', 'LA Lakers', 'Memphis', 'Miami', 'Milwaukee', 'Minnesota',
+        'New Orleans', 'New York', 'Oklahoma City', 'Orlando', 'Philadelphia',
+        'Phoenix', 'Portland', 'Sacramento', 'San Antonio', 'Toronto', 'Utah', 'Washington'
+      ];
+      
+      // Check if injuries mention other teams more than our team
+      const injuryText = injuries.map(i => `${i.player} ${i.comment || ''}`).join(' ').toLowerCase();
+      let ourTeamMentions = 0;
+      let otherTeamMentions = 0;
+      
+      for (const keyword of allTeamKeywords) {
+        const mentions = (injuryText.match(new RegExp(keyword.toLowerCase(), 'g')) || []).length;
+        const isOurTeam = teamNameVariations.some(v => v.toLowerCase().includes(keyword.toLowerCase()));
+        
+        if (isOurTeam) {
+          ourTeamMentions += mentions;
+        } else if (mentions > 0) {
+          otherTeamMentions += mentions;
+        }
+      }
+      
+      if (otherTeamMentions > ourTeamMentions && otherTeamMentions > 2) {
+        console.log(`[ESPN Injuries Page] ⚠️ Detected cross-team contamination (other teams mentioned ${otherTeamMentions} times vs our team ${ourTeamMentions} times)`);
+        console.log(`[ESPN Injuries Page] Discarding potentially incorrect data`);
+        return [];
+      }
+    }
+    
     return injuries;
     
   } catch (error) {
