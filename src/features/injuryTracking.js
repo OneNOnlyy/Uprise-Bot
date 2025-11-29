@@ -129,20 +129,28 @@ function compareInjuries(oldList, newList) {
           player,
           oldStatus: oldInj.status,
           newStatus: newInj.status,
-          description: newInj.description,
+          description: typeof newInj.description === 'string' ? newInj.description : 'Injury',
           comment: newInj.comment
         });
       } 
       // Check for comment or description change (if status didn't change)
-      else if ((oldInj.comment !== newInj.comment) || (oldInj.description !== newInj.description)) {
-        changes.commentChanged.push({
-          player,
-          status: newInj.status,
-          oldComment: oldInj.comment || oldInj.description,
-          newComment: newInj.comment || newInj.description,
-          description: newInj.description,
-          comment: newInj.comment
-        });
+      else {
+        const oldComment = oldInj.comment || '';
+        const newComment = newInj.comment || '';
+        const oldDesc = typeof oldInj.description === 'string' ? oldInj.description : '';
+        const newDesc = typeof newInj.description === 'string' ? newInj.description : '';
+        
+        // Only report if there's an actual change in comment OR description
+        if ((oldComment !== newComment) || (oldDesc !== newDesc)) {
+          changes.commentChanged.push({
+            player,
+            status: newInj.status,
+            oldComment: oldComment || oldDesc,
+            newComment: newComment || newDesc,
+            description: newDesc || 'Injury',
+            comment: newComment
+          });
+        }
       }
     }
   }
@@ -166,7 +174,7 @@ function formatInjuryChanges(teamName, changes) {
   if (changes.added.length > 0) {
     lines.push('**🔴 New Injuries:**');
     changes.added.forEach(inj => {
-      const desc = inj.description || 'Injury';
+      const desc = typeof inj.description === 'string' ? inj.description : 'Injury';
       lines.push(`• **${inj.player}** - ${desc} (${inj.status})`);
       if (inj.comment) {
         lines.push(`  💬 ${inj.comment}`);
@@ -177,7 +185,7 @@ function formatInjuryChanges(teamName, changes) {
   if (changes.statusChanged.length > 0) {
     lines.push('**⚠️ Status Updates:**');
     changes.statusChanged.forEach(change => {
-      const desc = change.description || 'Injury';
+      const desc = typeof change.description === 'string' ? change.description : 'Injury';
       lines.push(`• **${change.player}** - ${desc}`);
       lines.push(`  ${change.oldStatus} → ${change.newStatus}`);
       if (change.comment) {
@@ -189,7 +197,7 @@ function formatInjuryChanges(teamName, changes) {
   if (changes.commentChanged.length > 0) {
     lines.push('**📝 Updated Information:**');
     changes.commentChanged.forEach(change => {
-      const desc = change.description || 'Injury';
+      const desc = typeof change.description === 'string' ? change.description : 'Injury';
       lines.push(`• **${change.player}** - ${desc} (${change.status})`);
       if (change.oldComment && change.newComment) {
         lines.push(`  💬 Was: "${change.oldComment}"`);
