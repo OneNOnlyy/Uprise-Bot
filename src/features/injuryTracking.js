@@ -109,26 +109,41 @@ function compareInjuries(oldList, newList) {
   const changes = {
     added: [],
     removed: [],
-    statusChanged: []
+    statusChanged: [],
+    commentChanged: []
   };
 
   // Create maps for easier lookup
   const oldMap = new Map(oldList.map(inj => [inj.player, inj]));
   const newMap = new Map(newList.map(inj => [inj.player, inj]));
 
-  // Find added and status changed
+  // Find added, status changed, and comment changed
   for (const [player, newInj] of newMap) {
     const oldInj = oldMap.get(player);
     if (!oldInj) {
       changes.added.push(newInj);
-    } else if (oldInj.status !== newInj.status) {
-      changes.statusChanged.push({
-        player,
-        oldStatus: oldInj.status,
-        newStatus: newInj.status,
-        description: newInj.description,
-        comment: newInj.comment
-      });
+    } else {
+      // Check for status change
+      if (oldInj.status !== newInj.status) {
+        changes.statusChanged.push({
+          player,
+          oldStatus: oldInj.status,
+          newStatus: newInj.status,
+          description: newInj.description,
+          comment: newInj.comment
+        });
+      } 
+      // Check for comment or description change (if status didn't change)
+      else if ((oldInj.comment !== newInj.comment) || (oldInj.description !== newInj.description)) {
+        changes.commentChanged.push({
+          player,
+          status: newInj.status,
+          oldComment: oldInj.comment || oldInj.description,
+          newComment: newInj.comment || newInj.description,
+          description: newInj.description,
+          comment: newInj.comment
+        });
+      }
     }
   }
 
@@ -167,6 +182,20 @@ function formatInjuryChanges(teamName, changes) {
       lines.push(`  ${change.oldStatus} → ${change.newStatus}`);
       if (change.comment) {
         lines.push(`  💬 ${change.comment}`);
+      }
+    });
+  }
+
+  if (changes.commentChanged.length > 0) {
+    lines.push('**📝 Updated Information:**');
+    changes.commentChanged.forEach(change => {
+      const desc = change.description || 'Injury';
+      lines.push(`• ${change.player} - ${desc} (${change.status})`);
+      if (change.oldComment && change.newComment) {
+        lines.push(`  💬 Was: "${change.oldComment}"`);
+        lines.push(`  💬 Now: "${change.newComment}"`);
+      } else if (change.newComment) {
+        lines.push(`  💬 ${change.newComment}`);
       }
     });
   }
@@ -233,8 +262,8 @@ async function checkInjuryUpdates(client) {
       const homeChanges = compareInjuries(sub.lastSnapshot.home, currentSnapshot.home);
       const awayChanges = compareInjuries(sub.lastSnapshot.away, currentSnapshot.away);
 
-      const hasHomeChanges = homeChanges.added.length > 0 || homeChanges.removed.length > 0 || homeChanges.statusChanged.length > 0;
-      const hasAwayChanges = awayChanges.added.length > 0 || awayChanges.removed.length > 0 || awayChanges.statusChanged.length > 0;
+      const hasHomeChanges = homeChanges.added.length > 0 || homeChanges.removed.length > 0 || homeChanges.statusChanged.length > 0 || homeChanges.commentChanged.length > 0;
+      const hasAwayChanges = awayChanges.added.length > 0 || awayChanges.removed.length > 0 || awayChanges.statusChanged.length > 0 || awayChanges.commentChanged.length > 0;
 
       if (hasHomeChanges || hasAwayChanges) {
         console.log(`[Injury Tracking] Changes detected for ${sub.awayTeam} @ ${sub.homeTeam}, notifying user ${sub.userId}`);
