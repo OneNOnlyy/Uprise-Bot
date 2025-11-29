@@ -387,11 +387,30 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
       .replace(/ Wizards$/, '')
       .trim();
     
-    const teamNameVariations = [
-      teamName,        // Full name: "Oklahoma City Thunder"
-      cityName,        // City only: "Oklahoma City"
-      teamAbbr         // Abbreviation: "OKC"
-    ];
+    // Special handling for LA teams to avoid cross-contamination
+    let teamNameVariations;
+    if (teamAbbr === 'LAC') {
+      // For Clippers, prioritize "LA Clippers" and "Clippers" to avoid Lakers contamination
+      teamNameVariations = [
+        teamName,          // "LA Clippers"
+        'Clippers',        // Unique identifier
+        'LA Clippers'      // Full name
+      ];
+    } else if (teamAbbr === 'LAL') {
+      // For Lakers, prioritize "Los Angeles Lakers" and "Lakers" to avoid Clippers contamination  
+      teamNameVariations = [
+        teamName,          // "Los Angeles Lakers"
+        'Lakers',          // Unique identifier
+        'Los Angeles Lakers' // Full name
+      ];
+    } else {
+      // For all other teams, use standard variations
+      teamNameVariations = [
+        teamName,        // Full name: "Oklahoma City Thunder"
+        cityName,        // City only: "Oklahoma City"
+        teamAbbr         // Abbreviation: "OKC"
+      ];
+    }
     
     console.log(`[ESPN Injuries Page] Looking for team name variations: ${teamNameVariations.join(', ')}`);
     
