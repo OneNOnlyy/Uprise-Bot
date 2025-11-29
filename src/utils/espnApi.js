@@ -342,7 +342,15 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
     const url = 'https://www.espn.com/nba/injuries';
     console.log(`[ESPN Injuries Page] Fetching ${url} for team ${teamAbbr} (${teamName})...`);
     
-    const response = await fetch(url);
+    // Add cache-busting headers to get fresh content
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
     if (!response.ok) {
       console.warn(`[ESPN Injuries Page] Failed to fetch: ${response.status}`);
       return [];
