@@ -176,8 +176,8 @@ function extractStatusFromComment(comment) {
  */
 function normalizeInjuryStatus(status, comment) {
   // If status is generic (like "Day-to-Day"), check comment for more specific status
-  const genericStatuses = ['day-to-day', 'day to day', 'active', 'injury'];
-  const statusLower = (status || '').toLowerCase();
+  const genericStatuses = ['day-to-day', 'day to day', 'dtd', 'active', 'injury'];
+  const statusLower = (status || '').toLowerCase().trim();
   
   // Check if current status is generic or if we should check comment
   const isGenericStatus = genericStatuses.some(generic => statusLower.includes(generic));
@@ -193,13 +193,20 @@ function normalizeInjuryStatus(status, comment) {
   
   // If comment has a status that's different from the table status, prioritize:
   // 1. "Questionable" or "Probable" from comment should override "Out" (more up-to-date)
-  // 2. Otherwise keep the table status
+  // 2. "Questionable" should also override "Day-To-Day" even if not detected as generic
   if (commentStatus && statusLower !== commentStatus.toLowerCase()) {
     const commentStatusLower = commentStatus.toLowerCase();
     
     // If comment says Questionable/Probable but table says Out, trust the comment (more recent)
     if ((commentStatusLower === 'questionable' || commentStatusLower === 'probable') && statusLower === 'out') {
       console.log(`[Status Override] "${status}" → "${commentStatus}" (comment more recent: "${comment}")`);
+      return commentStatus;
+    }
+    
+    // If comment says Questionable/Doubtful/Probable and status is Day-To-Day, use comment
+    if ((commentStatusLower === 'questionable' || commentStatusLower === 'doubtful' || commentStatusLower === 'probable') && 
+        (statusLower.includes('day') || statusLower === 'active')) {
+      console.log(`[Status Override] "${status}" → "${commentStatus}" (comment has specific status: "${comment}")`);
       return commentStatus;
     }
     
