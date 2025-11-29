@@ -241,7 +241,8 @@ export function getCachedInjuryReports() {
   // Check if we have valid cached injury data
   if (cache.injuryReports && cache.injuryReportsLastUpdated) {
     const age = Date.now() - cache.injuryReportsLastUpdated;
-    if (age < INJURY_CACHE_DURATION * 1000) {
+    // INJURY_CACHE_DURATION is already in milliseconds, don't multiply by 1000
+    if (age < INJURY_CACHE_DURATION) {
       return cache.injuryReports;
     }
   }
