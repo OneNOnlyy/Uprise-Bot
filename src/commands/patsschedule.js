@@ -1311,11 +1311,21 @@ export async function showParticipantTypeSelection(interaction) {
     .setMinValues(0)
     .setMaxValues(25);
   
+  // Pre-populate with current selections if any
+  if (config.roleIds && config.roleIds.length > 0) {
+    roleSelect.setDefaultRoles(...config.roleIds);
+  }
+  
   const userSelect = new UserSelectMenuBuilder()
     .setCustomId('schedule_select_users')
     .setPlaceholder('Select users (optional)')
     .setMinValues(0)
     .setMaxValues(25);
+  
+  // Pre-populate with current selections if any
+  if (config.userIds && config.userIds.length > 0) {
+    userSelect.setDefaultUsers(...config.userIds);
+  }
   
   const roleRow = new ActionRowBuilder().addComponents(roleSelect);
   const userRow = new ActionRowBuilder().addComponents(userSelect);
@@ -1843,7 +1853,8 @@ export async function showSessionChannelEditor(interaction, sessionId) {
   const channelSelect = new ChannelSelectMenuBuilder()
     .setCustomId(`schedule_update_channel_${sessionId}`)
     .setPlaceholder('Select a channel')
-    .setChannelTypes([ChannelType.GuildText]);
+    .setChannelTypes([ChannelType.GuildText])
+    .setDefaultChannels(session.channelId);
   
   const row = new ActionRowBuilder().addComponents(channelSelect);
   

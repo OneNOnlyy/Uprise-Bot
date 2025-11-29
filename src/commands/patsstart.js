@@ -66,47 +66,50 @@ export async function execute(interaction) {
       console.error('[PATS] Error prefetching matchup info:', err);
     });
 
-    // Create announcement embed
-    const embed = new EmbedBuilder()
-      .setTitle('🏀 Picks Against The Spread - LIVE!')
-      .setDescription(`**${games.length} NBA games** available for picks today!`)
-      .setColor(0xE03A3E)
-      .addFields(
-        { name: '📅 Date', value: dateStr, inline: true },
-        { name: '🎮 Games Available', value: games.length.toString(), inline: true },
-        { name: '\u200B', value: '\u200B', inline: true }
-      )
-      .addFields({
-        name: '📋 How to Play',
-        value: '1️⃣ Use `/pats dashboard` to see games and odds\n2️⃣ View injuries, records, and spreads\n3️⃣ Pick the team you think will cover the spread\n4️⃣ Check the leaderboard with `/patsleaderboard`',
+    // For scheduled sessions, skip the announcement embed since it's already been sent
+    if (!interaction.isScheduled) {
+      // Create announcement embed
+      const embed = new EmbedBuilder()
+        .setTitle('🏀 Picks Against The Spread - LIVE!')
+        .setDescription(`**${games.length} NBA games** available for picks today!`)
+        .setColor(0xE03A3E)
+        .addFields(
+          { name: '📅 Date', value: dateStr, inline: true },
+          { name: '🎮 Games Available', value: games.length.toString(), inline: true },
+          { name: '\u200B', value: '\u200B', inline: true }
+        )
+        .addFields({
+          name: '📋 How to Play',
+          value: '1️⃣ Use `/pats dashboard` to see games and odds\n2️⃣ View injuries, records, and spreads\n3️⃣ Pick the team you think will cover the spread\n4️⃣ Check the leaderboard with `/patsleaderboard`',
+          inline: false
+        })
+        .setFooter({ text: '🎯 Make your picks before tip-off!' })
+        .setTimestamp();
+
+      // Add game list using session.games which has properly formatted data
+      const gamesList = session.games.slice(0, 10).map(game => {
+        const favoredTeam = game.favored === 'home' ? game.homeTeam : game.awayTeam;
+        const spread = game.favored === 'home' ? game.homeSpread : game.awaySpread;
+        return `**✈️ ${game.awayTeam}** @ **${game.homeTeam}**\n🎯 ${favoredTeam} ${spread}\n🕐 ${game.timeString || 'TBD'}`;
+      }).join('\n\n');
+      
+      embed.addFields({
+        name: '🏀 Today\'s Games',
+        value: gamesList + (session.games.length > 10 ? `\n\n*...and ${session.games.length - 10} more*` : ''),
         inline: false
-      })
-      .setFooter({ text: '🎯 Make your picks before tip-off!' })
-      .setTimestamp();
+      });
 
-    // Add game list using session.games which has properly formatted data
-    const gamesList = session.games.slice(0, 10).map(game => {
-      const favoredTeam = game.favored === 'home' ? game.homeTeam : game.awayTeam;
-      const spread = game.favored === 'home' ? game.homeSpread : game.awaySpread;
-      return `**✈️ ${game.awayTeam}** @ **${game.homeTeam}**\n🎯 ${favoredTeam} ${spread}\n🕐 ${game.timeString || 'TBD'}`;
-    }).join('\n\n');
-    
-    embed.addFields({
-      name: '🏀 Today\'s Games',
-      value: gamesList + (session.games.length > 10 ? `\n\n*...and ${session.games.length - 10} more*` : ''),
-      inline: false
-    });
+      // Send to channel
+      const channel = interaction.channel;
+      await channel.send({ 
+        content: participantRole ? `${participantRole}` : '@here',
+        embeds: [embed] 
+      });
+    }
 
-    // Send to channel
-    const channel = interaction.channel;
-    await channel.send({ 
-      content: participantRole ? `${participantRole}` : '@here',
-      embeds: [embed] 
-    });
-
-    // DM participants
+    // DM participants (skip for scheduled sessions as they handle DMs separately)
     let dmCount = 0;
-    if (participantRole) {
+    if (participantRole && !interaction.isScheduled) {
       try {
         const members = await interaction.guild.members.fetch();
         const roleMembers = members.filter(member => member.roles.cache.has(participantRole.id));

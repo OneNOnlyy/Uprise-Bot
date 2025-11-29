@@ -231,6 +231,11 @@ export async function handleDashboardButton(interaction) {
       // Show past sessions browser
       await interaction.deferUpdate();
       await showPastSessionsBrowser(interaction);
+    } else if (interaction.customId === 'pats_stats_menu_leaderboard') {
+      // Show leaderboard
+      const patsleaderboardCommand = await import('./patsleaderboard.js');
+      await interaction.deferUpdate();
+      return await patsleaderboardCommand.execute(interaction);
     } else if (interaction.customId === 'pats_search_player') {
       // Show modal for player search
       const modal = new ModalBuilder()
@@ -776,7 +781,12 @@ async function showStatsMenu(interaction) {
       .setCustomId('pats_stats_menu_other_stats')
       .setLabel('View Other Player')
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji('👥')
+      .setEmoji('👥'),
+    new ButtonBuilder()
+      .setCustomId('pats_stats_menu_leaderboard')
+      .setLabel('Leaderboard')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('🏆')
   );
   
   const row2 = new ActionRowBuilder().addComponents(

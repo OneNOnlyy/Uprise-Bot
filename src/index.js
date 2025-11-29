@@ -561,6 +561,7 @@ async function startScheduledSession(client, session) {
       channelId: session.channelId,
       channel: channel,
       client: client,
+      isScheduled: true, // Flag to indicate this is a scheduled session
       options: {
         getString: (name) => {
           if (name === 'date') return dateStr;
@@ -586,10 +587,8 @@ async function startScheduledSession(client, session) {
         return Promise.resolve();
       },
       reply: async (options) => {
-        // Send the reply to the channel
-        if (!mockInteraction.ephemeral) {
-          await channel.send(options);
-        }
+        // For scheduled sessions, don't send the announcement embed to channel
+        // since we already sent one via sendSessionAnnouncement
         mockInteraction.replied = true;
       },
       editReply: async (options) => {
@@ -609,7 +608,8 @@ async function startScheduledSession(client, session) {
         }
       },
       followUp: async (options) => {
-        await channel.send(options);
+        // Don't send follow-ups for scheduled sessions (DMs are handled separately)
+        console.log(`[Scheduled Session] Skipping followUp:`, options.content || 'embed');
       }
     };
     
