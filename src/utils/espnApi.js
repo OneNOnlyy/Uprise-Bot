@@ -1580,11 +1580,6 @@ export function formatInjuries(injuries) {
       injuryLine += ` (${desc})`;
     }
     
-    // Add comment if available and different from description
-    if (inj.comment && inj.comment.trim() && inj.comment !== desc) {
-      injuryLine += ` • ${inj.comment}`;
-    }
-    
     // Add return date if available (from CBS/ESPN "updated" field)
     if (inj.updated && inj.updated.trim() && inj.updated !== 'Updated') {
       injuryLine += ` • Est. Return: ${inj.updated}`;
