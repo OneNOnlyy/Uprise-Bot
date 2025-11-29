@@ -1291,12 +1291,12 @@ export async function showParticipantTypeSelection(interaction) {
     .setColor('#5865F2');
   
   // Show current selections if any
-  if (config.roleIds.length > 0 || config.userIds.length > 0) {
+  if ((config.roleIds?.length || 0) > 0 || (config.userIds?.length || 0) > 0) {
     let currentText = [];
-    if (config.roleIds.length > 0) {
+    if ((config.roleIds?.length || 0) > 0) {
       currentText.push(`**Roles:** ${config.roleIds.map(id => `<@&${id}>`).join(', ')}`);
     }
-    if (config.userIds.length > 0) {
+    if ((config.userIds?.length || 0) > 0) {
       currentText.push(`**Users:** ${config.userIds.map(id => `<@${id}>`).join(', ')}`);
     }
     embed.addFields({
@@ -1327,7 +1327,7 @@ export async function showParticipantTypeSelection(interaction) {
         .setLabel('Done')
         .setEmoji('✅')
         .setStyle(ButtonStyle.Success)
-        .setDisabled(config.roleIds.length === 0 && config.userIds.length === 0),
+        .setDisabled((config.roleIds?.length || 0) === 0 && (config.userIds?.length || 0) === 0),
       new ButtonBuilder()
         .setCustomId('schedule_back_to_config')
         .setLabel('Back to Configuration')
