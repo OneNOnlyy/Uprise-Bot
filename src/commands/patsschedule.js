@@ -1946,11 +1946,21 @@ export async function showSessionParticipantEditor(interaction, sessionId) {
     .setMinValues(0)
     .setMaxValues(25);
   
+  // Pre-populate with current role selections
+  if (session.roleIds && session.roleIds.length > 0) {
+    roleSelect.setDefaultRoles(...session.roleIds);
+  }
+  
   const userSelect = new UserSelectMenuBuilder()
     .setCustomId(`schedule_update_participant_users_${sessionId}`)
     .setPlaceholder('Select users (optional)')
     .setMinValues(0)
     .setMaxValues(25);
+  
+  // Pre-populate with current user selections
+  if (session.userIds && session.userIds.length > 0) {
+    userSelect.setDefaultUsers(...session.userIds);
+  }
   
   const roleRow = new ActionRowBuilder().addComponents(roleSelect);
   const userRow = new ActionRowBuilder().addComponents(userSelect);
