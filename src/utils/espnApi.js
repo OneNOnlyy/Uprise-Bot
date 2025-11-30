@@ -833,7 +833,8 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
                 description = injury.comment;
               }
               
-              const playerName = fixPlayerName(injury.longComment || injury.athlete?.displayName || 'Unknown');
+              // Get player name from athlete object, NOT from longComment
+              const playerName = fixPlayerName(injury.athlete?.displayName || injury.athlete?.fullName || 'Unknown');
               
               // Parse status - it might be an object with description/abbreviation
               let status = 'Out';
@@ -845,11 +846,10 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
                 status = injury.status.abbreviation;
               }
               
-              // Extract comment (latest update)
+              // Extract comment (latest update) - use shortComment only, NOT longComment
+              // longComment often contains game stats instead of injury updates
               let comment = '';
-              if (injury.longComment) {
-                comment = injury.longComment;
-              } else if (injury.shortComment) {
+              if (injury.shortComment) {
                 comment = injury.shortComment;
               }
               
@@ -863,7 +863,7 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
                 description: description,
                 comment: comment
               });
-              console.log(`[Scraper] Game Summary: ${playerName} - ${normalizedStatus} (${description})`);
+              console.log(`[Scraper] Game Summary: ${playerName} - ${normalizedStatus} (${description})${comment ? ` - ${comment}` : ''}`);
             }
           } else {
             console.log(`[Scraper] ✓ MATCH but no injuries array for ${teamName}`);
