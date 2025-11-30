@@ -1284,6 +1284,14 @@ export async function getMatchupInfo(homeTeam, awayTeam) {
         awayInfo.injuries = scoreboardInjuries;
       }
     }
+
+    // Sort injuries by return date and status
+    if (homeInfo && homeInfo.injuries) {
+      homeInfo.injuries = sortInjuries(homeInfo.injuries);
+    }
+    if (awayInfo && awayInfo.injuries) {
+      awayInfo.injuries = sortInjuries(awayInfo.injuries);
+    }
     
     console.log(`[ESPN] Home info result:`, homeInfo ? 'Success' : 'Null');
     console.log(`[ESPN] Away info result:`, awayInfo ? 'Success' : 'Null');
@@ -1669,14 +1677,90 @@ export function getInjuriesForTeam(teamAbbr, injuryReports) {
 }
 
 /**
+ * Sort injuries by return date (closest first) and then by status priority
+ */
+function sortInjuries(injuries) {
+  if (!injuries || injuries.length === 0) return injuries;
+
+  // Status priority: Available > Probable > Questionable > Doubtful > Out
+  const statusPriority = {
+    'Available': 1,
+    'Probable': 2,
+    'Questionable': 3,
+    'Doubtful': 4,
+    'Out': 5
+  };
+
+  return [...injuries].sort((a, b) => {
+    // Parse return dates
+    const dateA = parseReturnDate(a.updated);
+    const dateB = parseReturnDate(b.updated);
+
+    // If both have dates, sort by closest date first
+    if (dateA && dateB) {
+      return dateA - dateB;
+    }
+
+    // If only one has a date, prioritize it
+    if (dateA) return -1;
+    if (dateB) return 1;
+
+    // If neither has a date, sort by status priority
+    const priorityA = statusPriority[a.status] || 999;
+    const priorityB = statusPriority[b.status] || 999;
+
+    return priorityA - priorityB;
+  });
+}
+
+/**
+ * Parse return date from "updated" field (e.g., "Dec 1", "Jan 9")
+ */
+function parseReturnDate(updated) {
+  if (!updated || typeof updated !== 'string') return null;
+
+  const trimmed = updated.trim();
+  if (!trimmed || trimmed === 'Updated') return null;
+
+  // Match patterns like "Dec 1", "Jan 9", "Nov 29"
+  const match = trimmed.match(/^([A-Za-z]{3})\s+(\d{1,2})$/);
+  if (!match) return null;
+
+  const [, month, day] = match;
+  const monthMap = {
+    'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+    'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+  };
+
+  const monthIndex = monthMap[month];
+  if (monthIndex === undefined) return null;
+
+  // Assume current year, but handle year rollover
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  // If the return month is before current month, assume next year
+  let year = currentYear;
+  if (monthIndex < currentMonth - 1) {
+    year = currentYear + 1;
+  }
+
+  return new Date(year, monthIndex, parseInt(day));
+}
+
+/**
  * Format injuries for display
  */
 export function formatInjuries(injuries) {
   if (!injuries || injuries.length === 0) {
     return '✅ No reported injuries';
   }
+
+  // Sort injuries before formatting
+  const sortedInjuries = sortInjuries(injuries);
   
-  return injuries.map(inj => {
+  return sortedInjuries.map(inj => {
     // Ensure description is a string
     let desc = inj.description;
     if (typeof desc === 'object' && desc !== null) {
