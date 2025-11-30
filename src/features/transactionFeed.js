@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { EmbedBuilder } from 'discord.js';
 import { fetchNBATransactions, getTransactionType, extractPlayerName } from '../utils/transactionsApi.js';
 import { getConfig } from '../config/config.js';
+import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,6 +10,48 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CACHE_FILE = path.join(__dirname, '../../data/transactions-cache.json');
+
+/**
+ * Get player headshot URL from ESPN
+ * @param {string} playerName - Full player name
+ * @returns {Promise<string|null>} - URL to player headshot or null
+ */
+async function getPlayerHeadshot(playerName) {
+  try {
+    if (!playerName) return null;
+
+    // Search for player on ESPN
+    const searchUrl = `https://site.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(playerName)}&limit=1&region=us&lang=en&section=nba`;
+    
+    const response = await fetch(searchUrl);
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    
+    // Look for player in results
+    if (data.results && data.results.length > 0) {
+      for (const result of data.results) {
+        // Check if this is a player result
+        if (result.type === 'player' || result.type === 'athlete') {
+          // ESPN player headshots follow this pattern
+          const playerId = result.id;
+          const headshotUrl = `https://a.espncdn.com/i/headshots/nba/players/full/${playerId}.png`;
+          
+          // Verify the image exists
+          const imgResponse = await fetch(headshotUrl, { method: 'HEAD' });
+          if (imgResponse.ok) {
+            return headshotUrl;
+          }
+        }
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`Error fetching headshot for ${playerName}:`, error.message);
+    return null;
+  }
+}
 
 /**
  * Load cached transactions to avoid duplicates
@@ -136,6 +179,13 @@ async function postTransaction(channel, transaction) {
     
     if (playerName) {
       embed.addFields({ name: '👤 Player', value: playerName, inline: true });
+      
+      // Try to get player headshot
+      const headshotUrl = await getPlayerHeadshot(playerName);
+      if (headshotUrl) {
+        embed.setThumbnail(headshotUrl);
+        console.log(`✅ Added headshot for ${playerName}`);
+      }
     }
     
     await channel.send({ embeds: [embed] });
