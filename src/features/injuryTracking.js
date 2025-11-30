@@ -140,21 +140,8 @@ function compareInjuries(oldList, newList) {
         const oldDesc = typeof oldInj.description === 'string' ? oldInj.description : '';
         const newDesc = typeof newInj.description === 'string' ? newInj.description : '';
         
-        // Debug logging
-        if (player === 'Nikola Jokic') {
-          console.log(`[INJURY DEBUG] ${player}:`, {
-            oldComment,
-            newComment,
-            oldDesc,
-            newDesc,
-            commentMatch: oldComment === newComment,
-            descMatch: oldDesc === newDesc
-          });
-        }
-        
         // Only report if there's an actual change in comment OR description
         if ((oldComment !== newComment) || (oldDesc !== newDesc)) {
-          console.log(`[INJURY DEBUG] ${player}: Adding to commentChanged - comment diff: ${oldComment !== newComment}, desc diff: ${oldDesc !== newDesc}`);
           changes.commentChanged.push({
             player,
             status: newInj.status,
@@ -163,8 +150,6 @@ function compareInjuries(oldList, newList) {
             description: newDesc || 'Injury',
             comment: newComment
           });
-        } else {
-          console.log(`[INJURY DEBUG] ${player}: No changes detected, skipping`);
         }
       }
     }
@@ -287,14 +272,6 @@ async function checkInjuryUpdates(client) {
 
       const hasHomeChanges = homeChanges.added.length > 0 || homeChanges.removed.length > 0 || homeChanges.statusChanged.length > 0 || homeChanges.commentChanged.length > 0;
       const hasAwayChanges = awayChanges.added.length > 0 || awayChanges.removed.length > 0 || awayChanges.statusChanged.length > 0 || awayChanges.commentChanged.length > 0;
-
-      console.log(`[INJURY DEBUG] ${sub.awayTeam} @ ${sub.homeTeam}: hasHomeChanges=${hasHomeChanges}, hasAwayChanges=${hasAwayChanges}`);
-      console.log(`[INJURY DEBUG] Away changes:`, {
-        added: awayChanges.added.length,
-        removed: awayChanges.removed.length,
-        statusChanged: awayChanges.statusChanged.length,
-        commentChanged: awayChanges.commentChanged.length
-      });
 
       if (hasHomeChanges || hasAwayChanges) {
         console.log(`[Injury Tracking] Changes detected for ${sub.awayTeam} @ ${sub.homeTeam}, notifying user ${sub.userId}`);
