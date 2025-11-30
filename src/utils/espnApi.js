@@ -171,6 +171,64 @@ function extractStatusFromComment(comment) {
 }
 
 /**
+ * Extract injury type from comment (e.g., "knee", "ankle", "wrist")
+ */
+function extractInjuryTypeFromComment(comment) {
+  if (!comment || typeof comment !== 'string') {
+    return null;
+  }
+
+  const commentLower = comment.toLowerCase();
+  
+  // Common injury types in order of specificity
+  const injuryTypes = [
+    // Specific injuries first
+    'left knee', 'right knee', 'knee',
+    'left ankle', 'right ankle', 'ankle',
+    'left wrist', 'right wrist', 'wrist',
+    'left shoulder', 'right shoulder', 'shoulder',
+    'left hip', 'right hip', 'hip',
+    'left elbow', 'right elbow', 'elbow',
+    'left hand', 'right hand', 'hand',
+    'left foot', 'right foot', 'foot',
+    'left leg', 'right leg', 'leg',
+    'left arm', 'right arm', 'arm',
+    'left calf', 'right calf', 'calf',
+    'left hamstring', 'right hamstring', 'hamstring',
+    'left quadriceps', 'right quadriceps', 'quadriceps', 'quad',
+    'left groin', 'right groin', 'groin',
+    'left achilles', 'right achilles', 'achilles',
+    'left thumb', 'right thumb', 'thumb',
+    'left finger', 'right finger', 'finger',
+    'lower back', 'upper back', 'back',
+    'neck', 'head', 'concussion', 'nose', 'jaw', 'face',
+    'ribs', 'chest', 'abdomen', 'pelvis', 'toe', 'heel'
+  ];
+
+  // Look for injury types in parentheses first (e.g., "Brown (knee) is...")
+  const parenMatch = comment.match(/\(([^)]+)\)/);
+  if (parenMatch) {
+    const inParen = parenMatch[1].toLowerCase();
+    for (const injury of injuryTypes) {
+      if (inParen.includes(injury)) {
+        // Capitalize first letter
+        return injury.charAt(0).toUpperCase() + injury.slice(1);
+      }
+    }
+  }
+
+  // Look for injury types in the comment text
+  for (const injury of injuryTypes) {
+    if (commentLower.includes(injury)) {
+      // Capitalize first letter
+      return injury.charAt(0).toUpperCase() + injury.slice(1);
+    }
+  }
+
+  return null;
+}
+
+/**
  * Normalize injury status based on comment text
  * If comment contains specific status keywords, override the generic status
  */
@@ -521,12 +579,17 @@ async function scrapeInjuriesFromESPNInjuriesPage(teamAbbr, teamName) {
         
         if (playerName && status && comment && playerName.length > 1 && playerName !== 'NAME') {
           const normalizedStatus = normalizeInjuryStatus(status, comment);
-          console.log(`[ESPN Injuries Page] ${teamName}: ${playerName} - ${normalizedStatus} (${comment}), Est. Return: ${date || 'N/A'}`);
+          
+          // Extract injury type from comment instead of using position
+          const injuryType = extractInjuryTypeFromComment(comment);
+          const description = injuryType || position || 'Injury';
+          
+          console.log(`[ESPN Injuries Page] ${teamName}: ${playerName} - ${normalizedStatus} (${description}) - ${comment}, Est. Return: ${date || 'N/A'}`);
           
           injuries.push({
             player: fixPlayerName(playerName),
             status: normalizedStatus,
-            description: position || 'Injury',
+            description: description,
             comment: comment,
             updated: date || null
           });
