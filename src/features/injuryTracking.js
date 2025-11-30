@@ -140,6 +140,18 @@ function compareInjuries(oldList, newList) {
         const oldDesc = typeof oldInj.description === 'string' ? oldInj.description : '';
         const newDesc = typeof newInj.description === 'string' ? newInj.description : '';
         
+        // Debug logging
+        if (player === 'Nikola Jokic') {
+          console.log(`[INJURY DEBUG] ${player}:`, {
+            oldComment,
+            newComment,
+            oldDesc,
+            newDesc,
+            commentMatch: oldComment === newComment,
+            descMatch: oldDesc === newDesc
+          });
+        }
+        
         // Only report if there's an actual change in comment OR description
         if ((oldComment !== newComment) || (oldDesc !== newDesc)) {
           changes.commentChanged.push({
