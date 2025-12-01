@@ -687,7 +687,7 @@ export async function showDashboard(interaction) {
         const timeString = gameTime.toLocaleString('en-US', {
           hour: 'numeric',
           minute: '2-digit',
-          timeZone: 'America/New_York',
+          timeZone: 'America/Los_Angeles',
           timeZoneName: 'short'
         });
         scoreText = ` - ${timeString}`;

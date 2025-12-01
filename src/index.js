@@ -620,7 +620,7 @@ async function sendSessionReminder(client, session) {
     for (const userId of userIds) {
       try {
         const prefs = getUserPreferences(userId);
-        if (!prefs.reminders) continue;
+        if (!prefs.dmNotifications.reminders) continue;
         
         const user = await client.users.fetch(userId);
         
@@ -674,7 +674,7 @@ async function sendSessionWarning(client, session) {
     for (const userId of userIds) {
       try {
         const prefs = getUserPreferences(userId);
-        if (!prefs.warnings) continue;
+        if (!prefs.dmNotifications.warnings) continue;
         
         const user = await client.users.fetch(userId);
         

@@ -1356,7 +1356,8 @@ export async function handleViewMyPicks(interaction) {
         const formattedTime = gameTime.toLocaleTimeString('en-US', {
           timeZone: 'America/Los_Angeles',
           hour: 'numeric',
-          minute: '2-digit'
+          minute: '2-digit',
+          timeZoneName: 'short'
         });
         
         let statusEmoji = isLocked ? '🔒' : '📌';  // 📌 for unlocked picks, 🔒 for locked pending
@@ -1405,7 +1406,7 @@ export async function handleViewMyPicks(interaction) {
         
         embed.addFields({
           name: `${statusEmoji} ${game.awayTeam} @ ${game.homeTeam}${ddEmoji}`,
-          value: `**Pick:** ${pickedTeam} (${spreadText})${pick.isDoubleDown ? ' **DOUBLE DOWN**' : ''}\n**Time:** ${formattedDate} at ${formattedTime} PT${resultText}`,
+          value: `**Pick:** ${pickedTeam} (${spreadText})${pick.isDoubleDown ? ' **DOUBLE DOWN**' : ''}\n**Time:** ${formattedDate} at ${formattedTime}${resultText}`,
           inline: true
         });
       }
