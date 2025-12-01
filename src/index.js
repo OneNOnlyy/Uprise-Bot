@@ -429,26 +429,80 @@ async function handleRefreshInjuries(interaction) {
       return;
     }
     
+    // Use the same formatting as Full Matchup view
     const embed = new EmbedBuilder()
-      .setTitle(`🏥 Injury Report: ${game.awayTeam} @ ${game.homeTeam}`)
-      .setColor('#FFA500')
+      .setTitle(`📊 Full Matchup:  ${game.awayTeam} @ ${game.homeTeam}`)
+      .setColor(0x0099FF)
       .setTimestamp();
+
+    const gameTime = new Date(game.commenceTime);
+    const formattedDate = gameTime.toLocaleDateString('en-US', {
+      timeZone: 'America/Los_Angeles',
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+    const formattedTime = gameTime.toLocaleTimeString('en-US', {
+      timeZone: 'America/Los_Angeles',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
     
-    const awayInjuries = formatInjuries(matchupInfo.away?.injuries || []);
-    const homeInjuries = formatInjuries(matchupInfo.home?.injuries || []);
-    
-    embed.addFields(
-      {
-        name: `✈️ ${game.awayTeam}`,
-        value: awayInjuries,
-        inline: false
-      },
-      {
-        name: `🏠 ${game.homeTeam}`,
-        value: homeInjuries,
-        inline: false
+    embed.addFields({
+      name: '🕐 Tip-Off',
+      value: `${formattedDate} at ${formattedTime} PT`,
+      inline: false
+    });
+
+    // Fix spreads display
+    const fixZeroSpreads = (g) => {
+      let homeSpread = g.homeSpread !== undefined ? g.homeSpread : 0;
+      let awaySpread = g.awaySpread !== undefined ? g.awaySpread : 0;
+      
+      if (homeSpread !== 0 && awaySpread === 0) {
+        awaySpread = -homeSpread;
+      } else if (awaySpread !== 0 && homeSpread === 0) {
+        homeSpread = -awaySpread;
       }
-    );
+      
+      return { homeSpread, awaySpread };
+    };
+
+    const fixedSpreads = fixZeroSpreads(game);
+    const spreadDisplay = {
+      home: fixedSpreads.homeSpread >= 0 ? `+${fixedSpreads.homeSpread}` : fixedSpreads.homeSpread.toString(),
+      away: fixedSpreads.awaySpread >= 0 ? `+${fixedSpreads.awaySpread}` : fixedSpreads.awaySpread.toString()
+    };
+
+    // Away team full info
+    if (matchupInfo?.away) {
+      const awayInfo = matchupInfo.away;
+      embed.addFields({
+        name: `🛫 ${game.awayTeam}`,
+        value: `**Record:** ${awayInfo.record}\n**Spread:** ${spreadDisplay.away}\n**Injuries:**\n${formatInjuries(awayInfo.injuries)}`,
+        inline: false
+      });
+    }
+
+    // Home team full info
+    if (matchupInfo?.home) {
+      const homeInfo = matchupInfo.home;
+      embed.addFields({
+        name: `🏠 ${game.homeTeam}`,
+        value: `**Record:** ${homeInfo.record}\n**Spread:** ${spreadDisplay.home}\n**Injuries:**\n${formatInjuries(homeInfo.injuries)}`,
+        inline: false
+      });
+    }
+
+    // Spread explanation
+    const favoredTeam = game.favored === 'home' ? game.homeTeam : game.awayTeam;
+    const favoredSpread = game.favored === 'home' ? fixedSpreads.homeSpread : fixedSpreads.awaySpread;
+    
+    embed.addFields({
+      name: '📈 Spread Breakdown',
+      value: `**${favoredTeam}** is favored by **${Math.abs(favoredSpread)} points**`,
+      inline: false
+    });
     
     const backButton = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -483,14 +537,14 @@ async function handleRefreshInjuries(interaction) {
     });
     
     await interaction.followUp({
-      content: '🔄 Injury report refreshed successfully!',
+      content: '🔄 Matchup information refreshed successfully!',
       ephemeral: true
     });
     
   } catch (error) {
     console.error('Error refreshing injuries:', error);
     const errorMessage = {
-      content: '❌ Error refreshing injury information.',
+      content: '❌ Error refreshing matchup information.',
       ephemeral: true
     };
     if (interaction.replied || interaction.deferred) {
