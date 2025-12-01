@@ -1136,6 +1136,12 @@ export async function handleViewMatchup(interaction) {
         .setLabel(userIsTracking ? 'Stop Tracking Injuries' : 'Track Injuries')
         .setStyle(userIsTracking ? ButtonStyle.Danger : ButtonStyle.Success)
         .setEmoji(userIsTracking ? '🔕' : '🔔')
+        .setDisabled(isLocked),
+      new ButtonBuilder()
+        .setCustomId(`pats_refresh_injuries_${gameId}`)
+        .setLabel('Refresh Injuries')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🔄')
         .setDisabled(isLocked)
     );
 

@@ -237,7 +237,12 @@ async function handleTrackInjuries(interaction) {
         .setCustomId(`pats_untrack_injuries_${gameId}`)
         .setLabel('Stop Tracking Injuries')
         .setStyle(ButtonStyle.Danger)
-        .setEmoji('🔕')
+        .setEmoji('🔕'),
+      new ButtonBuilder()
+        .setCustomId(`pats_refresh_injuries_${gameId}`)
+        .setLabel('Refresh Injuries')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🔄')
     );
 
     await interaction.update({
@@ -347,7 +352,12 @@ async function handleUntrackInjuries(interaction) {
         .setCustomId(`pats_track_injuries_${gameId}`)
         .setLabel('Track Injuries')
         .setStyle(ButtonStyle.Success)
-        .setEmoji('🔔')
+        .setEmoji('🔔'),
+      new ButtonBuilder()
+        .setCustomId(`pats_refresh_injuries_${gameId}`)
+        .setLabel('Refresh Injuries')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🔄')
     );
 
     await interaction.update({
@@ -364,6 +374,123 @@ async function handleUntrackInjuries(interaction) {
     console.error('Error untracking injuries:', error);
     const errorMessage = {
       content: '❌ Error removing injury tracking.',
+      ephemeral: true
+    };
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp(errorMessage);
+    } else {
+      await interaction.reply(errorMessage);
+    }
+  }
+}
+
+/**
+ * Handle refreshing injuries for a game
+ */
+async function handleRefreshInjuries(interaction) {
+  try {
+    await interaction.deferUpdate();
+    
+    const gameId = interaction.customId.replace('pats_refresh_injuries_', '');
+    const { getActiveSession } = await import('./utils/patsData.js');
+    const { getCachedMatchupInfo } = await import('./utils/dataCache.js');
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
+    const { formatInjuries } = await import('./utils/espnApi.js');
+    const { isSubscribed } = await import('./features/injuryTracking.js');
+    
+    const session = getActiveSession();
+    if (!session) {
+      await interaction.followUp({
+        content: '❌ No active PATS session.',
+        ephemeral: true
+      });
+      return;
+    }
+    
+    const game = session.games.find(g => g.id === gameId);
+    if (!game) {
+      await interaction.followUp({
+        content: '❌ Game not found.',
+        ephemeral: true
+      });
+      return;
+    }
+    
+    console.log(`🔄 Refreshing injuries for ${game.awayTeam} @ ${game.homeTeam}...`);
+    
+    // Force fresh fetch by passing forceRefresh=true
+    const matchupInfo = await getCachedMatchupInfo(game.homeTeam, game.awayTeam, game.id, true);
+    
+    if (!matchupInfo) {
+      await interaction.followUp({
+        content: '❌ Could not fetch updated injury information.',
+        ephemeral: true
+      });
+      return;
+    }
+    
+    const embed = new EmbedBuilder()
+      .setTitle(`🏥 Injury Report: ${game.awayTeam} @ ${game.homeTeam}`)
+      .setColor('#FFA500')
+      .setTimestamp();
+    
+    const awayInjuries = formatInjuries(matchupInfo.away?.injuries || []);
+    const homeInjuries = formatInjuries(matchupInfo.home?.injuries || []);
+    
+    embed.addFields(
+      {
+        name: `✈️ ${game.awayTeam}`,
+        value: awayInjuries,
+        inline: false
+      },
+      {
+        name: `🏠 ${game.homeTeam}`,
+        value: homeInjuries,
+        inline: false
+      }
+    );
+    
+    const backButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pats_view_roster_${gameId}`)
+        .setLabel('View Active Roster')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('👥'),
+      new ButtonBuilder()
+        .setCustomId(`pats_back_to_game_${gameId}`)
+        .setLabel('Back to Game')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️')
+    );
+    
+    const userIsTracking = isSubscribed(interaction.user.id, gameId);
+    const trackingButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pats_${userIsTracking ? 'untrack' : 'track'}_injuries_${gameId}`)
+        .setLabel(userIsTracking ? 'Stop Tracking Injuries' : 'Track Injuries')
+        .setStyle(userIsTracking ? ButtonStyle.Danger : ButtonStyle.Success)
+        .setEmoji(userIsTracking ? '🔕' : '🔔'),
+      new ButtonBuilder()
+        .setCustomId(`pats_refresh_injuries_${gameId}`)
+        .setLabel('Refresh Injuries')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🔄')
+    );
+    
+    await interaction.editReply({
+      embeds: [embed],
+      components: [backButton, trackingButton]
+    });
+    
+    await interaction.followUp({
+      content: '🔄 Injury report refreshed successfully!',
+      ephemeral: true
+    });
+    
+  } catch (error) {
+    console.error('Error refreshing injuries:', error);
+    const errorMessage = {
+      content: '❌ Error refreshing injury information.',
       ephemeral: true
     };
     if (interaction.replied || interaction.deferred) {
@@ -752,6 +879,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       else if (interaction.customId.startsWith('pats_untrack_injuries_')) {
         await handleUntrackInjuries(interaction);
+      }
+      else if (interaction.customId.startsWith('pats_refresh_injuries_')) {
+        await handleRefreshInjuries(interaction);
       }
       // Handle view roster button
       else if (interaction.customId.startsWith('pats_view_roster_')) {
