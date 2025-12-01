@@ -536,11 +536,6 @@ async function handleRefreshInjuries(interaction) {
       components: [backButton, trackingButton]
     });
     
-    await interaction.followUp({
-      content: '🔄 Matchup information refreshed successfully!',
-      ephemeral: true
-    });
-    
   } catch (error) {
     console.error('Error refreshing injuries:', error);
     const errorMessage = {
