@@ -26,7 +26,7 @@ export async function execute(interaction) {
     if (liveLeaderboard && liveLeaderboard.standings.length > 0) {
       const top10 = liveLeaderboard.standings.slice(0, 10);
       
-      const sessionLeaderboardText = await Promise.all(top10.map(async (entry, index) => {
+      const sessionLeaderboardText = (await Promise.all(top10.map(async (entry, index) => {
         try {
           const user = await interaction.client.users.fetch(entry.userId);
           const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
@@ -35,9 +35,10 @@ export async function execute(interaction) {
           const pendingText = entry.pending > 0 ? ` • ${entry.pending} pending` : '';
           return `${medal} **${user.username}** - ${record}${winPct}${pendingText}`;
         } catch {
-          return `${index + 1}. Unknown User - ${entry.wins}-${entry.losses}-${entry.pushes}`;
+          // Skip users that can't be fetched (deleted accounts, left server, etc.)
+          return null;
         }
-      }));
+      }))).filter(Boolean);
 
       // Cache age and other session info still tracked in background
       const cacheAge = Math.floor((Date.now() - liveLeaderboard.lastUpdate) / 1000);
@@ -56,15 +57,16 @@ export async function execute(interaction) {
     if (leaderboard.length > 0) {
       const top5 = leaderboard.slice(0, 5);
       
-      const allTimeText = await Promise.all(top5.map(async (entry, index) => {
+      const allTimeText = (await Promise.all(top5.map(async (entry, index) => {
         try {
           const user = await interaction.client.users.fetch(entry.userId);
           const medal = index === 0 ? '👑' : index === 1 ? '⭐' : index === 2 ? '🌟' : `${index + 1}.`;
           return `${medal} **${user.username}** - ${entry.totalWins}-${entry.totalLosses}-${entry.totalPushes} (${entry.winPercentage.toFixed(1)}%)`;
         } catch {
-          return `${index + 1}. Unknown User - ${entry.totalWins}-${entry.totalLosses}-${entry.totalPushes}`;
+          // Skip users that can't be fetched (deleted accounts, left server, etc.)
+          return null;
         }
-      }));
+      }))).filter(Boolean);
 
       embed.addFields({
         name: '🏅 All-Time Top 5',
