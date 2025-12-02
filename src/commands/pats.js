@@ -409,8 +409,11 @@ export async function showDashboard(interaction) {
     let description = '';
     
     if (nextSession) {
-      const sessionDate = new Date(nextSession.firstGameTime);
-      const unixTimestamp = Math.floor(sessionDate.getTime() / 1000);
+      // Use announcement time (when session starts) instead of first game time
+      const sessionStartTime = nextSession.notifications?.announcement?.time 
+        ? new Date(nextSession.notifications.announcement.time)
+        : new Date(nextSession.firstGameTime);
+      const unixTimestamp = Math.floor(sessionStartTime.getTime() / 1000);
       
       // Count the number of games (could be an array or a number)
       const gameCount = Array.isArray(nextSession.games) ? nextSession.games.length : nextSession.games;
