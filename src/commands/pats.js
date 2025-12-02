@@ -1083,13 +1083,11 @@ async function showUserStats(interaction, targetUserId = null) {
   const totalGames = stats.totalWins + stats.totalLosses;
   
   // Calculate average picks per session
-  // Count actual picks made (each pick is 1, regardless of double down)
-  // totalWins/totalLosses count DD as 2 points, so we need to count actual picks
-  const ddPickCount = (stats.doubleDownWins || 0) + (stats.doubleDownLosses || 0) + (stats.doubleDownPushes || 0);
-  const normalWins = stats.totalWins - (stats.doubleDownWins || 0) * 2;
-  const normalLosses = stats.totalLosses - (stats.doubleDownLosses || 0) * 2;
-  const normalPushes = stats.totalPushes - (stats.doubleDownPushes || 0);
-  const actualPickCount = normalWins + normalLosses + normalPushes + ddPickCount;
+  // totalWins/totalLosses count DD as 2, so we need to subtract the extra count
+  // Example: 10 wins where 2 were DD = totalWins is 12, but only 10 actual picks
+  const ddExtraWins = (stats.doubleDownWins || 0); // Each DD win adds 1 extra to totalWins
+  const ddExtraLosses = (stats.doubleDownLosses || 0); // Each DD loss adds 1 extra to totalLosses
+  const actualPickCount = (stats.totalWins - ddExtraWins) + (stats.totalLosses - ddExtraLosses) + stats.totalPushes;
   const avgPicksPerSession = stats.sessions > 0 ? (actualPickCount / stats.sessions).toFixed(1) : '0';
   
   embed.addFields({
