@@ -3,8 +3,7 @@ import { getActiveSession, getUserPicks } from '../utils/patsData.js';
 import { getUserPreferences } from '../utils/userPreferences.js';
 import { EmbedBuilder } from 'discord.js';
 
-const MINUTES_BEFORE_WARNING = 15; // Warn users 15 minutes before game starts
-const warnedGames = new Set(); // Track which games we've already warned about
+const warnedGames = new Map(); // Track which games we've already warned about per user: Map<userId_gameId, true>
 
 /**
  * Check for games starting soon and send warnings to users who haven't picked
@@ -17,31 +16,9 @@ async function checkGameWarnings(client) {
     }
     
     const now = new Date();
-    const warningThreshold = MINUTES_BEFORE_WARNING * 60 * 1000; // Convert to milliseconds
     
-    // Check each game
-    for (const game of session.games) {
-      // Skip if game already started or finished
-      if (game.result?.isLive || game.result?.isFinal) {
-        continue;
-      }
-      
-      const gameTime = new Date(game.commenceTime);
-      const timeUntilGame = gameTime - now;
-      
-      // Check if game is within warning window (15 minutes before)
-      if (timeUntilGame > 0 && timeUntilGame <= warningThreshold) {
-        const warningKey = `${session.id}_${game.id}`;
-        
-        // Skip if we've already warned about this game
-        if (warnedGames.has(warningKey)) {
-          continue;
-        }
-        
-        console.log(`⚠️ Game starting in ${Math.floor(timeUntilGame / 60000)} minutes: ${game.awayTeam} @ ${game.homeTeam}`);
-        
-        // Get all participants who should receive warnings
-        let participants = [];
+    // Get all participants who should receive warnings
+    let participants = [];
         
         // First, get users who have made at least one pick in this session
         const allPicks = session.picks || {};
@@ -75,79 +52,97 @@ async function checkGameWarnings(client) {
           }
         }
         
-        // Combine both groups: users with picks + tagged users
-        participants = [...new Set([...usersWithPicks, ...participants])];
+    // Combine both groups: users with picks + tagged users
+    participants = [...new Set([...usersWithPicks, ...participants])];
+    
+    // Check each participant
+    for (const userId of participants) {
+      try {
+        // Check if user has preferences and warnings enabled
+        const prefs = getUserPreferences(userId);
+        if (!prefs.dmNotifications?.warnings) {
+          continue;
+        }
         
-        console.log(`⚠️ Checking ${participants.length} participants for picks on game ${game.id}`);
+        // Get user's custom warning time (default to 30 if not set)
+        const userWarningMinutes = prefs.warningMinutes || 30;
+        const warningThreshold = userWarningMinutes * 60 * 1000; // Convert to milliseconds
         
-        // Check each participant
-        let warningsSent = 0;
-        for (const userId of participants) {
-          try {
-            // Check if user has preferences and warnings enabled
-            const prefs = getUserPreferences(userId);
-            if (!prefs.warnings) {
-              console.log(`⚠️ User ${userId} has warnings disabled, skipping`);
-              continue;
+        // Check each game for this user
+        for (const game of session.games) {
+          // Skip if game already started or finished
+          if (game.result?.isLive || game.result?.isFinal) {
+            continue;
+          }
+          
+          const gameTime = new Date(game.commenceTime);
+          const timeUntilGame = gameTime - now;
+          
+          // Check if game is within this user's warning window
+          if (timeUntilGame <= 0 || timeUntilGame > warningThreshold) {
+            continue; // Game already started or not in warning window yet
+          }
+          
+          const warningKey = `${userId}_${game.id}`;
+          
+          // Skip if we've already warned this user about this game
+          if (warnedGames.has(warningKey)) {
+            continue;
+          }
+          
+          // Get user's picks for this session
+          const userPicks = getUserPicks(session.id, userId);
+            
+          // Check if user has picked THIS specific game
+          const hasPickedThisGame = userPicks.some(p => p.gameId === game.id);
+          
+          if (!hasPickedThisGame) {
+            // Send warning DM
+            try {
+              const user = await client.users.fetch(userId);
+              
+              const minutesRemaining = Math.floor(timeUntilGame / 60000);
+              const embed = new EmbedBuilder()
+                .setTitle('⚠️ Game Starting Soon!')
+                .setDescription(`You haven't made a pick for this game yet!`)
+                .setColor('#FFA500')
+                .addFields(
+                  {
+                    name: '🏀 Matchup',
+                    value: `${game.awayTeam} @ ${game.homeTeam}`,
+                    inline: false
+                  },
+                  {
+                    name: '⏰ Time Until Game',
+                    value: `${minutesRemaining} minute${minutesRemaining === 1 ? '' : 's'}`,
+                    inline: false
+                  },
+                  {
+                    name: '📊 Spreads',
+                    value: `${game.awayTeam}: ${game.awaySpread > 0 ? '+' : ''}${game.awaySpread}\n${game.homeTeam}: ${game.homeSpread > 0 ? '+' : ''}${game.homeSpread}`,
+                    inline: false
+                  }
+                )
+                .setFooter({ text: 'Use /pats dashboard to make your pick now!' });
+              
+              await user.send({ embeds: [embed] });
+              console.log(`⚠️ Sent warning to ${user.username} (${userWarningMinutes} min before) for game ${game.awayTeam} @ ${game.homeTeam}`);
+              
+              // Mark this user/game combo as warned
+              warnedGames.set(warningKey, true);
+            } catch (dmError) {
+              console.error(`Failed to send warning DM to user ${userId}:`, dmError.message);
             }
-            
-            // Get user's picks for this session
-            const userPicks = getUserPicks(session.id, userId);
-            
-            // Check if user has picked THIS specific game
-            const hasPickedThisGame = userPicks.some(p => p.gameId === game.id);
-            
-            if (!hasPickedThisGame) {
-              // Send warning DM
-              try {
-                const user = await client.users.fetch(userId);
-                
-                const minutesRemaining = Math.floor(timeUntilGame / 60000);
-                const embed = new EmbedBuilder()
-                  .setTitle('⚠️ Game Starting Soon!')
-                  .setDescription(`You haven't made a pick for this game yet!`)
-                  .setColor('#FFA500')
-                  .addFields(
-                    {
-                      name: '🏀 Matchup',
-                      value: `${game.awayTeam} @ ${game.homeTeam}`,
-                      inline: false
-                    },
-                    {
-                      name: '⏰ Time Until Game',
-                      value: `${minutesRemaining} minute${minutesRemaining === 1 ? '' : 's'}`,
-                      inline: false
-                    },
-                    {
-                      name: '📊 Spreads',
-                      value: `${game.awayTeam}: ${game.awaySpread > 0 ? '+' : ''}${game.awaySpread}\n${game.homeTeam}: ${game.homeSpread > 0 ? '+' : ''}${game.homeSpread}`,
-                      inline: false
-                    }
-                  )
-                  .setFooter({ text: 'Use /pats dashboard to make your pick now!' });
-                
-                await user.send({ embeds: [embed] });
-                warningsSent++;
-                console.log(`⚠️ Sent warning to ${user.username} for game ${game.awayTeam} @ ${game.homeTeam}`);
-              } catch (dmError) {
-                console.error(`Failed to send warning DM to user ${userId}:`, dmError.message);
-              }
-            }
-          } catch (err) {
-            console.error(`Error checking picks for user ${userId}:`, err.message);
           }
         }
-        
-        console.log(`⚠️ Sent ${warningsSent} warning(s) for game ${game.awayTeam} @ ${game.homeTeam}`);
-        
-        // Mark this game as warned
-        warnedGames.add(warningKey);
-        
-        // Clean up old warning keys (for completed sessions)
-        if (warnedGames.size > 1000) {
-          warnedGames.clear();
-        }
+      } catch (err) {
+        console.error(`Error checking picks for user ${userId}:`, err.message);
       }
+    }
+    
+    // Clean up old warning keys (for completed sessions)
+    if (warnedGames.size > 5000) {
+      warnedGames.clear();
     }
   } catch (error) {
     console.error('Error checking game warnings:', error);

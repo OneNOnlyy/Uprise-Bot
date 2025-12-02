@@ -11,7 +11,8 @@ export function getDefaultPreferences() {
             reminders: true,
             warnings: true,
             gameLocks: false  // Default OFF to avoid spam
-        }
+        },
+        warningMinutes: 30  // How many minutes before each game to send warnings
     };
 }
 
