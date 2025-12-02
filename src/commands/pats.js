@@ -12,6 +12,7 @@ import {
 import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory, updateGameResult } from '../utils/patsData.js';
 import { getTeamAbbreviation, fetchCBSSportsScores } from '../utils/oddsApi.js';
 import { getUserSessionSnapshots, loadSessionSnapshot, loadInjuryData, loadRosterData } from '../utils/sessionSnapshot.js';
+import { getUpcomingScheduledSessions } from '../utils/sessionScheduler.js';
 
 /**
  * FAIL-SAFE: Fix spreads where one is 0 but the other isn't (they should be inverse)
@@ -399,9 +400,39 @@ export async function showDashboard(interaction) {
     // Get user's overall stats to display
     const stats = getUserStats(interaction.user.id);
     
+    // Check for upcoming scheduled sessions
+    const upcomingSessions = getUpcomingScheduledSessions();
+    const nextSession = upcomingSessions.length > 0 
+      ? upcomingSessions.sort((a, b) => new Date(a.firstGameTime) - new Date(b.firstGameTime))[0]
+      : null;
+    
+    let description = '**No active PATS session today.**\n\nWait for an admin to start a new session with `/patsstart`.';
+    
+    if (nextSession) {
+      const sessionDate = new Date(nextSession.firstGameTime);
+      const now = new Date();
+      const timeUntil = Math.floor((sessionDate - now) / 1000); // seconds
+      
+      let timeString;
+      if (timeUntil < 3600) {
+        const minutes = Math.floor(timeUntil / 60);
+        timeString = `in ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+      } else if (timeUntil < 86400) {
+        const hours = Math.floor(timeUntil / 3600);
+        timeString = `in ${hours} hour${hours !== 1 ? 's' : ''}`;
+      } else {
+        const days = Math.floor(timeUntil / 86400);
+        timeString = `in ${days} day${days !== 1 ? 's' : ''}`;
+      }
+      
+      description += `\n\n📅 **Next Scheduled Session:**\n${nextSession.scheduledDate} • ${nextSession.games} game${nextSession.games !== 1 ? 's' : ''} • Starts ${timeString}`;
+    } else {
+      description += '\n\n📅 No sessions currently scheduled.';
+    }
+    
     const embed = new EmbedBuilder()
       .setTitle('🏀 Picks Against The Spread')
-      .setDescription('**No active PATS session today.**\n\nWait for an admin to start a new session with `/patsstart`.')
+      .setDescription(description)
       .setColor(0x808080)
       .setTimestamp();
 
