@@ -410,22 +410,12 @@ export async function showDashboard(interaction) {
     
     if (nextSession) {
       const sessionDate = new Date(nextSession.firstGameTime);
-      const now = new Date();
-      const timeUntil = Math.floor((sessionDate - now) / 1000); // seconds
+      const unixTimestamp = Math.floor(sessionDate.getTime() / 1000);
       
-      let timeString;
-      if (timeUntil < 3600) {
-        const minutes = Math.floor(timeUntil / 60);
-        timeString = `in ${minutes} minute${minutes !== 1 ? 's' : ''}`;
-      } else if (timeUntil < 86400) {
-        const hours = Math.floor(timeUntil / 3600);
-        timeString = `in ${hours} hour${hours !== 1 ? 's' : ''}`;
-      } else {
-        const days = Math.floor(timeUntil / 86400);
-        timeString = `in ${days} day${days !== 1 ? 's' : ''}`;
-      }
+      // Count the number of games (could be an array or a number)
+      const gameCount = Array.isArray(nextSession.games) ? nextSession.games.length : nextSession.games;
       
-      description = `📅 **Next Scheduled Session:**\n${nextSession.scheduledDate} • ${nextSession.games} game${nextSession.games !== 1 ? 's' : ''} • Starts ${timeString}`;
+      description = `📅 **Next Scheduled Session:**\n${nextSession.scheduledDate} • ${gameCount} game${gameCount !== 1 ? 's' : ''} • <t:${unixTimestamp}:R>`;
     } else {
       description = '📅 No sessions currently scheduled.';
     }
