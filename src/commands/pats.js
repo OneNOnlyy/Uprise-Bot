@@ -418,7 +418,30 @@ export async function showDashboard(interaction) {
       // Count the number of games (could be an array or a number)
       const gameCount = Array.isArray(nextSession.games) ? nextSession.games.length : nextSession.games;
       
-      description = `📅 **Next Scheduled Session:**\n${nextSession.scheduledDate} • ${gameCount} game${gameCount !== 1 ? 's' : ''} • <t:${unixTimestamp}:R>`;
+      // Format date in relative format (e.g., "Tomorrow, December 2nd" or "Sunday, December 7th")
+      const sessionDate = new Date(nextSession.scheduledDate);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const sessionDay = new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate());
+      
+      let relativeDate;
+      if (sessionDay.getTime() === today.getTime()) {
+        relativeDate = 'Today';
+      } else if (sessionDay.getTime() === tomorrow.getTime()) {
+        relativeDate = 'Tomorrow';
+      } else {
+        // Show day of week for dates within the next week
+        relativeDate = sessionDate.toLocaleDateString('en-US', { weekday: 'long' });
+      }
+      
+      const formattedDate = sessionDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+      const dateDisplay = sessionDay.getTime() === today.getTime() 
+        ? relativeDate 
+        : `${relativeDate}, ${formattedDate}`;
+      
+      description = `📅 **Next Scheduled Session:**\n${dateDisplay} • ${gameCount} game${gameCount !== 1 ? 's' : ''} • <t:${unixTimestamp}:R>`;
     } else {
       description = '📅 No sessions currently scheduled.';
     }
