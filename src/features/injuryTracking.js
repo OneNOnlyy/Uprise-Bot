@@ -133,21 +133,20 @@ function compareInjuries(oldList, newList) {
           comment: newInj.comment
         });
       } 
-      // Check for comment or description change (if status didn't change)
+      // Check for comment change (if status didn't change)
+      // Only check comment, ignore description changes since descriptions can be unstable
       else {
-        const oldComment = oldInj.comment || '';
-        const newComment = newInj.comment || '';
-        const oldDesc = typeof oldInj.description === 'string' ? oldInj.description : '';
-        const newDesc = typeof newInj.description === 'string' ? newInj.description : '';
+        const oldComment = (oldInj.comment || '').trim();
+        const newComment = (newInj.comment || '').trim();
         
-        // Only report if there's an actual change in comment OR description
-        if ((oldComment !== newComment) || (oldDesc !== newDesc)) {
+        // Only report if there's an actual change in comment AND both are non-empty
+        if (oldComment && newComment && oldComment !== newComment) {
           changes.commentChanged.push({
             player,
             status: newInj.status,
-            oldComment: oldComment || oldDesc,
-            newComment: newComment || newDesc,
-            description: newDesc || 'Injury',
+            oldComment: oldComment,
+            newComment: newComment,
+            description: typeof newInj.description === 'string' ? newInj.description : 'Injury',
             comment: newComment
           });
         }
