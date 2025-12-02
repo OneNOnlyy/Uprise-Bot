@@ -200,7 +200,7 @@ function extractInjuryTypeFromComment(comment) {
     'left achilles', 'right achilles', 'achilles',
     'left thumb', 'right thumb', 'thumb',
     'left finger', 'right finger', 'finger',
-    'lower back', 'upper back', 'back',
+    'lower back', 'upper back',
     'neck', 'head', 'concussion', 'nose', 'jaw', 'face',
     'ribs', 'chest', 'abdomen', 'pelvis', 'toe', 'heel'
   ];
@@ -217,9 +217,18 @@ function extractInjuryTypeFromComment(comment) {
     }
   }
 
-  // Look for injury types in the comment text
+  // Look for injury types in the comment text with word boundary checks
+  // Special handling for "back" to avoid matching "be back", "coming back", etc.
+  const backMatch = commentLower.match(/\b(lower back|upper back|back injury|back pain|back spasms?|back soreness|back issue|back problem)\b/);
+  if (backMatch) {
+    return backMatch[1].includes('lower') ? 'Lower back' : backMatch[1].includes('upper') ? 'Upper back' : 'Back';
+  }
+  
+  // Check other injury types with word boundaries
   for (const injury of injuryTypes) {
-    if (commentLower.includes(injury)) {
+    // Use word boundary regex for better matching
+    const regex = new RegExp(`\\b${injury.replace(/\s+/g, '\\s+')}\\b`);
+    if (regex.test(commentLower)) {
       // Capitalize first letter
       return injury.charAt(0).toUpperCase() + injury.slice(1);
     }
