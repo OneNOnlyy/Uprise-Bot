@@ -1452,14 +1452,29 @@ export async function fetchAllInjuryReports() {
     
     console.log(`[Injury Reports] ESPN Injuries Page: ${espnSuccessCount}/30 teams with injuries`);
     
-    // If ESPN got at least 20 teams, use it as primary
-    if (espnSuccessCount >= 20) {
-      console.log(`[Injury Reports] Using ESPN as primary source (${espnSuccessCount} teams)`);
+    // Check if any ESPN injuries need supplemental data (missing specific injury descriptions)
+    let needsCBSSupplement = false;
+    for (const [teamAbbr, injuries] of injuryReports.entries()) {
+      for (const inj of injuries) {
+        // Check if description is missing or is just a position
+        if (!inj.description || inj.description === 'Injury' || ['G', 'F', 'C', 'PG', 'SG', 'SF', 'PF'].includes(inj.description)) {
+          needsCBSSupplement = true;
+          console.log(`[Injury Reports] ${teamAbbr} - ${inj.player} needs CBS supplement (current: "${inj.description}")`);
+          break;
+        }
+      }
+      if (needsCBSSupplement) break;
+    }
+    
+    // If ESPN got at least 20 teams AND doesn't need CBS supplement, use ESPN only
+    if (espnSuccessCount >= 20 && !needsCBSSupplement) {
+      console.log(`[Injury Reports] Using ESPN as primary source (${espnSuccessCount} teams, no supplement needed)`);
       return injuryReports;
     }
     
-    // FALLBACK: Try CBS Sports
-    console.log(`[Injury Reports] ESPN incomplete (${espnSuccessCount}/30), falling back to CBS Sports...`);
+    // Fetch CBS Sports for fallback OR supplement
+    const cbsReason = espnSuccessCount < 20 ? 'ESPN incomplete' : 'need injury description supplement';
+    console.log(`[Injury Reports] Fetching CBS Sports (${cbsReason})...`);
     const url = 'https://www.cbssports.com/nba/injuries/';
     console.log(`[CBS] Fetching all injury reports from CBS Sports...`);
 
