@@ -892,6 +892,69 @@ client.on(Events.InteractionCreate, async (interaction) => {
           await handleToggle(interaction);
         }
       }
+      // Handle customization menus
+      else if (interaction.customId === 'pats_customize_reminders') {
+        const { showReminderCustomization } = await import('./utils/userPreferences.js');
+        await showReminderCustomization(interaction);
+      }
+      else if (interaction.customId === 'pats_customize_warnings') {
+        const { showWarningCustomization } = await import('./utils/userPreferences.js');
+        await showWarningCustomization(interaction);
+      }
+      // Handle reminder customization actions
+      else if (interaction.customId === 'pats_reminder_use_default') {
+        const { setReminderTimes } = await import('./utils/userPreferences.js');
+        setReminderTimes(interaction.user.id, null);
+        await interaction.deferUpdate();
+        await showSettingsMenu(interaction);
+      }
+      else if (interaction.customId === 'pats_reminder_set_custom') {
+        const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = await import('discord.js');
+        const modal = new ModalBuilder()
+          .setCustomId('pats_reminder_custom_modal')
+          .setTitle('Set Custom Reminder Times');
+        
+        const input = new TextInputBuilder()
+          .setCustomId('reminder_times')
+          .setLabel('Minutes before first game (comma-separated)')
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder('e.g., 60 or 120,60,30')
+          .setRequired(true);
+        
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        await interaction.showModal(modal);
+      }
+      else if (interaction.customId === 'pats_reminder_back') {
+        await interaction.deferUpdate();
+        await showSettingsMenu(interaction);
+      }
+      // Handle warning customization actions
+      else if (interaction.customId === 'pats_warning_use_default') {
+        const { setWarningTimes } = await import('./utils/userPreferences.js');
+        setWarningTimes(interaction.user.id, null);
+        await interaction.deferUpdate();
+        await showSettingsMenu(interaction);
+      }
+      else if (interaction.customId === 'pats_warning_set_custom') {
+        const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = await import('discord.js');
+        const modal = new ModalBuilder()
+          .setCustomId('pats_warning_custom_modal')
+          .setTitle('Set Custom Warning Times');
+        
+        const input = new TextInputBuilder()
+          .setCustomId('warning_times')
+          .setLabel('Minutes before each game (comma-separated)')
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder('e.g., 30 or 30,15,5')
+          .setRequired(true);
+        
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        await interaction.showModal(modal);
+      }
+      else if (interaction.customId === 'pats_warning_back') {
+        await interaction.deferUpdate();
+        await showSettingsMenu(interaction);
+      }
       // Handle settings menu buttons
       else if (interaction.customId === 'pats_dashboard_settings' || interaction.customId === 'pats_no_session_settings') {
         await interaction.deferUpdate();
@@ -1328,6 +1391,68 @@ client.on(Events.InteractionCreate, async (interaction) => {
       // Modal handlers removed - now using native select menus
     } catch (error) {
       console.error('Error handling schedule modal:', error);
+      const errorMessage = { 
+        content: '❌ There was an error processing your input!', 
+        ephemeral: true 
+      };
+      
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(errorMessage);
+      } else {
+        await interaction.reply(errorMessage);
+      }
+    }
+  }
+  
+  // Handle reminder/warning customization modals
+  if (interaction.isModalSubmit() && (interaction.customId === 'pats_reminder_custom_modal' || interaction.customId === 'pats_warning_custom_modal')) {
+    try {
+      const isReminder = interaction.customId === 'pats_reminder_custom_modal';
+      const inputValue = interaction.fields.getTextInputValue(isReminder ? 'reminder_times' : 'warning_times');
+      
+      // Parse the input (single number or comma-separated)
+      const timesStr = inputValue.trim();
+      let times;
+      
+      if (timesStr.includes(',')) {
+        // Multiple times
+        times = timesStr.split(',').map(t => parseInt(t.trim())).filter(t => !isNaN(t) && t > 0);
+      } else {
+        // Single time
+        const singleTime = parseInt(timesStr);
+        if (isNaN(singleTime) || singleTime <= 0) {
+          await interaction.reply({
+            content: '❌ Invalid input! Please enter positive numbers only.',
+            ephemeral: true
+          });
+          return;
+        }
+        times = singleTime;
+      }
+      
+      // Validate
+      if (Array.isArray(times) && times.length === 0) {
+        await interaction.reply({
+          content: '❌ Invalid input! Please enter at least one valid positive number.',
+          ephemeral: true
+        });
+        return;
+      }
+      
+      // Save the setting
+      if (isReminder) {
+        const { setReminderTimes } = await import('./utils/userPreferences.js');
+        setReminderTimes(interaction.user.id, times);
+      } else {
+        const { setWarningTimes } = await import('./utils/userPreferences.js');
+        setWarningTimes(interaction.user.id, times);
+      }
+      
+      await interaction.deferUpdate();
+      const { showSettingsMenu } = await import('./utils/userPreferences.js');
+      await showSettingsMenu(interaction);
+    } catch (error) {
+      console.error('Error handling customization modal:', error);
       const errorMessage = { 
         content: '❌ There was an error processing your input!', 
         ephemeral: true 
