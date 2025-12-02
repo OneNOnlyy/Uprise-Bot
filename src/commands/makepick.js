@@ -1258,12 +1258,7 @@ export async function handleViewRoster(interaction) {
         .setCustomId(`pats_matchup_${gameId}`)
         .setLabel('Back to Matchup')
         .setStyle(ButtonStyle.Secondary)
-        .setEmoji('◀️'),
-      new ButtonBuilder()
-        .setCustomId(`pats_view_injuries_${gameId}`)
-        .setLabel('View Injuries')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🏥')
+        .setEmoji('◀️')
     );
 
     await interaction.editReply({

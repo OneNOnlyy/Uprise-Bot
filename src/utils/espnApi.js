@@ -1234,13 +1234,15 @@ export async function getTeamInfo(teamName) {
       );
       
       if (needsDescriptionSupplement) {
-        console.log(`[ESPN] Some injuries missing specific descriptions, checking CBS Sports...`);
+        console.log(`[ESPN] Some injuries missing specific descriptions, fetching CBS Sports...`);
         try {
-          const cachedInjuryReports = await getCachedInjuryReports();
-          if (cachedInjuryReports && cachedInjuryReports.size > 0) {
-            const cbsInjuries = getInjuriesForTeam(team.abbreviation, cachedInjuryReports);
+          // Fetch CBS data directly since caching is disabled
+          const cbsInjuryReports = await fetchAllInjuryReports();
+          if (cbsInjuryReports && cbsInjuryReports.size > 0) {
+            const cbsInjuries = getInjuriesForTeam(team.abbreviation, cbsInjuryReports);
             
             if (cbsInjuries.length > 0) {
+              console.log(`[ESPN] Found ${cbsInjuries.length} CBS injuries for ${team.abbreviation}`);
               for (const injury of injuries) {
                 if (!injury.description || positionDescriptions.includes(injury.description)) {
                   // Find matching player in CBS data
@@ -1253,9 +1255,13 @@ export async function getTeamInfo(teamName) {
                   if (cbsMatch && cbsMatch.description && !positionDescriptions.includes(cbsMatch.description)) {
                     console.log(`[ESPN] Supplementing ${injury.player} description: "${injury.description}" → "${cbsMatch.description}" (from CBS)`);
                     injury.description = cbsMatch.description;
+                  } else {
+                    console.log(`[ESPN] No CBS match found for ${injury.player} (${team.abbreviation})`);
                   }
                 }
               }
+            } else {
+              console.log(`[ESPN] No CBS injuries found for ${team.abbreviation}`);
             }
           }
         } catch (cbsError) {
