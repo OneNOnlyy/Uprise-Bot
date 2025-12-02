@@ -306,3 +306,40 @@ export function getUserSessionSnapshots(userId) {
   console.log(`[SNAPSHOT] User participated in ${userSessions.length} sessions`);
   return userSessions;
 }
+
+/**
+ * Fix existing snapshots to use actual participants (users who made picks)
+ * instead of session.participants (eligible users)
+ */
+export function fixSnapshotParticipants() {
+  console.log(`[SNAPSHOT] Fixing existing snapshot participants...`);
+  ensureSnapshotDirectory();
+  
+  const files = fs.readdirSync(SNAPSHOTS_DIR);
+  const snapshotFiles = files.filter(f => f.startsWith('session-') && f.endsWith('.json'));
+  
+  let fixedCount = 0;
+  
+  for (const file of snapshotFiles) {
+    try {
+      const filePath = path.join(SNAPSHOTS_DIR, file);
+      const snapshot = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      
+      // Get actual participants from picks
+      const actualParticipants = Object.keys(snapshot.picks || {});
+      
+      // Only update if different
+      if (JSON.stringify(snapshot.participants?.sort()) !== JSON.stringify(actualParticipants.sort())) {
+        console.log(`[SNAPSHOT] Fixing ${file}: ${snapshot.participants?.length || 0} -> ${actualParticipants.length} participants`);
+        snapshot.participants = actualParticipants;
+        fs.writeFileSync(filePath, JSON.stringify(snapshot, null, 2));
+        fixedCount++;
+      }
+    } catch (error) {
+      console.error(`[SNAPSHOT] Error fixing ${file}:`, error.message);
+    }
+  }
+  
+  console.log(`[SNAPSHOT] Fixed ${fixedCount} snapshots`);
+  return fixedCount;
+}
