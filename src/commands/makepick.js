@@ -994,15 +994,15 @@ export async function handleViewInjuries(interaction) {
 
     const backButton = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
+        .setCustomId(`pats_matchup_${gameId}`)
+        .setLabel('Back to Matchup')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️'),
+      new ButtonBuilder()
         .setCustomId(`pats_view_roster_${gameId}`)
         .setLabel('View Active Roster')
         .setStyle(ButtonStyle.Primary)
-        .setEmoji('👥'),
-      new ButtonBuilder()
-        .setCustomId(`pats_back_to_game_${gameId}`)
-        .setLabel('Back to Game')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('◀️')
+        .setEmoji('👥')
     );
 
     await interaction.editReply({
@@ -1255,15 +1255,15 @@ export async function handleViewRoster(interaction) {
 
     const backButton = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
+        .setCustomId(`pats_matchup_${gameId}`)
+        .setLabel('Back to Matchup')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️'),
+      new ButtonBuilder()
         .setCustomId(`pats_view_injuries_${gameId}`)
         .setLabel('View Injuries')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('🏥'),
-      new ButtonBuilder()
-        .setCustomId(`pats_back_to_game_${gameId}`)
-        .setLabel('Back to Game')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('🏥')
     );
 
     await interaction.editReply({
