@@ -392,7 +392,7 @@ export function updateGameResult(sessionId, gameId, result) {
         if (pick.isDoubleDown) {
           data.users[userId].doubleDownPushes += 1;
         }
-        console.log(`[PATS] 🟰 PUSH (${adjustedHomeScore} = ${awayScore})`);
+        console.log(`[PATS] 🟡 PUSH (${adjustedHomeScore} = ${awayScore})`);
       } else if (adjustedHomeScore > awayScore) {
         // Win
         data.users[userId].totalWins += pick.isDoubleDown ? 2 : 1;
@@ -413,7 +413,7 @@ export function updateGameResult(sessionId, gameId, result) {
         if (pick.isDoubleDown) {
           data.users[userId].doubleDownPushes += 1;
         }
-        console.log(`[PATS] 🟰 PUSH (${adjustedAwayScore} = ${homeScore})`);
+        console.log(`[PATS] 🟡 PUSH (${adjustedAwayScore} = ${homeScore})`);
       } else if (adjustedAwayScore > homeScore) {
         // Win
         data.users[userId].totalWins += pick.isDoubleDown ? 2 : 1;

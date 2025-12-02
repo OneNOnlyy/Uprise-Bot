@@ -579,7 +579,7 @@ export async function showDashboard(interaction) {
         
         // Three-way check: push, win, or loss
         if (userAdjustedScore === opponentScore) {
-          statusEmoji = '🟰';
+          statusEmoji = '🟡';
           pushes += 1; // Pushes never double
         } else if (userAdjustedScore > opponentScore) {
           statusEmoji = '✅';
@@ -1468,7 +1468,7 @@ async function showEmojiLegend(interaction) {
         value: [
           '**✅** = Won - Your pick covered the spread!',
           '**❌** = Lost - Your pick didn\'t cover',
-          '**🟰** = Push - Final score exactly at spread (no win/loss)'
+          '**🟡** = Push - Final score exactly at spread (no win/loss)'
         ].join('\n'),
         inline: false
       },
@@ -1541,7 +1541,7 @@ async function showTutorial(interaction) {
       },
       {
         name: '4️⃣ Scoring System',
-        value: '• **Win**: Pick covers the spread ✅\n• **Loss**: Pick doesn\'t cover ❌\n• **Push**: Final score exactly at spread 🟰\n• Missed picks = automatic losses\n• Win percentage = Wins ÷ (Wins + Losses)',
+        value: '• **Win**: Pick covers the spread ✅\n• **Loss**: Pick doesn\'t cover ❌\n• **Push**: Final score exactly at spread 🟡\n• Missed picks = automatic losses\n• Win percentage = Wins ÷ (Wins + Losses)',
         inline: false
       },
       {

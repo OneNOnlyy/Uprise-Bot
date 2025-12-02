@@ -487,7 +487,7 @@ async function showUserSessionDetail(interaction, sessionId, userId) {
       // Three-way check: push, win, or loss
       let statusEmoji;
       if (userAdjustedScore === opponentScore) {
-        statusEmoji = '🟰';
+        statusEmoji = '🟡';
       } else if (userAdjustedScore > opponentScore) {
         statusEmoji = '✅';
       } else {
@@ -644,7 +644,7 @@ async function showGameDetail(interaction, sessionId, gameId) {
       ? `✅ ${game.awayTeam} covered the spread`
       : homeCovered 
         ? `✅ ${game.homeTeam} covered the spread`
-        : `🟰 Push (tie)`;
+        : `🟡 Push (tie)`;
     
     embed.addFields({
       name: '🎯 Spread Result',

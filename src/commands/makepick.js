@@ -1388,9 +1388,9 @@ export async function handleViewMyPicks(interaction) {
           
           // Three-way check: push, win, or loss
           if (userAdjustedScore === opponentScore) {
-            statusEmoji = '🟰';
+            statusEmoji = '🟡';
             pushes += 1; // Pushes never double
-            resultText = `\n**Result:** 🟰 PUSH`;
+            resultText = `\n**Result:** 🟡 PUSH`;
           } else if (userAdjustedScore > opponentScore) {
             statusEmoji = '✅';
             wins += pick.isDoubleDown ? 2 : 1;
