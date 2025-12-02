@@ -62,14 +62,15 @@ export function addScheduledSession(sessionConfig) {
   
   const session = {
     id: generateSessionId(),
+    guildId: sessionConfig.guildId,
     channelId: sessionConfig.channelId,
     scheduledDate: sessionConfig.scheduledDate,
     firstGameTime: sessionConfig.firstGameTime,
     games: sessionConfig.games,
     gameDetails: sessionConfig.gameDetails,
     participantType: sessionConfig.participantType, // 'role' or 'users'
-    roleId: sessionConfig.roleId || null,
-    specificUsers: sessionConfig.specificUsers || [],
+    roleIds: sessionConfig.roleIds || [],
+    userIds: sessionConfig.userIds || [],
     notifications: {
       announcement: {
         enabled: sessionConfig.notifications.announcement.enabled,

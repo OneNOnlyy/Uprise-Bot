@@ -600,12 +600,15 @@ async function sendSessionAnnouncement(client, session) {
         }
       );
     
-    let content = null;
-    if (session.participantType === 'role' && session.roleId) {
-      content = `<@&${session.roleId}> PATS is now open!`;
-    } else if (session.participantType === 'users' && session.specificUsers?.length > 0) {
-      content = session.specificUsers.map(id => `<@${id}>`).join(' ') + ' PATS is now open!';
+    // Build mention content
+    let mentions = [];
+    if (session.roleIds && session.roleIds.length > 0) {
+      mentions.push(...session.roleIds.map(id => `<@&${id}>`));
     }
+    if (session.userIds && session.userIds.length > 0) {
+      mentions.push(...session.userIds.map(id => `<@${id}>`));
+    }
+    const content = mentions.length > 0 ? `${mentions.join(' ')} PATS is now open!` : null;
     
     await channel.send({
       content: content,
@@ -626,15 +629,29 @@ async function sendSessionReminder(client, session) {
     const { getUserPreferences } = await import('./utils/userPreferences.js');
     const { EmbedBuilder } = await import('discord.js');
     
-    let userIds = [];
+    let userIds = new Set();
     
-    if (session.participantType === 'role') {
+    // Get users from roles
+    if (session.roleIds && session.roleIds.length > 0) {
       const guild = await client.guilds.fetch(session.guildId);
-      const role = await guild.roles.fetch(session.roleId);
-      userIds = role.members.map(m => m.id);
-    } else {
-      userIds = session.specificUsers;
+      for (const roleId of session.roleIds) {
+        try {
+          const role = await guild.roles.fetch(roleId);
+          if (role) {
+            role.members.forEach(m => userIds.add(m.id));
+          }
+        } catch (err) {
+          console.error(`Failed to fetch role ${roleId}:`, err.message);
+        }
+      }
     }
+    
+    // Add specific users
+    if (session.userIds && session.userIds.length > 0) {
+      session.userIds.forEach(id => userIds.add(id));
+    }
+    
+    userIds = Array.from(userIds);
     
     const firstGameTime = new Date(session.firstGameTime);
     
@@ -680,15 +697,29 @@ async function sendSessionWarning(client, session) {
     const { getUserPreferences } = await import('./utils/userPreferences.js');
     const { EmbedBuilder } = await import('discord.js');
     
-    let userIds = [];
+    let userIds = new Set();
     
-    if (session.participantType === 'role') {
+    // Get users from roles
+    if (session.roleIds && session.roleIds.length > 0) {
       const guild = await client.guilds.fetch(session.guildId);
-      const role = await guild.roles.fetch(session.roleId);
-      userIds = role.members.map(m => m.id);
-    } else {
-      userIds = session.specificUsers;
+      for (const roleId of session.roleIds) {
+        try {
+          const role = await guild.roles.fetch(roleId);
+          if (role) {
+            role.members.forEach(m => userIds.add(m.id));
+          }
+        } catch (err) {
+          console.error(`Failed to fetch role ${roleId}:`, err.message);
+        }
+      }
     }
+    
+    // Add specific users
+    if (session.userIds && session.userIds.length > 0) {
+      session.userIds.forEach(id => userIds.add(id));
+    }
+    
+    userIds = Array.from(userIds);
     
     const firstGameTime = new Date(session.firstGameTime);
     
