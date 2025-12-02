@@ -1226,6 +1226,42 @@ export async function getTeamInfo(teamName) {
           }
         }
       }
+      
+      // SUPPLEMENT DESCRIPTIONS: Check if any injuries have missing/position-only descriptions
+      const positionDescriptions = ['G', 'F', 'C', 'PG', 'SG', 'SF', 'PF', 'Injury'];
+      const needsDescriptionSupplement = injuries.some(inj => 
+        !inj.description || positionDescriptions.includes(inj.description)
+      );
+      
+      if (needsDescriptionSupplement) {
+        console.log(`[ESPN] Some injuries missing specific descriptions, checking CBS Sports...`);
+        try {
+          const cachedInjuryReports = await getCachedInjuryReports();
+          if (cachedInjuryReports && cachedInjuryReports.size > 0) {
+            const cbsInjuries = getInjuriesForTeam(team.abbreviation, cachedInjuryReports);
+            
+            if (cbsInjuries.length > 0) {
+              for (const injury of injuries) {
+                if (!injury.description || positionDescriptions.includes(injury.description)) {
+                  // Find matching player in CBS data
+                  const cbsMatch = cbsInjuries.find(cbsInj => {
+                    const injName = (injury.player || '').toLowerCase().trim();
+                    const cbsName = (cbsInj.player || '').toLowerCase().trim();
+                    return injName === cbsName || cbsName.includes(injName) || injName.includes(cbsName);
+                  });
+                  
+                  if (cbsMatch && cbsMatch.description && !positionDescriptions.includes(cbsMatch.description)) {
+                    console.log(`[ESPN] Supplementing ${injury.player} description: "${injury.description}" → "${cbsMatch.description}" (from CBS)`);
+                    injury.description = cbsMatch.description;
+                  }
+                }
+              }
+            }
+          }
+        } catch (cbsError) {
+          console.warn(`[ESPN] Error supplementing descriptions from CBS:`, cbsError.message);
+        }
+      }
     }
     
     const result = {
