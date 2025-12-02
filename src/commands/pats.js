@@ -1082,13 +1082,15 @@ async function showUserStats(interaction, targetUserId = null) {
   // Overall stats
   const totalGames = stats.totalWins + stats.totalLosses;
   
-  // Calculate average picks per session
-  // totalWins/totalLosses count DD as 2, so we need to subtract the extra count
-  // Example: 10 wins where 2 were DD = totalWins is 12, but only 10 actual picks
-  const ddExtraWins = (stats.doubleDownWins || 0); // Each DD win adds 1 extra to totalWins
-  const ddExtraLosses = (stats.doubleDownLosses || 0); // Each DD loss adds 1 extra to totalLosses
-  const actualPickCount = (stats.totalWins - ddExtraWins) + (stats.totalLosses - ddExtraLosses) + stats.totalPushes;
-  const avgPicksPerSession = stats.sessions > 0 ? (actualPickCount / stats.sessions).toFixed(1) : '0';
+  // Calculate average picks per session from actual session history
+  const sessionHistory = getUserSessionHistory(userId, 999); // Get all sessions
+  let totalPicksMade = 0;
+  for (const session of sessionHistory) {
+    // Count actual picks made in each session (wins + losses + pushes)
+    const pickCount = session.wins + session.losses + session.pushes;
+    totalPicksMade += pickCount;
+  }
+  const avgPicksPerSession = sessionHistory.length > 0 ? (totalPicksMade / sessionHistory.length).toFixed(1) : '0';
   
   embed.addFields({
     name: '🏆 Overall Record',
