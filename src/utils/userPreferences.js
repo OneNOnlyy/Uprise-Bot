@@ -219,14 +219,21 @@ export async function showReminderCustomization(interaction) {
     
     const currentSetting = prefs.reminderMinutes 
         ? (Array.isArray(prefs.reminderMinutes) 
-            ? prefs.reminderMinutes.join(', ') + ' minutes' 
+            ? prefs.reminderMinutes.sort((a, b) => b - a).join(', ') + ' minutes' 
             : prefs.reminderMinutes + ' minutes')
         : 'Session default (configured per session)';
+    
+    // Get current selections for the select menu
+    const currentSelections = prefs.reminderMinutes 
+        ? (Array.isArray(prefs.reminderMinutes) 
+            ? prefs.reminderMinutes.map(m => m.toString())
+            : [prefs.reminderMinutes.toString()])
+        : [];
     
     const embed = new EmbedBuilder()
         .setColor('#5865F2')
         .setTitle('⏰ Reminder Customization')
-        .setDescription('Customize when you receive reminders before the first game of a session.')
+        .setDescription('Select when you receive reminders before the first game of a session.\n\n**You can select multiple times** to receive multiple reminders.')
         .addFields(
             {
                 name: '📋 Current Setting',
@@ -235,29 +242,63 @@ export async function showReminderCustomization(interaction) {
             {
                 name: '⚙️ How It Works',
                 value: [
-                    '• **Session Default**: Use the timing set when the session was scheduled',
-                    '• **Custom Single**: Set one reminder time (e.g., 60 minutes before)',
-                    '• **Custom Multiple**: Set multiple reminder times (e.g., 120, 60, 30 minutes before)',
+                    '• **Session Default**: Don\'t select anything to use scheduled session timing',
+                    '• **Single Time**: Select one option (e.g., 60 minutes)',
+                    '• **Multiple Times**: Select multiple options (e.g., 120, 60, and 30 minutes)',
                     '',
-                    '💡 Example: `30` = one reminder 30 min before',
-                    '💡 Example: `60,30,15` = three reminders at 60, 30, and 15 min before'
+                    '💡 Selecting none = Use session default',
+                    '💡 Selecting multiple = Get multiple reminders'
                 ].join('\n')
             }
         );
     
-    const row1 = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('pats_reminder_use_default')
-                .setLabel('Use Session Default')
-                .setEmoji('🔄')
-                .setStyle(ButtonStyle.Success),
-            new ButtonBuilder()
-                .setCustomId('pats_reminder_set_custom')
-                .setLabel('Set Custom Times')
-                .setEmoji('✏️')
-                .setStyle(ButtonStyle.Primary)
-        );
+    const { StringSelectMenuBuilder } = await import('discord.js');
+    
+    const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId('pats_reminder_times_select')
+        .setPlaceholder('Select reminder times (or leave empty for session default)')
+        .setMinValues(0)
+        .setMaxValues(6)
+        .addOptions([
+            {
+                label: '2 hours before',
+                description: 'Reminder 120 minutes before first game',
+                value: '120',
+                default: currentSelections.includes('120')
+            },
+            {
+                label: '90 minutes before',
+                description: 'Reminder 90 minutes before first game',
+                value: '90',
+                default: currentSelections.includes('90')
+            },
+            {
+                label: '1 hour before',
+                description: 'Reminder 60 minutes before first game',
+                value: '60',
+                default: currentSelections.includes('60')
+            },
+            {
+                label: '45 minutes before',
+                description: 'Reminder 45 minutes before first game',
+                value: '45',
+                default: currentSelections.includes('45')
+            },
+            {
+                label: '30 minutes before',
+                description: 'Reminder 30 minutes before first game',
+                value: '30',
+                default: currentSelections.includes('30')
+            },
+            {
+                label: '15 minutes before',
+                description: 'Reminder 15 minutes before first game',
+                value: '15',
+                default: currentSelections.includes('15')
+            }
+        ]);
+    
+    const row1 = new ActionRowBuilder().addComponents(selectMenu);
     
     const row2 = new ActionRowBuilder()
         .addComponents(
@@ -283,14 +324,21 @@ export async function showWarningCustomization(interaction) {
     
     const currentSetting = prefs.warningMinutes 
         ? (Array.isArray(prefs.warningMinutes) 
-            ? prefs.warningMinutes.join(', ') + ' minutes' 
+            ? prefs.warningMinutes.sort((a, b) => b - a).join(', ') + ' minutes' 
             : prefs.warningMinutes + ' minutes')
         : 'Session default (configured per session)';
+    
+    // Get current selections for the select menu
+    const currentSelections = prefs.warningMinutes 
+        ? (Array.isArray(prefs.warningMinutes) 
+            ? prefs.warningMinutes.map(m => m.toString())
+            : [prefs.warningMinutes.toString()])
+        : [];
     
     const embed = new EmbedBuilder()
         .setColor('#FFA500')
         .setTitle('⚠️ Warning Customization')
-        .setDescription('Customize when you receive warnings before EACH game you haven\'t picked.')
+        .setDescription('Select when you receive warnings before each unpicked game.\n\n**You can select multiple times** to receive multiple warnings per game.')
         .addFields(
             {
                 name: '📋 Current Setting',
@@ -299,29 +347,76 @@ export async function showWarningCustomization(interaction) {
             {
                 name: '⚙️ How It Works',
                 value: [
-                    '• **Session Default**: Use the timing set when the session was scheduled',
-                    '• **Custom Single**: Set one warning time per game (e.g., 30 minutes before)',
-                    '• **Custom Multiple**: Set multiple warnings per game (e.g., 30, 15, 5 minutes before)',
+                    '• **Session Default**: Don\'t select anything to use scheduled session timing',
+                    '• **Single Time**: Select one option (e.g., 30 minutes)',
+                    '• **Multiple Times**: Select multiple options (e.g., 60, 30, and 15 minutes)',
                     '',
-                    '💡 Example: `30` = one warning 30 min before each unpicked game',
-                    '💡 Example: `30,15,5` = three warnings per unpicked game at 30, 15, and 5 min before'
+                    '💡 Selecting none = Use session default',
+                    '💡 Selecting multiple = Get multiple warnings per game',
+                    '💡 Warnings check each unpicked game individually'
                 ].join('\n')
             }
         );
     
-    const row1 = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('pats_warning_use_default')
-                .setLabel('Use Session Default')
-                .setEmoji('🔄')
-                .setStyle(ButtonStyle.Success),
-            new ButtonBuilder()
-                .setCustomId('pats_warning_set_custom')
-                .setLabel('Set Custom Times')
-                .setEmoji('✏️')
-                .setStyle(ButtonStyle.Primary)
-        );
+    const { StringSelectMenuBuilder } = await import('discord.js');
+    
+    const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId('pats_warning_times_select')
+        .setPlaceholder('Select warning times (or leave empty for session default)')
+        .setMinValues(0)
+        .setMaxValues(8)
+        .addOptions([
+            {
+                label: '2 hours before',
+                description: 'Warning 120 minutes before each unpicked game',
+                value: '120',
+                default: currentSelections.includes('120')
+            },
+            {
+                label: '90 minutes before',
+                description: 'Warning 90 minutes before each unpicked game',
+                value: '90',
+                default: currentSelections.includes('90')
+            },
+            {
+                label: '1 hour before',
+                description: 'Warning 60 minutes before each unpicked game',
+                value: '60',
+                default: currentSelections.includes('60')
+            },
+            {
+                label: '45 minutes before',
+                description: 'Warning 45 minutes before each unpicked game',
+                value: '45',
+                default: currentSelections.includes('45')
+            },
+            {
+                label: '30 minutes before',
+                description: 'Warning 30 minutes before each unpicked game',
+                value: '30',
+                default: currentSelections.includes('30')
+            },
+            {
+                label: '15 minutes before',
+                description: 'Warning 15 minutes before each unpicked game',
+                value: '15',
+                default: currentSelections.includes('15')
+            },
+            {
+                label: '10 minutes before',
+                description: 'Warning 10 minutes before each unpicked game',
+                value: '10',
+                default: currentSelections.includes('10')
+            },
+            {
+                label: '5 minutes before',
+                description: 'Warning 5 minutes before each unpicked game',
+                value: '5',
+                default: currentSelections.includes('5')
+            }
+        ]);
+    
+    const row1 = new ActionRowBuilder().addComponents(selectMenu);
     
     const row2 = new ActionRowBuilder()
         .addComponents(
