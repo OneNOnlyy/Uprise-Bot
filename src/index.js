@@ -872,11 +872,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.deferUpdate();
         await showSettingsMenu(interaction);
       }
-      // Handle dashboard buttons (including stats and history)
+      // Handle dashboard buttons (including stats)
       else if (interaction.customId.startsWith('pats_dashboard_') || 
           interaction.customId.startsWith('pats_stats_') ||
-          interaction.customId.startsWith('pats_view_history') ||
-          interaction.customId.startsWith('pats_history_') ||
           interaction.customId.startsWith('pats_help_') ||
           interaction.customId.startsWith('pats_no_session_') ||
           interaction.customId === 'pats_search_player' ||
