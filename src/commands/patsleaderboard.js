@@ -7,7 +7,10 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction) {
   try {
-    await interaction.deferReply();
+    // Only defer if not already deferred or replied
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply();
+    }
 
     const leaderboard = getLeaderboard();
     const session = getActiveSession();
