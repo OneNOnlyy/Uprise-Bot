@@ -1697,12 +1697,33 @@ export async function fetchAllInjuryReports() {
 
     console.log(`[CBS] Total teams with injury reports: ${cbsInjuryReports.size}`);
     
-    // Merge CBS data with ESPN data (ESPN takes priority)
+    // Merge CBS data with ESPN data
     for (const [teamAbbr, cbsInjuries] of cbsInjuryReports.entries()) {
       if (!injuryReports.has(teamAbbr)) {
+        // No ESPN data for this team, use CBS
         injuryReports.set(teamAbbr, cbsInjuries);
       } else {
-        console.log(`[Injury Reports] ${teamAbbr} already has ESPN data, skipping CBS`);
+        // ESPN has data, but check if we need to supplement with CBS injury descriptions
+        const espnInjuries = injuryReports.get(teamAbbr);
+        console.log(`[Injury Reports] ${teamAbbr} has ESPN data, checking for missing injury descriptions...`);
+        
+        for (const espnInj of espnInjuries) {
+          // If ESPN injury has no specific description or uses position, check CBS
+          if (!espnInj.description || espnInj.description === 'Injury' || ['G', 'F', 'C', 'PG', 'SG', 'SF', 'PF'].includes(espnInj.description)) {
+            // Look for matching player in CBS data
+            const cbsMatch = cbsInjuries.find(cbsInj => {
+              const espnName = (espnInj.player || '').toLowerCase().trim();
+              const cbsName = (cbsInj.player || '').toLowerCase().trim();
+              // Match if names are exact or if CBS name contains ESPN name (e.g., "Damian Lillard" contains "D. Lillard")
+              return espnName === cbsName || cbsName.includes(espnName) || espnName.includes(cbsName);
+            });
+            
+            if (cbsMatch && cbsMatch.description && cbsMatch.description !== 'Injury') {
+              console.log(`[Injury Supplement] ${teamAbbr} - ${espnInj.player}: Using CBS injury "${cbsMatch.description}" instead of ESPN "${espnInj.description}"`);
+              espnInj.description = cbsMatch.description;
+            }
+          }
+        }
       }
     }
     
