@@ -202,7 +202,8 @@ export async function createSessionSnapshot(session) {
       // User picks and results
       picks: session.picks,
       results: session.results,
-      participants: session.participants,
+      // Use actual participants (users who made picks) instead of session.participants (eligible users)
+      participants: Object.keys(session.picks),
       
       // References to injury/roster data (deduplicated)
       injuryRefs,
