@@ -55,6 +55,9 @@ async function checkGameWarnings(client) {
     // Combine both groups: users with picks + tagged users
     participants = [...new Set([...usersWithPicks, ...participants])];
     
+    // Get session's default warning time (if set)
+    const sessionWarningMinutes = session.warningMinutes || 30; // Default to 30 if not set in session
+    
     // Check each participant
     for (const userId of participants) {
       try {
@@ -64,11 +67,20 @@ async function checkGameWarnings(client) {
           continue;
         }
         
-        // Get user's custom warning time (default to 30 if not set)
-        const userWarningMinutes = prefs.warningMinutes || 30;
-        const warningThreshold = userWarningMinutes * 60 * 1000; // Convert to milliseconds
+        // Get user's custom warning times or use session default
+        let warningMinutes = [];
+        if (prefs.warningMinutes === null || prefs.warningMinutes === undefined) {
+          // User hasn't customized - use session default
+          warningMinutes = [sessionWarningMinutes];
+        } else if (Array.isArray(prefs.warningMinutes)) {
+          // User has multiple custom times
+          warningMinutes = prefs.warningMinutes;
+        } else {
+          // User has single custom time
+          warningMinutes = [prefs.warningMinutes];
+        }
         
-        // Check each game for this user
+        // Check each game for this user at each warning time
         for (const game of session.games) {
           // Skip if game already started or finished
           if (game.result?.isLive || game.result?.isFinal) {
@@ -78,28 +90,33 @@ async function checkGameWarnings(client) {
           const gameTime = new Date(game.commenceTime);
           const timeUntilGame = gameTime - now;
           
-          // Check if game is within this user's warning window
-          if (timeUntilGame <= 0 || timeUntilGame > warningThreshold) {
-            continue; // Game already started or not in warning window yet
-          }
-          
-          const warningKey = `${userId}_${game.id}`;
-          
-          // Skip if we've already warned this user about this game
-          if (warnedGames.has(warningKey)) {
-            continue;
-          }
-          
-          // Get user's picks for this session
-          const userPicks = getUserPicks(session.id, userId);
+          // Check each warning time for this game
+          for (const warningMin of warningMinutes) {
+            const warningThreshold = warningMin * 60 * 1000; // Convert to milliseconds
+            const warningLowerBound = (warningMin - 1) * 60 * 1000; // 1-minute window
             
-          // Check if user has picked THIS specific game
-          const hasPickedThisGame = userPicks.some(p => p.gameId === game.id);
-          
-          if (!hasPickedThisGame) {
-            // Send warning DM
-            try {
-              const user = await client.users.fetch(userId);
+            // Check if game is within this specific warning window (e.g., between 30-29 minutes)
+            if (timeUntilGame <= warningLowerBound || timeUntilGame > warningThreshold) {
+              continue; // Not in this warning window
+            }
+            
+            const warningKey = `${userId}_${game.id}_${warningMin}`;
+            
+            // Skip if we've already sent this specific warning
+            if (warnedGames.has(warningKey)) {
+              continue;
+            }
+            
+            // Get user's picks for this session
+            const userPicks = getUserPicks(session.id, userId);
+              
+            // Check if user has picked THIS specific game
+            const hasPickedThisGame = userPicks.some(p => p.gameId === game.id);
+            
+            if (!hasPickedThisGame) {
+              // Send warning DM
+              try {
+                const user = await client.users.fetch(userId);
               
               const minutesRemaining = Math.floor(timeUntilGame / 60000);
               const embed = new EmbedBuilder()
@@ -126,14 +143,15 @@ async function checkGameWarnings(client) {
                 .setFooter({ text: 'Use /pats dashboard to make your pick now!' });
               
               await user.send({ embeds: [embed] });
-              console.log(`⚠️ Sent warning to ${user.username} (${userWarningMinutes} min before) for game ${game.awayTeam} @ ${game.homeTeam}`);
+              console.log(`⚠️ Sent warning to ${user.username} (${warningMin} min before) for game ${game.awayTeam} @ ${game.homeTeam}`);
               
-              // Mark this user/game combo as warned
+              // Mark this user/game/time combo as warned
               warnedGames.set(warningKey, true);
             } catch (dmError) {
               console.error(`Failed to send warning DM to user ${userId}:`, dmError.message);
             }
           }
+        }
         }
       } catch (err) {
         console.error(`Error checking picks for user ${userId}:`, err.message);

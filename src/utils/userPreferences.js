@@ -12,7 +12,7 @@ export function getDefaultPreferences() {
             warnings: true,
             gameLocks: false  // Default OFF to avoid spam
         },
-        warningMinutes: 30  // How many minutes before each game to send warnings
+        warningMinutes: null  // null = use session default, or array of custom times [30, 15, 5]
     };
 }
 

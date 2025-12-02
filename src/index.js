@@ -812,6 +812,10 @@ async function startScheduledSession(client, session) {
     
     console.log(`🏀 Starting scheduled PATS session ${session.id} for ${dateStr}...`);
     
+    // Pass warning minutes from scheduled session to patsstart
+    const warningMinutes = session.notifications?.warning?.minutesBefore || 30;
+    mockInteraction.warningMinutes = warningMinutes;
+    
     // Execute the patsstart command
     await patsstartCommand.execute(mockInteraction);
     

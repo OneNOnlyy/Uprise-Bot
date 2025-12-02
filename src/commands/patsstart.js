@@ -53,9 +53,12 @@ export async function execute(interaction) {
     // Get participant role
     const participantRole = interaction.options.getRole('participant_role');
     
-    // Create session
+    // Create session with optional warning minutes from scheduled session
     const participants = participantRole ? [participantRole.id] : [];
-    const session = createPATSSession(dateStr, games, participants);
+    const sessionOptions = {
+      warningMinutes: interaction.warningMinutes // Will be undefined for manual starts (defaults to 30)
+    };
+    const session = createPATSSession(dateStr, games, participants, sessionOptions);
     
     console.log(`✅ Created PATS session ${session.id} with ${games.length} games`);
     

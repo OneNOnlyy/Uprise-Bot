@@ -118,7 +118,7 @@ function ensureUser(data, userId, username = null) {
 /**
  * Create a new PATS session
  */
-export function createPATSSession(date, games, participants) {
+export function createPATSSession(date, games, participants, options = {}) {
   const data = readPATSData();
   
   const session = {
@@ -143,7 +143,8 @@ export function createPATSSession(date, games, participants) {
     participants: participants,
     picks: {}, // userId: [{ gameId, pick, spread }]
     status: 'active',
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    warningMinutes: options.warningMinutes || 30 // Default warning time from schedule or 30
   };
   
   data.activeSessions.push(session);
