@@ -1717,6 +1717,7 @@ async function showHistoricalDashboard(interaction, sessionId) {
     .setDescription(`**Final Results:** ${record}`)
     .setColor(userResult.wins > userResult.losses ? 0x00FF00 : userResult.wins < userResult.losses ? 0xFF0000 : 0xFFA500)
     .setTimestamp(new Date(snapshot.closedAt))
+    .setFooter({ text: `Session ID: ${sessionId}` })
     .addFields(
       {
         name: '📊 Your Performance',
