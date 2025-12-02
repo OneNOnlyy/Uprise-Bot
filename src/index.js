@@ -1328,16 +1328,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   }
   
-  // Handle modal submission for player search
-  if (interaction.isModalSubmit() && interaction.customId === 'pats_player_search_modal') {
+  // Handle user select menu for viewing player stats
+  if (interaction.isUserSelectMenu() && interaction.customId === 'pats_select_player_stats') {
     try {
       await interaction.deferUpdate();
-      const searchQuery = interaction.fields.getTextInputValue('player_username');
-      await patsCommand.handlePlayerSearch(interaction, searchQuery);
+      const selectedUserId = interaction.values[0];
+      const patsCommand = await import('./commands/pats.js');
+      await patsCommand.showUserStatsFromSelect(interaction, selectedUserId);
     } catch (error) {
-      console.error('Error handling player search modal:', error);
+      console.error('Error handling player select menu:', error);
       const errorMessage = { 
-        content: '❌ There was an error searching for that player!', 
+        content: '❌ There was an error loading that player\'s stats!', 
         ephemeral: true 
       };
       

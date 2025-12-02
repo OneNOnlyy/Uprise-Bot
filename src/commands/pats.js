@@ -236,26 +236,6 @@ export async function handleDashboardButton(interaction) {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
       return await patsleaderboardCommand.execute(interaction);
-    } else if (interaction.customId === 'pats_search_player') {
-      // Show modal for player search
-      const modal = new ModalBuilder()
-        .setCustomId('pats_player_search_modal')
-        .setTitle('Search for Player');
-
-      const usernameInput = new TextInputBuilder()
-        .setCustomId('player_username')
-        .setLabel('Player Username')
-        .setPlaceholder('Enter username to search...')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMinLength(1)
-        .setMaxLength(32);
-
-      const firstRow = new ActionRowBuilder().addComponents(usernameInput);
-      modal.addComponents(firstRow);
-
-      await interaction.showModal(modal);
-      return; // Don't defer for modals
     } else if (interaction.customId.startsWith('pats_view_player_')) {
       // View specific player's stats from search results
       await interaction.deferUpdate();
@@ -806,16 +786,21 @@ async function showStatsMenu(interaction) {
 async function showPlayerSelection(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('📊 View Other Player Stats')
-    .setDescription('**Search for any player by username:**\n\nClick the button below to search for a player.')
+    .setDescription('**Select a player to view their stats:**\n\nUse the dropdown menu below to select a player.')
     .setColor(0x5865F2)
     .setTimestamp();
 
+  const { UserSelectMenuBuilder } = await import('discord.js');
+  
+  const userSelect = new UserSelectMenuBuilder()
+    .setCustomId('pats_select_player_stats')
+    .setPlaceholder('Select a player')
+    .setMinValues(1)
+    .setMaxValues(1);
+  
+  const selectRow = new ActionRowBuilder().addComponents(userSelect);
+  
   const buttons = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId('pats_search_player')
-      .setLabel('Search Player')
-      .setStyle(ButtonStyle.Primary)
-      .setEmoji('🔍'),
     new ButtonBuilder()
       .setCustomId('pats_player_selection_back')
       .setLabel('Back to Stats Menu')
@@ -825,7 +810,7 @@ async function showPlayerSelection(interaction) {
 
   await interaction.editReply({
     embeds: [embed],
-    components: [buttons]
+    components: [selectRow, buttons]
   });
 }
 
@@ -1405,6 +1390,13 @@ export async function handlePlayerSelection(interaction) {
  */
 export async function handlePlayerSearch(interaction, searchQuery) {
   await searchPlayers(interaction, searchQuery);
+}
+
+/**
+ * Show user stats from player select menu
+ */
+export async function showUserStatsFromSelect(interaction, userId) {
+  await showUserStats(interaction, userId);
 }
 
 /**
