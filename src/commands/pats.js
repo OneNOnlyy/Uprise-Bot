@@ -406,7 +406,7 @@ export async function showDashboard(interaction) {
       ? upcomingSessions.sort((a, b) => new Date(a.firstGameTime) - new Date(b.firstGameTime))[0]
       : null;
     
-    let description = '**No active PATS session today.**\n\nWait for an admin to start a new session with `/patsstart`.';
+    let description = '';
     
     if (nextSession) {
       const sessionDate = new Date(nextSession.firstGameTime);
@@ -425,9 +425,9 @@ export async function showDashboard(interaction) {
         timeString = `in ${days} day${days !== 1 ? 's' : ''}`;
       }
       
-      description += `\n\n📅 **Next Scheduled Session:**\n${nextSession.scheduledDate} • ${nextSession.games} game${nextSession.games !== 1 ? 's' : ''} • Starts ${timeString}`;
+      description = `📅 **Next Scheduled Session:**\n${nextSession.scheduledDate} • ${nextSession.games} game${nextSession.games !== 1 ? 's' : ''} • Starts ${timeString}`;
     } else {
-      description += '\n\n📅 No sessions currently scheduled.';
+      description = '📅 No sessions currently scheduled.';
     }
     
     const embed = new EmbedBuilder()
