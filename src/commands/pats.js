@@ -1790,25 +1790,37 @@ async function showHistoricalGames(interaction, sessionId) {
     .setColor(0x5865F2)
     .setTimestamp(new Date(snapshot.closedAt));
   
-  // Group games and show them
-  const gamesList = snapshot.games.slice(0, 10).map((game, index) => {
-    const result = game.result;
-    const homeSpread = game.homeSpread || 0;
-    const awaySpread = game.awaySpread || 0;
-    
-    let statusText = '';
-    if (result && result.status === 'Final') {
-      const winner = result.homeScore > result.awayScore ? '🏠' : '✈️';
-      statusText = `\n📊 **Final:** ${game.awayTeam} ${result.awayScore}, ${game.homeTeam} ${result.homeScore} ${winner}`;
-    }
-    
-    return `**${index + 1}. ${game.awayTeam}** @ **${game.homeTeam}**\n🎯 Spread: ${game.awayTeam} ${awaySpread > 0 ? '+' : ''}${awaySpread} | ${game.homeTeam} ${homeSpread > 0 ? '+' : ''}${homeSpread}${statusText}`;
-  }).join('\n\n');
+  // Split games into chunks to avoid Discord's 1024 char limit per field
+  const gamesPerField = 5;
+  const gameChunks = [];
   
-  embed.addFields({
-    name: snapshot.games.length <= 10 ? 'All Games' : `Showing 10 of ${snapshot.games.length} Games`,
-    value: gamesList,
-    inline: false
+  for (let i = 0; i < snapshot.games.length && i < 15; i += gamesPerField) {
+    const chunk = snapshot.games.slice(i, i + gamesPerField);
+    const gamesList = chunk.map((game, index) => {
+      const result = game.result;
+      const homeSpread = game.homeSpread || 0;
+      const awaySpread = game.awaySpread || 0;
+      
+      let statusText = '';
+      if (result && result.status === 'Final') {
+        const winner = result.homeScore > result.awayScore ? '🏠' : '✈️';
+        statusText = ` • ${result.awayScore}-${result.homeScore} ${winner}`;
+      }
+      
+      return `**${i + index + 1}.** ${game.awayTeam} @ ${game.homeTeam} (${awaySpread > 0 ? '+' : ''}${awaySpread}/${homeSpread > 0 ? '+' : ''}${homeSpread})${statusText}`;
+    }).join('\n');
+    
+    gameChunks.push(gamesList);
+  }
+  
+  // Add fields for each chunk
+  gameChunks.forEach((chunk, index) => {
+    const fieldName = index === 0 ? 'Games' : '\u200b'; // Use zero-width space for continuation fields
+    embed.addFields({
+      name: fieldName,
+      value: chunk,
+      inline: false
+    });
   });
   
   // Create select menu for game details
