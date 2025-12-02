@@ -149,6 +149,16 @@ export function createPATSSession(date, games, participants) {
   data.activeSessions.push(session);
   writePATSData(data);
   
+  // Start monitoring injuries for all session games
+  (async () => {
+    try {
+      const { startSessionInjuryMonitoring } = await import('./dataCache.js');
+      await startSessionInjuryMonitoring();
+    } catch (error) {
+      console.error('[PATS] Error starting injury monitoring:', error);
+    }
+  })();
+  
   return session;
 }
 
@@ -619,6 +629,16 @@ export function closePATSSession(sessionId, gameResults) {
   console.log(`[PATS DATA] Writing data to file...`);
   writePATSData(data);
   console.log(`[PATS DATA] Data written to file successfully`);
+  
+  // Stop injury monitoring when session closes
+  (async () => {
+    try {
+      const { stopSessionInjuryMonitoring } = await import('./dataCache.js');
+      stopSessionInjuryMonitoring();
+    } catch (error) {
+      console.error('[PATS] Error stopping injury monitoring:', error);
+    }
+  })();
   
   // Verify history was saved
   const verifyData = readPATSData();

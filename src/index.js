@@ -88,6 +88,15 @@ client.once(Events.ClientReady, async (readyClient) => {
   // Initialize injury tracking system
   await initInjuryTracking(client);
   
+  // Check if there's an active PATS session and start injury monitoring
+  const { getActiveSession } = await import('./utils/patsData.js');
+  const activeSession = getActiveSession();
+  if (activeSession) {
+    console.log('[Startup] Active PATS session found, starting injury monitoring...');
+    const { startSessionInjuryMonitoring } = await import('./utils/dataCache.js');
+    await startSessionInjuryMonitoring();
+  }
+  
   // Initialize scheduled PATS sessions
   initializeScheduledSessions(client);
   

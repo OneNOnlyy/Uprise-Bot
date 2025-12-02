@@ -17,13 +17,102 @@ const cache = {
   isFetchingGames: false
 };
 
-// No cache settings needed for injuries/rosters - always fresh
+// Session injury cache - updates every minute for all session games
+const injuryCache = {
+  injuries: new Map(), // Map<gameId, { homeTeam, awayTeam, home: [], away: [], lastUpdated }>
+  updateInterval: null
+};
 
 /**
  * Initialize the cache system (no auto-refresh for odds)
  */
 export function initializeCache() {
   console.log('[Cache] ✅ Data cache system initialized (odds fetched only on session creation)');
+}
+
+/**
+ * Start monitoring injuries for all session games (updates every minute)
+ */
+export async function startSessionInjuryMonitoring() {
+  // Stop existing interval if any
+  stopSessionInjuryMonitoring();
+
+  const { getActiveSession } = await import('./patsData.js');
+  
+  // Initial fetch
+  await updateSessionInjuries();
+
+  // Set up interval to update every minute
+  injuryCache.updateInterval = setInterval(async () => {
+    try {
+      await updateSessionInjuries();
+    } catch (error) {
+      console.error('[Cache] Error updating session injuries:', error);
+    }
+  }, 60000); // 60 seconds
+
+  console.log('[Cache] 🏥 Session injury monitoring started (updates every 60s)');
+}
+
+/**
+ * Stop monitoring injuries
+ */
+export function stopSessionInjuryMonitoring() {
+  if (injuryCache.updateInterval) {
+    clearInterval(injuryCache.updateInterval);
+    injuryCache.updateInterval = null;
+    injuryCache.injuries.clear();
+    console.log('[Cache] 🏥 Session injury monitoring stopped');
+  }
+}
+
+/**
+ * Update injuries for all active session games
+ */
+async function updateSessionInjuries() {
+  const { getActiveSession } = await import('./patsData.js');
+  const session = getActiveSession();
+  
+  if (!session || !session.games || session.games.length === 0) {
+    console.log('[Cache] No active session, skipping injury update');
+    return;
+  }
+
+  console.log(`[Cache] 🏥 Updating injuries for ${session.games.length} session games...`);
+
+  for (const game of session.games) {
+    try {
+      // Skip games that have already started
+      const gameTime = new Date(game.commenceTime);
+      if (gameTime <= new Date()) {
+        continue;
+      }
+
+      // Fetch fresh injury data
+      const matchupInfo = await getMatchupInfo(game.homeTeam, game.awayTeam);
+      
+      if (matchupInfo) {
+        injuryCache.injuries.set(game.id, {
+          homeTeam: game.homeTeam,
+          awayTeam: game.awayTeam,
+          home: matchupInfo.home?.injuries || [],
+          away: matchupInfo.away?.injuries || [],
+          lastUpdated: Date.now()
+        });
+      }
+    } catch (error) {
+      console.error(`[Cache] Error fetching injuries for ${game.awayTeam} @ ${game.homeTeam}:`, error.message);
+    }
+  }
+
+  console.log(`[Cache] 🏥 Injury cache updated (${injuryCache.injuries.size} games cached)`);
+}
+
+/**
+ * Get cached injury data for a specific game
+ */
+export function getCachedInjuries(gameId) {
+  return injuryCache.injuries.get(gameId) || null;
 }
 
 /**
@@ -88,9 +177,37 @@ export function clearGamesCache() {
 
 /**
  * Get matchup info for a specific game
- * Always fetches fresh data - no caching for injuries/rosters
+ * Uses cached injuries if available, always fetches fresh rosters
  */
 export async function getCachedMatchupInfo(homeTeam, awayTeam, gameId = null, forceRefresh = false) {
+  // Check if we have cached injury data for this game
+  if (gameId && !forceRefresh) {
+    const cachedInjuries = injuryCache.injuries.get(gameId);
+    if (cachedInjuries) {
+      const age = Math.floor((Date.now() - cachedInjuries.lastUpdated) / 1000);
+      console.log(`[Data] Using cached injuries for ${awayTeam} @ ${homeTeam} (${age}s old)`);
+      
+      // Still fetch rosters fresh, but use cached injuries
+      try {
+        const matchupInfo = await getMatchupInfo(homeTeam, awayTeam);
+        // Replace injuries with cached data
+        if (matchupInfo) {
+          if (matchupInfo.home) matchupInfo.home.injuries = cachedInjuries.home;
+          if (matchupInfo.away) matchupInfo.away.injuries = cachedInjuries.away;
+        }
+        return matchupInfo;
+      } catch (error) {
+        console.error(`[Data] Error fetching fresh rosters, returning cached injuries only:`, error.message);
+        // Return cached injuries even if roster fetch fails
+        return {
+          home: { injuries: cachedInjuries.home, roster: [] },
+          away: { injuries: cachedInjuries.away, roster: [] }
+        };
+      }
+    }
+  }
+  
+  // No cached data or force refresh - fetch everything fresh
   console.log(`[Data] Fetching fresh matchup info for ${awayTeam} @ ${homeTeam}...`);
   
   try {
