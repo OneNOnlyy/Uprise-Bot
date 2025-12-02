@@ -42,16 +42,16 @@ export async function startSessionInjuryMonitoring() {
   // Initial fetch
   await updateSessionInjuries();
 
-  // Set up interval to update every minute
+  // Set up interval to update every 2 minutes
   injuryCache.updateInterval = setInterval(async () => {
     try {
       await updateSessionInjuries();
     } catch (error) {
       console.error('[Cache] Error updating session injuries:', error);
     }
-  }, 60000); // 60 seconds
+  }, 120000); // 2 minutes
 
-  console.log('[Cache] 🏥 Session injury monitoring started (updates every 60s)');
+  console.log('[Cache] 🏥 Session injury monitoring started (updates every 2 minutes)');
 }
 
 /**

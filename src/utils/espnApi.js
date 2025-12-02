@@ -1234,35 +1234,32 @@ export async function getTeamInfo(teamName) {
       );
       
       if (needsDescriptionSupplement) {
-        console.log(`[ESPN] Some injuries missing specific descriptions, fetching CBS Sports...`);
+        console.log(`[ESPN] Some injuries missing specific descriptions, fetching CBS for ${team.abbreviation}...`);
         try {
-          // Fetch CBS data directly since caching is disabled
-          const cbsInjuryReports = await fetchAllInjuryReports();
-          if (cbsInjuryReports && cbsInjuryReports.size > 0) {
-            const cbsInjuries = getInjuriesForTeam(team.abbreviation, cbsInjuryReports);
-            
-            if (cbsInjuries.length > 0) {
-              console.log(`[ESPN] Found ${cbsInjuries.length} CBS injuries for ${team.abbreviation}`);
-              for (const injury of injuries) {
-                if (!injury.description || positionDescriptions.includes(injury.description)) {
-                  // Find matching player in CBS data
-                  const cbsMatch = cbsInjuries.find(cbsInj => {
-                    const injName = (injury.player || '').toLowerCase().trim();
-                    const cbsName = (cbsInj.player || '').toLowerCase().trim();
-                    return injName === cbsName || cbsName.includes(injName) || injName.includes(cbsName);
-                  });
-                  
-                  if (cbsMatch && cbsMatch.description && !positionDescriptions.includes(cbsMatch.description)) {
-                    console.log(`[ESPN] Supplementing ${injury.player} description: "${injury.description}" → "${cbsMatch.description}" (from CBS)`);
-                    injury.description = cbsMatch.description;
-                  } else {
-                    console.log(`[ESPN] No CBS match found for ${injury.player} (${team.abbreviation})`);
-                  }
+          // Fetch CBS data for this specific team only (not all 30 teams)
+          const cbsInjuries = await fetchCBSInjuriesForTeam(team.abbreviation);
+          
+          if (cbsInjuries && cbsInjuries.length > 0) {
+            console.log(`[ESPN] Found ${cbsInjuries.length} CBS injuries for ${team.abbreviation}`);
+            for (const injury of injuries) {
+              if (!injury.description || positionDescriptions.includes(injury.description)) {
+                // Find matching player in CBS data
+                const cbsMatch = cbsInjuries.find(cbsInj => {
+                  const injName = (injury.player || '').toLowerCase().trim();
+                  const cbsName = (cbsInj.player || '').toLowerCase().trim();
+                  return injName === cbsName || cbsName.includes(injName) || injName.includes(cbsName);
+                });
+                
+                if (cbsMatch && cbsMatch.description && !positionDescriptions.includes(cbsMatch.description)) {
+                  console.log(`[ESPN] Supplementing ${injury.player} description: "${injury.description}" → "${cbsMatch.description}" (from CBS)`);
+                  injury.description = cbsMatch.description;
+                } else {
+                  console.log(`[ESPN] No CBS match found for ${injury.player} (${team.abbreviation})`);
                 }
               }
-            } else {
-              console.log(`[ESPN] No CBS injuries found for ${team.abbreviation}`);
             }
+          } else {
+            console.log(`[ESPN] No CBS injuries found for ${team.abbreviation}`);
           }
         } catch (cbsError) {
           console.warn(`[ESPN] Error supplementing descriptions from CBS:`, cbsError.message);
@@ -1791,6 +1788,125 @@ export async function fetchAllInjuryReports() {
     console.error(`[Injury Reports] Error fetching all injury reports:`, error.message);
     // Return whatever we got from ESPN
     return injuryReports || new Map();
+  }
+}
+
+/**
+ * Fetch CBS injuries for a specific team only (fast, targeted fetch)
+ */
+async function fetchCBSInjuriesForTeam(teamAbbr) {
+  try {
+    const url = 'https://www.cbssports.com/nba/injuries/';
+    console.log(`[CBS] Fetching injuries for ${teamAbbr} only...`);
+
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+
+    if (!response.ok) {
+      console.error(`[CBS] Failed to fetch CBS Sports page: ${response.status}`);
+      return [];
+    }
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    // CBS team name to NBA abbreviation mapping
+    const ABBR_TO_CBS_NAME = {
+      'ATL': 'Atlanta', 'BOS': 'Boston', 'BKN': 'Brooklyn', 'CHA': 'Charlotte',
+      'CHI': 'Chicago', 'CLE': 'Cleveland', 'DAL': 'Dallas', 'DEN': 'Denver',
+      'DET': 'Detroit', 'GSW': 'Golden State', 'HOU': 'Houston', 'IND': 'Indiana',
+      'LAC': 'LA Clippers', 'LAL': 'LA Lakers', 'MEM': 'Memphis', 'MIA': 'Miami',
+      'MIL': 'Milwaukee', 'MIN': 'Minnesota', 'NOP': 'New Orleans', 'NYK': 'New York',
+      'OKC': 'Oklahoma City', 'ORL': 'Orlando', 'PHI': 'Philadelphia', 'PHO': 'Phoenix',
+      'POR': 'Portland', 'SAC': 'Sacramento', 'SAS': 'San Antonio', 'TOR': 'Toronto',
+      'UTA': 'Utah', 'WAS': 'Washington'
+    };
+
+    const CBS_NAME_TO_ABBR = {
+      'Atlanta': 'ATL', 'Boston': 'BOS', 'Brooklyn': 'BKN', 'Charlotte': 'CHA',
+      'Chicago': 'CHI', 'Cleveland': 'CLE', 'Dallas': 'DAL', 'Denver': 'DEN',
+      'Detroit': 'DET', 'Golden State': 'GSW', 'Golden St.': 'GSW', 'Houston': 'HOU',
+      'Indiana': 'IND', 'LA Clippers': 'LAC', 'L.A. Clippers': 'LAC', 'LA Lakers': 'LAL',
+      'L.A. Lakers': 'LAL', 'Memphis': 'MEM', 'Miami': 'MIA', 'Milwaukee': 'MIL',
+      'Minnesota': 'MIN', 'New Orleans': 'NOP', 'New York': 'NYK', 'Oklahoma City': 'OKC',
+      'Orlando': 'ORL', 'Philadelphia': 'PHI', 'Phoenix': 'PHO', 'Portland': 'POR',
+      'Sacramento': 'SAC', 'San Antonio': 'SAS', 'Toronto': 'TOR', 'Utah': 'UTA',
+      'Washington': 'WAS'
+    };
+
+    const targetTeamName = ABBR_TO_CBS_NAME[teamAbbr];
+    if (!targetTeamName) {
+      console.log(`[CBS] Unknown team abbreviation: ${teamAbbr}`);
+      return [];
+    }
+
+    const injuries = [];
+
+    // Find only the table for the target team
+    $('table').each((tableIndex, table) => {
+      const $table = $(table);
+      const $tableBase = $table.closest('#TableBase, .TableBase');
+      
+      if ($tableBase.length) {
+        const $teamName = $tableBase.find('.TeamName').first();
+        if ($teamName.length) {
+          const teamText = $teamName.text().trim();
+          const foundAbbr = CBS_NAME_TO_ABBR[teamText];
+          
+          // Only process if this is the team we're looking for
+          if (foundAbbr === teamAbbr) {
+            console.log(`[CBS] Found table for ${teamAbbr}`);
+            const rows = $table.find('tr');
+            
+            rows.each((rowIndex, row) => {
+              const $row = $(row);
+              const cells = $row.find('td');
+
+              if (cells.length >= 5) {
+                const playerName = $(cells[0]).text().trim();
+                const position = $(cells[1]).text().trim();
+                const updated = $(cells[2]).text().trim();
+                const injury = $(cells[3]).text().trim();
+                const status = $(cells[4]).text().trim();
+
+                // Extract clean player name
+                let cleanPlayerName = playerName;
+                const nameParts = playerName.match(/([A-Z]\.\s*)([A-Za-z]+)([A-Z][a-z]+\s+[A-Za-z]+)/);
+                if (nameParts) {
+                  cleanPlayerName = nameParts[3];
+                } else {
+                  // Try another pattern for duplicated names
+                  const dupMatch = playerName.match(/^[A-Z]\.[^A-Z]*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/);
+                  if (dupMatch) {
+                    cleanPlayerName = dupMatch[1];
+                  }
+                }
+
+                if (cleanPlayerName && cleanPlayerName.length > 2 && injury) {
+                  injuries.push({
+                    player: cleanPlayerName,
+                    status: status || 'Unknown',
+                    description: injury,
+                    updated: updated
+                  });
+                }
+              }
+            });
+            return false; // Stop iterating tables once we found our team
+          }
+        }
+      }
+    });
+
+    console.log(`[CBS] Found ${injuries.length} injuries for ${teamAbbr}`);
+    return injuries;
+
+  } catch (error) {
+    console.error(`[CBS] Error fetching injuries for ${teamAbbr}:`, error.message);
+    return [];
   }
 }
 
