@@ -293,7 +293,13 @@ export async function showSessionManager(interaction, sessionId) {
   const date = new Date(session.scheduledDate);
   const firstGameTime = new Date(session.firstGameTime);
   const now = new Date();
-  const timeUntilStart = firstGameTime - now;
+  
+  // Session starts when announcement is sent, not when first game begins
+  const sessionStartTime = session.notifications.announcement.enabled && session.notifications.announcement.time
+    ? new Date(session.notifications.announcement.time)
+    : firstGameTime;
+  
+  const timeUntilStart = sessionStartTime - now;
   const hoursUntil = Math.floor(timeUntilStart / (1000 * 60 * 60));
   
   const statusText = hoursUntil > 0 
