@@ -186,7 +186,7 @@ function formatInjuryChanges(teamName, changes) {
     changes.statusChanged.forEach(change => {
       const desc = typeof change.description === 'string' ? change.description : 'Injury';
       lines.push(`• ${change.player} - ${desc}`);
-      lines.push(`  ${change.oldStatus} → ${change.newStatus}`);
+      lines.push(`  ◦ ${change.oldStatus} → ${change.newStatus}`);
       if (change.comment) {
         lines.push(`  💬 ${change.comment}`);
       }
