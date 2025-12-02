@@ -171,10 +171,10 @@ function formatInjuryChanges(teamName, changes) {
   const lines = [];
 
   if (changes.added.length > 0) {
-    lines.push('**🔴 New Injuries:**');
+    lines.push('__🔴 New Injuries:__');
     changes.added.forEach(inj => {
       const desc = typeof inj.description === 'string' ? inj.description : 'Injury';
-      lines.push(`• **${inj.player}** - ${desc} (${inj.status})`);
+      lines.push(`• ${inj.player} - ${desc} (${inj.status})`);
       if (inj.comment) {
         lines.push(`  💬 ${inj.comment}`);
       }
@@ -182,10 +182,10 @@ function formatInjuryChanges(teamName, changes) {
   }
 
   if (changes.statusChanged.length > 0) {
-    lines.push('**⚠️ Status Updates:**');
+    lines.push('__⚠️ Status Updates:__');
     changes.statusChanged.forEach(change => {
       const desc = typeof change.description === 'string' ? change.description : 'Injury';
-      lines.push(`• **${change.player}** - ${desc}`);
+      lines.push(`• ${change.player} - ${desc}`);
       lines.push(`  ${change.oldStatus} → ${change.newStatus}`);
       if (change.comment) {
         lines.push(`  💬 ${change.comment}`);
@@ -194,10 +194,10 @@ function formatInjuryChanges(teamName, changes) {
   }
 
   if (changes.commentChanged.length > 0) {
-    lines.push('**📝 Updated Information:**');
+    lines.push('__📝 Updated Information:__');
     changes.commentChanged.forEach(change => {
       const desc = typeof change.description === 'string' ? change.description : 'Injury';
-      lines.push(`• **${change.player}** - ${desc} (${change.status})`);
+      lines.push(`• ${change.player} - ${desc} (${change.status})`);
       if (change.oldComment && change.newComment) {
         lines.push(`  💬 Was: "${change.oldComment}"`);
         lines.push(`  💬 Now: "${change.newComment}"`);
@@ -208,9 +208,9 @@ function formatInjuryChanges(teamName, changes) {
   }
 
   if (changes.removed.length > 0) {
-    lines.push('**🟢 Removed from Report (Now Available):**');
+    lines.push('__🟢 Removed from Report (Now Available):__');
     changes.removed.forEach(inj => {
-      lines.push(`• **${inj.player}**`);
+      lines.push(`• ${inj.player}`);
     });
   }
 
