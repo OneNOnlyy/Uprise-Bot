@@ -7,3 +7,4 @@ node_modules/
 data/pats.json
 data/scheduled-sessions.json
 data/injury-tracking.json
+data/snapshot-index.json
