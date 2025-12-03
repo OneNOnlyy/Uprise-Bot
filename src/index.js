@@ -148,9 +148,8 @@ function initializeScheduledSessions(client) {
           await sendSessionWarning(client, session);
         },
         startSession: async () => {
-          // This would be called at first game time, but now we start at announcement
-          // Keep this for backward compatibility or future use
-          await startScheduledSession(client, session);
+          // Session already started at announcement time - no action needed
+          console.log(`[Scheduler] First game time reached for session ${session.id} (already started at announcement)`);
         }
       };
       
