@@ -5,11 +5,12 @@
 
 import { handleNavigation } from './navigationHandler.js';
 import { handleTeamAction } from './teamHandler.js';
-import { handleTradeAction } from './tradeHandler.js';
+import { handleTradeAction, handleBackToBuilder } from './tradeHandler.js';
 import { handleFreeAgencyAction } from './freeAgencyHandler.js';
 import { handleDraftAction } from './draftHandler.js';
 import { handleLotteryAction, handleLotteryTeamPick } from './lotteryHandler.js';
 import { handleHelpAction } from './helpHandler.js';
+import { handleLeagueHubAction } from './leagueHubHandler.js';
 import { handleAdminPanelAction } from '../admin/adminPanel.js';
 import { getMockLeague, saveMockLeague } from '../mockData.js';
 
@@ -40,6 +41,10 @@ export async function handleButton(interaction) {
   
   // Trade action buttons
   if (customId.startsWith('mock_trade_')) {
+    // Handle back to builder button
+    if (customId === 'mock_trade_back_to_builder') {
+      return await handleBackToBuilder(interaction);
+    }
     return await handleTradeAction(interaction);
   }
   
@@ -70,6 +75,11 @@ export async function handleButton(interaction) {
   // Help buttons
   if (customId.startsWith('mock_help_')) {
     return await handleHelpAction(interaction);
+  }
+  
+  // League hub buttons
+  if (customId.startsWith('mock_league_')) {
+    return await handleLeagueHubAction(interaction);
   }
   
   // Admin panel buttons

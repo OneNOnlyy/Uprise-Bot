@@ -5,6 +5,7 @@
 
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
 import { getMockLeague, saveMockLeague, formatCurrency, PHASES } from '../mockData.js';
+import { DRAFT_PROSPECTS_2026, getProspect, getTopProspects, getProspectsByPosition, searchProspects } from '../data/playerData.js';
 
 /**
  * Build draft room embed
@@ -189,45 +190,81 @@ async function showDraftBoard(interaction, league) {
  * Show prospect list
  */
 async function showProspects(interaction, league) {
-  const prospects = league.draftProspects || [];
+  // Use the 2026 draft prospects from playerData
+  const prospects = DRAFT_PROSPECTS_2026;
+  const draftedPlayers = (league.draftResults || []).map(r => r.playerId);
+  
+  // Filter out drafted players
+  const availableProspects = prospects.filter(p => !draftedPlayers.includes(p.id));
   
   const embed = new EmbedBuilder()
     .setColor(0x1D428A)
     .setTitle('⭐ 2026 Draft Prospects')
-    .setDescription(`**${prospects.length}** prospects available`)
+    .setDescription(`**${availableProspects.length}** prospects available`)
     .setTimestamp();
   
-  if (prospects.length === 0) {
-    embed.setDescription('🚧 **Prospects not yet loaded!**\n\nProspect data will include:\n• Mock draft rankings\n• Player stats and measurements\n• Scouting reports\n• Projected NBA role');
-    return interaction.update({ embeds: [embed], components: getBackButton() });
-  }
-  
-  // Show top 10 prospects
-  const prospectList = prospects.slice(0, 10).map((p, i) => 
-    `${i + 1}. **${p.name}** - ${p.position} | ${p.school || 'International'}`
-  ).join('\n');
+  // Show top 10 available prospects with ratings
+  const prospectList = availableProspects.slice(0, 10).map((p, i) => {
+    const stars = '★'.repeat(Math.floor(p.ratings.overall / 20)) + '☆'.repeat(5 - Math.floor(p.ratings.overall / 20));
+    return `**${i + 1}. ${p.name}** (${p.position})\n${stars} ${p.ratings.overall} OVR | ${p.school}`;
+  }).join('\n\n');
   
   embed.addFields({
-    name: 'Top Prospects',
-    value: prospectList,
+    name: '🏆 Top Available',
+    value: prospectList || 'No prospects available',
     inline: false
   });
   
-  // Select menu
-  const options = prospects.slice(0, 25).map(p => ({
+  // Filter buttons
+  const filterRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('mock_draft_filter_all')
+      .setLabel('All')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('mock_draft_filter_pg')
+      .setLabel('PG')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('mock_draft_filter_sg')
+      .setLabel('SG/SF')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('mock_draft_filter_pf')
+      .setLabel('PF/C')
+      .setStyle(ButtonStyle.Secondary)
+  );
+  
+  // Select menu for detailed view
+  const options = availableProspects.slice(0, 25).map(p => ({
     label: p.name,
-    description: `${p.position} - ${p.school || 'International'}`,
-    value: p.id || p.name.toLowerCase().replace(/\s/g, '_')
+    description: `${p.position} | ${p.school} | ${p.ratings.overall} OVR`,
+    value: p.id,
+    emoji: getPositionEmoji(p.position)
   }));
   
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId('mock_draft_select_prospect')
-    .setPlaceholder('Select prospect for details...')
+    .setPlaceholder('Select prospect for scouting report...')
     .addOptions(options);
   
   const selectRow = new ActionRowBuilder().addComponents(selectMenu);
   
-  return interaction.update({ embeds: [embed], components: [selectRow, ...getBackButton()] });
+  return interaction.update({ embeds: [embed], components: [filterRow, selectRow, ...getBackButton()] });
+}
+
+/**
+ * Get emoji for position
+ */
+function getPositionEmoji(position) {
+  const emojis = {
+    'PG': '🏃',
+    'SG': '🎯',
+    'SF': '🦅',
+    'PF': '💪',
+    'C': '🏔️'
+  };
+  return emojis[position?.split('-')[0]] || '🏀';
 }
 
 /**
@@ -320,30 +357,55 @@ export async function handleDraftSelect(interaction) {
     return interaction.reply({ content: '❌ No league exists.', ephemeral: true });
   }
   
-  const prospect = (league.draftProspects || []).find(p => 
-    (p.id || p.name.toLowerCase().replace(/\s/g, '_')) === prospectId
-  );
+  // Find prospect from our 2026 class
+  const prospect = getProspect(prospectId);
   
   if (!prospect) {
     return interaction.reply({ content: '❌ Prospect not found.', ephemeral: true });
   }
   
+  // Calculate star rating
+  const stars = '★'.repeat(Math.floor(prospect.ratings.overall / 20)) + '☆'.repeat(5 - Math.floor(prospect.ratings.overall / 20));
+  
   const embed = new EmbedBuilder()
     .setColor(0x1D428A)
-    .setTitle(`${prospect.name}`)
-    .setDescription(`**Position:** ${prospect.position}\n**School:** ${prospect.school || 'International'}\n**Age:** ${prospect.age || 'Unknown'}`)
+    .setTitle(`🏀 ${prospect.name}`)
+    .setDescription(`**${prospect.position}** | ${prospect.school}\n${stars} **${prospect.ratings.overall} OVR**`)
     .addFields(
-      { name: '📊 Mock Ranking', value: `#${prospect.mockRank || '?'}`, inline: true },
-      { name: '📏 Height', value: prospect.height || 'Unknown', inline: true },
-      { name: '⚖️ Weight', value: prospect.weight || 'Unknown', inline: true }
+      { name: '📏 Height', value: prospect.height, inline: true },
+      { name: '⚖️ Weight', value: `${prospect.weight} lbs`, inline: true },
+      { name: '🎂 Age', value: `${prospect.age}`, inline: true },
+      { name: '📊 Projected Pick', value: `${prospect.projectedPick.min}-${prospect.projectedPick.max}`, inline: true },
+      { name: '🏆 Ceiling', value: `${prospect.ratings.ceiling}`, inline: true },
+      { name: '📉 Floor', value: `${prospect.ratings.floor}`, inline: true }
     )
     .setTimestamp();
   
-  if (prospect.strengths) {
-    embed.addFields({ name: '✅ Strengths', value: prospect.strengths, inline: false });
+  // Skills section
+  if (prospect.skills && prospect.skills.length > 0) {
+    embed.addFields({
+      name: '🎯 Key Skills',
+      value: prospect.skills.map(s => `• ${s}`).join('\n'),
+      inline: true
+    });
   }
-  if (prospect.weaknesses) {
-    embed.addFields({ name: '⚠️ Weaknesses', value: prospect.weaknesses, inline: false });
+  
+  // Comparison
+  if (prospect.comparison) {
+    embed.addFields({
+      name: '📺 Comparison',
+      value: prospect.comparison,
+      inline: true
+    });
+  }
+  
+  // Scouting report if available
+  if (prospect.scoutingReport) {
+    embed.addFields({
+      name: '📋 Scouting Report',
+      value: prospect.scoutingReport,
+      inline: false
+    });
   }
   
   // Check if draft is active and user can pick

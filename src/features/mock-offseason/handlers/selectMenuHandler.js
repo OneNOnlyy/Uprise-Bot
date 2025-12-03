@@ -4,11 +4,12 @@
  */
 
 import { getMockLeague } from '../mockData.js';
-import { handleTradeSelect } from './tradeHandler.js';
+import { handleTradeSelect, handleTradePlayerSelect, handleTradePickSelect } from './tradeHandler.js';
 import { handleFASelect } from './freeAgencyHandler.js';
 import { handleDraftSelect } from './draftHandler.js';
 import { handleHelpSelect } from './helpHandler.js';
 import { handleNavSelectMenu } from '../dashboards/mainDashboard.js';
+import { handleLeagueHubSelect } from './leagueHubHandler.js';
 
 /**
  * Main select menu router
@@ -24,6 +25,16 @@ export async function handleSelectMenu(interaction) {
   // Trade team selection
   if (customId === 'mock_trade_select_team') {
     return await handleTradeSelect(interaction);
+  }
+  
+  // Trade player selection (in trade builder)
+  if (customId === 'mock_trade_player_select') {
+    return await handleTradePlayerSelect(interaction);
+  }
+  
+  // Trade pick selection (in trade builder)
+  if (customId === 'mock_trade_pick_select') {
+    return await handleTradePickSelect(interaction);
   }
   
   // Free agent player selection
@@ -46,6 +57,11 @@ export async function handleSelectMenu(interaction) {
     return await handleReleaseSelect(interaction);
   }
   
+  // League hub team browser selection
+  if (customId === 'mock_league_team_select') {
+    return await handleLeagueHubSelect(interaction);
+  }
+
   // Unknown select menu
   console.warn(`Unknown mock select menu: ${customId}`);
   return interaction.reply({ content: '❌ Unknown selection.', ephemeral: true });

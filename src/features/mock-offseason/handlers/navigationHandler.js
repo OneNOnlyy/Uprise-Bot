@@ -11,6 +11,7 @@ import { buildFreeAgencyHub } from './freeAgencyHandler.js';
 import { buildDraftRoom } from './draftHandler.js';
 import { buildLotteryPanel } from './lotteryHandler.js';
 import { buildHelpEmbed } from './helpHandler.js';
+import { buildLeagueHub } from './leagueHubHandler.js';
 import { buildAdminPanel } from '../admin/adminPanel.js';
 
 /**
@@ -49,6 +50,9 @@ export async function handleNavigation(interaction) {
       
     case 'mock_nav_help':
       return await handleHelpNav(interaction, league);
+      
+    case 'mock_nav_league':
+      return await handleLeagueNav(interaction, league);
       
     case 'mock_nav_admin':
       return await handleAdminNav(interaction, league);
@@ -158,6 +162,14 @@ async function handleLotteryNav(interaction, league) {
 async function handleHelpNav(interaction, league) {
   const help = await buildHelpEmbed(interaction, 'main');
   return interaction.update(help);
+}
+
+/**
+ * Navigate to league hub
+ */
+async function handleLeagueNav(interaction, league) {
+  const hub = await buildLeagueHub(interaction, league);
+  return interaction.update(hub);
 }
 
 /**
