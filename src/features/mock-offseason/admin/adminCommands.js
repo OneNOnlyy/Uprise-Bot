@@ -403,6 +403,7 @@ async function handleRemove(interaction) {
  */
 async function handleAnnounce(interaction) {
   const message = interaction.options.getString('message');
+  const league = await getMockLeague(interaction.guildId);
   
   const embed = new EmbedBuilder()
     .setColor(0x1D428A)
@@ -411,11 +412,22 @@ async function handleAnnounce(interaction) {
     .setFooter({ text: `From: ${interaction.user.tag}` })
     .setTimestamp();
   
-  // TODO: Send to dedicated announcement channel and/or DM all GMs
+  // Send to the current channel
+  await interaction.channel.send({ embeds: [embed] });
+  
+  // Log the announcement in the league
+  if (league) {
+    if (!league.announcements) league.announcements = [];
+    league.announcements.push({
+      message,
+      author: interaction.user.id,
+      timestamp: new Date().toISOString()
+    });
+    await saveMockLeague(interaction.guildId, league);
+  }
   
   return interaction.reply({ 
-    content: '✅ Announcement sent! (Channel posting coming soon)',
-    embeds: [embed],
+    content: '✅ Announcement posted to channel!',
     ephemeral: true 
   });
 }
