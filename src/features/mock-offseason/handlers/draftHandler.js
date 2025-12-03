@@ -135,7 +135,24 @@ export async function handleDraftAction(interaction) {
       return await showMyBigBoard(interaction, league, userTeam);
     case 'mock_draft_simulate':
       return await simulatePick(interaction, league, userTeam);
+    case 'mock_draft_filter_all':
+      return await showProspects(interaction, league);
+    case 'mock_draft_filter_pg':
+      return await showProspectsByPosition(interaction, league, 'PG');
+    case 'mock_draft_filter_sg':
+      return await showProspectsByPosition(interaction, league, ['SG', 'SF']);
+    case 'mock_draft_filter_pf':
+      return await showProspectsByPosition(interaction, league, ['PF', 'C']);
+    case 'mock_draft_board_clear':
+      return await clearBigBoard(interaction, league, userTeam);
+    case 'mock_draft_toggle_autodraft':
+      return await toggleAutoDraft(interaction, league, userTeam);
     default:
+      // Handle add to board button
+      if (customId.startsWith('mock_draft_add_board_')) {
+        const prospectId = customId.replace('mock_draft_add_board_', '');
+        return await addToBigBoard(interaction, league, userTeam, prospectId);
+      }
       return interaction.reply({ content: '❌ Unknown draft action.', ephemeral: true });
   }
 }
@@ -302,14 +319,72 @@ async function showDraftResults(interaction, league) {
 async function showMyBigBoard(interaction, league, userTeamId) {
   const team = league.teams[userTeamId];
   const bigBoard = team.bigBoard || [];
+  const allProspects = DRAFT_PROSPECTS_2026;
+  const draftedPlayers = (league.draftResults || []).map(r => r.playerId);
   
   const embed = new EmbedBuilder()
     .setColor(0x1D428A)
     .setTitle('📝 My Big Board')
-    .setDescription('🚧 **Personal rankings coming soon!**\n\nYou\'ll be able to:\n• Rank prospects in your preferred order\n• Add notes on players\n• Set auto-draft priority\n• Compare your rankings to consensus')
+    .setDescription(bigBoard.length > 0 
+      ? `You have **${bigBoard.length}** players ranked`
+      : 'Your personal draft board is empty.')
     .setTimestamp();
   
-  return interaction.update({ embeds: [embed], components: getBackButton() });
+  if (bigBoard.length === 0) {
+    embed.addFields({
+      name: '📋 How to Use',
+      value: '1. Browse prospects in the Draft Room\n2. Click "Add to Big Board" on players you like\n3. Your rankings will appear here\n4. During the draft, you\'ll see your board with availability status',
+      inline: false
+    });
+  } else {
+    // Show ranked players with availability
+    const boardList = bigBoard.slice(0, 15).map((entry, i) => {
+      const prospect = allProspects.find(p => p.id === entry.prospectId);
+      const isDrafted = draftedPlayers.includes(entry.prospectId);
+      const status = isDrafted ? '🔴' : '🟢';
+      
+      return `${i + 1}. ${status} **${entry.name}** (${prospect?.position || '?'}) - ${prospect?.ratings?.overall || '?'} OVR`;
+    }).join('\n');
+    
+    embed.addFields({
+      name: '🏆 Your Rankings',
+      value: boardList,
+      inline: false
+    });
+    
+    // Show auto-draft preference
+    const autoDraft = team.autoDraftEnabled !== false;
+    embed.addFields({
+      name: '🤖 Auto-Draft',
+      value: autoDraft 
+        ? '✅ Enabled - Will pick from your board if you\'re away'
+        : '❌ Disabled - You must be present to pick',
+      inline: false
+    });
+  }
+  
+  // Action buttons
+  const actionRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('mock_draft_board_reorder')
+      .setLabel('Reorder Board')
+      .setEmoji('↕️')
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(bigBoard.length < 2),
+    new ButtonBuilder()
+      .setCustomId('mock_draft_board_clear')
+      .setLabel('Clear Board')
+      .setEmoji('🗑️')
+      .setStyle(ButtonStyle.Danger)
+      .setDisabled(bigBoard.length === 0),
+    new ButtonBuilder()
+      .setCustomId('mock_draft_toggle_autodraft')
+      .setLabel(team.autoDraftEnabled !== false ? 'Disable Auto-Draft' : 'Enable Auto-Draft')
+      .setEmoji('🤖')
+      .setStyle(ButtonStyle.Secondary)
+  );
+  
+  return interaction.update({ embeds: [embed], components: [actionRow, ...getBackButton()] });
 }
 
 /**
@@ -428,6 +503,149 @@ export async function handleDraftSelect(interaction) {
   );
   
   return interaction.update({ embeds: [embed], components: [actionRow, ...getBackButton()] });
+}
+
+/**
+ * Show prospects filtered by position
+ */
+async function showProspectsByPosition(interaction, league, positions) {
+  const posArray = Array.isArray(positions) ? positions : [positions];
+  const prospects = DRAFT_PROSPECTS_2026.filter(p => posArray.includes(p.position));
+  const draftedPlayers = (league.draftResults || []).map(r => r.playerId);
+  const availableProspects = prospects.filter(p => !draftedPlayers.includes(p.id));
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x1D428A)
+    .setTitle(`⭐ 2026 Prospects - ${posArray.join('/')}`)
+    .setDescription(`**${availableProspects.length}** prospects available`)
+    .setTimestamp();
+  
+  const prospectList = availableProspects.slice(0, 10).map((p, i) => {
+    const stars = '★'.repeat(Math.floor(p.ratings.overall / 20));
+    return `**${i + 1}. ${p.name}** (${p.position})\n${stars} ${p.ratings.overall} OVR | ${p.school}`;
+  }).join('\n\n');
+  
+  embed.addFields({
+    name: '🏆 Top Available',
+    value: prospectList || 'No prospects at this position',
+    inline: false
+  });
+  
+  // Filter buttons
+  const filterRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('mock_draft_filter_all')
+      .setLabel('All')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('mock_draft_filter_pg')
+      .setLabel('PG')
+      .setStyle(posArray.includes('PG') ? ButtonStyle.Primary : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('mock_draft_filter_sg')
+      .setLabel('SG/SF')
+      .setStyle(posArray.includes('SG') ? ButtonStyle.Primary : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('mock_draft_filter_pf')
+      .setLabel('PF/C')
+      .setStyle(posArray.includes('PF') ? ButtonStyle.Primary : ButtonStyle.Secondary)
+  );
+  
+  if (availableProspects.length === 0) {
+    return interaction.update({ embeds: [embed], components: [filterRow, ...getBackButton()] });
+  }
+  
+  // Select menu for detailed view
+  const options = availableProspects.slice(0, 25).map(p => ({
+    label: p.name,
+    description: `${p.position} | ${p.school} | ${p.ratings.overall} OVR`,
+    value: p.id,
+    emoji: getPositionEmoji(p.position)
+  }));
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('mock_draft_select_prospect')
+    .setPlaceholder('Select prospect for scouting report...')
+    .addOptions(options);
+  
+  const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+  
+  return interaction.update({ embeds: [embed], components: [filterRow, selectRow, ...getBackButton()] });
+}
+
+/**
+ * Add prospect to big board
+ */
+async function addToBigBoard(interaction, league, userTeamId, prospectId) {
+  const team = league.teams[userTeamId];
+  const prospect = getProspect(prospectId);
+  
+  if (!prospect) {
+    return interaction.reply({ content: '❌ Prospect not found.', ephemeral: true });
+  }
+  
+  // Initialize big board
+  if (!team.bigBoard) team.bigBoard = [];
+  
+  // Check if already on board
+  if (team.bigBoard.find(b => b.prospectId === prospectId)) {
+    return interaction.reply({ content: '❌ This prospect is already on your big board!', ephemeral: true });
+  }
+  
+  // Add to board
+  team.bigBoard.push({
+    prospectId: prospect.id,
+    name: prospect.name,
+    position: prospect.position,
+    overall: prospect.ratings.overall,
+    addedAt: new Date().toISOString()
+  });
+  
+  await saveMockLeague(interaction.guildId, league);
+  
+  return interaction.reply({
+    content: `✅ **${prospect.name}** added to your big board at #${team.bigBoard.length}!`,
+    ephemeral: true
+  });
+}
+
+/**
+ * Clear big board
+ */
+async function clearBigBoard(interaction, league, userTeamId) {
+  const team = league.teams[userTeamId];
+  
+  if (!team.bigBoard || team.bigBoard.length === 0) {
+    return interaction.reply({ content: '❌ Your big board is already empty.', ephemeral: true });
+  }
+  
+  const count = team.bigBoard.length;
+  team.bigBoard = [];
+  
+  await saveMockLeague(interaction.guildId, league);
+  
+  return interaction.reply({
+    content: `✅ Cleared **${count}** players from your big board.`,
+    ephemeral: true
+  });
+}
+
+/**
+ * Toggle auto-draft setting
+ */
+async function toggleAutoDraft(interaction, league, userTeamId) {
+  const team = league.teams[userTeamId];
+  
+  team.autoDraftEnabled = team.autoDraftEnabled === false ? true : false;
+  
+  await saveMockLeague(interaction.guildId, league);
+  
+  return interaction.reply({
+    content: team.autoDraftEnabled 
+      ? '✅ Auto-draft **enabled**. If you\'re away during your pick, we\'ll select from your big board.'
+      : '❌ Auto-draft **disabled**. You must be present to make your picks.',
+    ephemeral: true
+  });
 }
 
 /**

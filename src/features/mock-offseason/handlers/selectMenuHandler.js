@@ -57,6 +57,11 @@ export async function handleSelectMenu(interaction) {
     return await handleReleaseSelect(interaction);
   }
   
+  // Team extension player selection
+  if (customId === 'mock_team_extend_select') {
+    return await handleExtensionSelect(interaction);
+  }
+  
   // League hub team browser selection
   if (customId === 'mock_league_team_select') {
     return await handleLeagueHubSelect(interaction);
@@ -120,4 +125,70 @@ async function handleReleaseSelect(interaction) {
   );
   
   return interaction.update({ embeds: [embed], components: [buttonRow] });
+}
+
+/**
+ * Handle extension player selection
+ */
+async function handleExtensionSelect(interaction) {
+  const value = interaction.values[0];
+  const playerId = value.replace('extend_', '');
+  const league = await getMockLeague(interaction.guildId);
+  
+  if (!league) {
+    return interaction.reply({ content: '❌ No league exists.', ephemeral: true });
+  }
+  
+  // Find user's team
+  const userTeamEntry = Object.entries(league.teams).find(([_, t]) => t.gm === interaction.user.id);
+  if (!userTeamEntry) {
+    return interaction.reply({ content: '❌ You don\'t have a team!', ephemeral: true });
+  }
+  
+  const [teamId, team] = userTeamEntry;
+  const player = (team.roster || []).find(p => 
+    (p.id || p.name.toLowerCase().replace(/\s/g, '_')) === playerId
+  );
+  
+  if (!player) {
+    return interaction.reply({ content: '❌ Player not found.', ephemeral: true });
+  }
+  
+  const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = await import('discord.js');
+  const { formatCurrency } = await import('../mockData.js');
+  
+  // Show extension negotiation modal
+  const modal = new ModalBuilder()
+    .setCustomId(`mock_extension_offer_${playerId}`)
+    .setTitle(`Extend ${player.name}`);
+  
+  const salaryInput = new TextInputBuilder()
+    .setCustomId('ext_salary')
+    .setLabel('Annual Salary (e.g., 25000000 or 25M)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder(`${Math.round((player.salary || 10000000) * 1.1 / 1000000)}M`)
+    .setRequired(true);
+  
+  const yearsInput = new TextInputBuilder()
+    .setCustomId('ext_years')
+    .setLabel('Contract Length (1-5 years)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('4')
+    .setMaxLength(1)
+    .setRequired(true);
+  
+  const optionInput = new TextInputBuilder()
+    .setCustomId('ext_options')
+    .setLabel('Contract Options (optional)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('PO in year 4, NTC')
+    .setRequired(false);
+  
+  const salaryRow = new ActionRowBuilder().addComponents(salaryInput);
+  const yearsRow = new ActionRowBuilder().addComponents(yearsInput);
+  const optionRow = new ActionRowBuilder().addComponents(optionInput);
+  
+  modal.addComponents(salaryRow, yearsRow, optionRow);
+  
+  return interaction.showModal(modal);
 }

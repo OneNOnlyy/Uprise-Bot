@@ -199,14 +199,120 @@ async function showFullRoster(interaction, league, teamId) {
  */
 async function showDepthChart(interaction, league, teamId) {
   const team = league.teams[teamId];
+  const roster = team.roster || [];
+  
+  // Define positions and their typical minutes
+  const positions = ['PG', 'SG', 'SF', 'PF', 'C'];
+  const depthChart = {};
+  
+  // Initialize depth chart
+  positions.forEach(pos => {
+    depthChart[pos] = { starter: null, backup: null, third: null };
+  });
+  
+  // Sort players into positions by overall rating
+  roster.forEach(player => {
+    const primaryPos = player.position?.split('-')[0] || player.position;
+    if (!positions.includes(primaryPos)) return;
+    
+    const slot = depthChart[primaryPos];
+    const overall = player.overall || 70;
+    
+    if (!slot.starter || overall > (slot.starter.overall || 0)) {
+      slot.third = slot.backup;
+      slot.backup = slot.starter;
+      slot.starter = player;
+    } else if (!slot.backup || overall > (slot.backup.overall || 0)) {
+      slot.third = slot.backup;
+      slot.backup = player;
+    } else if (!slot.third) {
+      slot.third = player;
+    }
+  });
   
   const embed = new EmbedBuilder()
     .setColor(0x1D428A)
     .setTitle(`${team.emoji} ${team.name} - Depth Chart`)
-    .setDescription('🚧 **Depth Chart view coming soon!**\n\nThis will show:\n• Starting lineup\n• Bench rotation\n• Projected minutes')
+    .setDescription('Starting lineup and rotations')
     .setTimestamp();
   
+  // Starting Five
+  const startingFive = positions.map(pos => {
+    const player = depthChart[pos].starter;
+    if (player) {
+      return `**${pos}:** ${player.name} (${player.overall || '?'} OVR)`;
+    }
+    return `**${pos}:** _Empty_`;
+  }).join('\n');
+  
+  embed.addFields({
+    name: '🏀 Starting Five',
+    value: startingFive,
+    inline: false
+  });
+  
+  // Bench Rotation
+  const bench = positions.map(pos => {
+    const player = depthChart[pos].backup;
+    if (player) {
+      return `${pos}: ${player.name}`;
+    }
+    return null;
+  }).filter(Boolean).join('\n') || '_No backups_';
+  
+  embed.addFields({
+    name: '🪑 Bench',
+    value: bench,
+    inline: true
+  });
+  
+  // Deep Bench
+  const deepBench = positions.map(pos => {
+    const player = depthChart[pos].third;
+    if (player) {
+      return `${pos}: ${player.name}`;
+    }
+    return null;
+  }).filter(Boolean).join('\n') || '_Empty_';
+  
+  embed.addFields({
+    name: '📋 Deep Bench',
+    value: deepBench,
+    inline: true
+  });
+  
+  // Projected Minutes
+  let totalMinutes = 0;
+  const minutesBreakdown = roster.slice(0, 10).map(player => {
+    const mins = estimateMinutes(player, depthChart);
+    totalMinutes += mins;
+    return `${player.name}: ${mins} mpg`;
+  }).join('\n');
+  
+  embed.addFields({
+    name: '⏱️ Projected Minutes',
+    value: minutesBreakdown || '_No players_',
+    inline: false
+  });
+  
   return interaction.update({ embeds: [embed], components: getBackButton() });
+}
+
+/**
+ * Estimate minutes per game for a player
+ */
+function estimateMinutes(player, depthChart) {
+  const pos = player.position?.split('-')[0] || player.position;
+  const slot = depthChart[pos];
+  
+  if (slot?.starter?.name === player.name) {
+    return 32 + Math.floor(Math.random() * 6); // 32-37 minutes for starters
+  } else if (slot?.backup?.name === player.name) {
+    return 18 + Math.floor(Math.random() * 6); // 18-23 minutes for backups
+  } else if (slot?.third?.name === player.name) {
+    return 8 + Math.floor(Math.random() * 5); // 8-12 minutes for third string
+  }
+  return 5; // DNP-CD or garbage time
 }
 
 /**
@@ -295,10 +401,89 @@ async function showExtendMenu(interaction, league, teamId) {
   const embed = new EmbedBuilder()
     .setColor(0x00FF00)
     .setTitle('📝 Contract Extensions')
-    .setDescription('Select a player to offer an extension.\n\n🚧 **Extension negotiations coming soon!**')
+    .setDescription(`**${eligible.length}** player(s) eligible for extension`)
     .setTimestamp();
   
-  return interaction.update({ embeds: [embed], components: getBackButton() });
+  // Show extension-eligible players with estimated market value
+  eligible.slice(0, 10).forEach(player => {
+    const marketValue = calculateMarketValue(player);
+    const currentAav = player.salary || 0;
+    
+    embed.addFields({
+      name: `${player.name} (${player.position})`,
+      value: `Current: ${formatCurrency(currentAav)}/yr (${player.yearsRemaining}yr left)\nEst. Market: ${formatCurrency(marketValue)}/yr\nMax Extension: ${calculateMaxExtension(player, league)}`,
+      inline: true
+    });
+  });
+  
+  // Select menu for player selection
+  const options = eligible.slice(0, 25).map(player => ({
+    label: player.name,
+    description: `${player.position} | ${formatCurrency(player.salary || 0)}/yr`,
+    value: `extend_${player.id || player.name.toLowerCase().replace(/\s/g, '_')}`,
+    emoji: '📝'
+  }));
+  
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('mock_team_extend_select')
+    .setPlaceholder('Select player to extend...')
+    .addOptions(options);
+  
+  const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+  
+  return interaction.update({ embeds: [embed], components: [selectRow, ...getBackButton()] });
+}
+
+/**
+ * Calculate player's estimated market value
+ */
+function calculateMarketValue(player) {
+  const overall = player.overall || 70;
+  const age = player.age || 25;
+  
+  // Base salary by overall rating
+  let baseSalary;
+  if (overall >= 90) baseSalary = 45000000; // Superstar
+  else if (overall >= 85) baseSalary = 35000000; // All-Star
+  else if (overall >= 80) baseSalary = 25000000; // Starter+
+  else if (overall >= 75) baseSalary = 15000000; // Quality starter
+  else if (overall >= 70) baseSalary = 8000000; // Role player
+  else baseSalary = 3000000; // Bench/minimum
+  
+  // Age adjustment
+  if (age <= 25) baseSalary *= 1.1; // Young premium
+  else if (age >= 32) baseSalary *= 0.75; // Declining
+  else if (age >= 30) baseSalary *= 0.9; // Getting older
+  
+  return Math.round(baseSalary);
+}
+
+/**
+ * Calculate maximum extension offer
+ */
+function calculateMaxExtension(player, league) {
+  const overall = player.overall || 70;
+  const currentSalary = player.salary || 0;
+  
+  // Check if eligible for supermax (10+ years service, last 2 years: All-NBA, MVP, or DPOY)
+  if (overall >= 90 && player.yearsInLeague >= 10) {
+    const supermaxPct = 0.35; // 35% of cap
+    const supermax = (league.salaryCap || 140600000) * supermaxPct;
+    return `${formatCurrency(supermax)}/yr (Supermax eligible)`;
+  }
+  
+  // Check if eligible for designated veteran extension (8+ years)
+  if (overall >= 85 && player.yearsInLeague >= 8) {
+    const maxPct = 0.30; // 30% of cap
+    const max = (league.salaryCap || 140600000) * maxPct;
+    return `${formatCurrency(max)}/yr (Veteran max)`;
+  }
+  
+  // Standard extension rules: up to 120% of current salary or estimated max
+  const standardIncrease = currentSalary * 1.2;
+  const estimatedMax = calculateMarketValue(player);
+  
+  return `${formatCurrency(Math.max(standardIncrease, estimatedMax))}/yr`;
 }
 
 /**

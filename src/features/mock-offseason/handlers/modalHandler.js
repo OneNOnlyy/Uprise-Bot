@@ -22,6 +22,11 @@ export async function handleModalSubmit(interaction) {
     return await handleFAOfferModal(interaction);
   }
   
+  // Extension offer modal
+  if (customId.startsWith('mock_extension_offer_')) {
+    return await handleExtensionOfferModal(interaction);
+  }
+  
   // Admin announce modal
   if (customId === 'mock_admin_announce_modal') {
     return await handleAnnounceModal(interaction);
@@ -164,6 +169,145 @@ async function handleAnnounceModal(interaction) {
   await interaction.channel.send({ embeds: [embed] });
   
   return interaction.editReply({ content: '✅ Announcement sent!' });
+}
+
+/**
+ * Handle extension offer modal submission
+ */
+async function handleExtensionOfferModal(interaction) {
+  await interaction.deferReply({ ephemeral: true });
+  
+  const league = await getMockLeague(interaction.guildId);
+  if (!league) {
+    return interaction.editReply({ content: '❌ No league exists.' });
+  }
+  
+  // Get form values
+  const salaryStr = interaction.fields.getTextInputValue('ext_salary') || '0';
+  const yearsStr = interaction.fields.getTextInputValue('ext_years') || '1';
+  const options = interaction.fields.getTextInputValue('ext_options') || '';
+  const playerId = interaction.customId.replace('mock_extension_offer_', '');
+  
+  // Parse salary (handle M for millions)
+  let salary = salaryStr.toLowerCase().replace('m', '000000').replace(/[^0-9]/g, '');
+  salary = parseInt(salary);
+  const years = parseInt(yearsStr);
+  
+  if (isNaN(salary) || salary <= 0) {
+    return interaction.editReply({ content: '❌ Invalid salary amount.' });
+  }
+  
+  if (isNaN(years) || years < 1 || years > 5) {
+    return interaction.editReply({ content: '❌ Contract must be 1-5 years.' });
+  }
+  
+  // Find user's team
+  const userTeamEntry = Object.entries(league.teams).find(([_, t]) => t.gm === interaction.user.id);
+  if (!userTeamEntry) {
+    return interaction.editReply({ content: '❌ You don\'t have a team!' });
+  }
+  
+  const [teamId, team] = userTeamEntry;
+  const player = (team.roster || []).find(p => 
+    (p.id || p.name.toLowerCase().replace(/\s/g, '_')) === playerId
+  );
+  
+  if (!player) {
+    return interaction.editReply({ content: '❌ Player not found on your roster.' });
+  }
+  
+  // Calculate total value
+  const totalValue = salary * years;
+  
+  // Simulate player response based on offer vs market value
+  const marketValue = calculatePlayerMarketValue(player);
+  const offerPct = salary / marketValue;
+  
+  let response, success;
+  if (offerPct >= 1.0) {
+    // At or above market value - high chance of acceptance
+    success = Math.random() < 0.85;
+    response = success ? 'accepts' : 'wants to test free agency';
+  } else if (offerPct >= 0.9) {
+    // Slightly below market - moderate chance
+    success = Math.random() < 0.5;
+    response = success ? 'accepts after negotiation' : 'declines, wants more';
+  } else {
+    // Below market - low chance
+    success = Math.random() < 0.15;
+    response = success ? 'surprisingly accepts' : 'declines the lowball offer';
+  }
+  
+  if (success) {
+    // Update player contract
+    player.salary = salary;
+    player.yearsRemaining = years;
+    player.contractOptions = options;
+    player.extended = true;
+    
+    // Log the extension
+    if (!league.transactions) league.transactions = [];
+    league.transactions.push({
+      type: 'EXTENSION',
+      team: teamId,
+      player: player.name,
+      salary: salary,
+      years: years,
+      totalValue: totalValue,
+      timestamp: new Date().toISOString()
+    });
+    
+    await saveMockLeague(interaction.guildId, league);
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x00FF00)
+      .setTitle('✅ Extension Signed!')
+      .setDescription(`**${player.name}** ${response}!`)
+      .addFields(
+        { name: 'Annual Salary', value: formatCurrency(salary), inline: true },
+        { name: 'Years', value: `${years}`, inline: true },
+        { name: 'Total Value', value: formatCurrency(totalValue), inline: true }
+      );
+    
+    if (options) {
+      embed.addFields({ name: 'Contract Options', value: options, inline: false });
+    }
+    
+    return interaction.editReply({ embeds: [embed] });
+  } else {
+    const embed = new EmbedBuilder()
+      .setColor(0xFF0000)
+      .setTitle('❌ Extension Declined')
+      .setDescription(`**${player.name}** ${response}.`)
+      .addFields(
+        { name: 'Your Offer', value: `${formatCurrency(salary)}/yr for ${years} years`, inline: true },
+        { name: 'Est. Market Value', value: `${formatCurrency(marketValue)}/yr`, inline: true }
+      );
+    
+    return interaction.editReply({ embeds: [embed] });
+  }
+}
+
+/**
+ * Calculate player market value
+ */
+function calculatePlayerMarketValue(player) {
+  const overall = player.overall || 70;
+  const age = player.age || 25;
+  
+  let baseSalary;
+  if (overall >= 90) baseSalary = 45000000;
+  else if (overall >= 85) baseSalary = 35000000;
+  else if (overall >= 80) baseSalary = 25000000;
+  else if (overall >= 75) baseSalary = 15000000;
+  else if (overall >= 70) baseSalary = 8000000;
+  else baseSalary = 3000000;
+  
+  if (age <= 25) baseSalary *= 1.1;
+  else if (age >= 32) baseSalary *= 0.75;
+  else if (age >= 30) baseSalary *= 0.9;
+  
+  return Math.round(baseSalary);
 }
 
 /**

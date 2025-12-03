@@ -155,7 +155,16 @@ export async function handleFreeAgencyAction(interaction) {
       return await showFABrowser(interaction, league, userTeam, 'wings');
     case 'mock_fa_filter_bigs':
       return await showFABrowser(interaction, league, userTeam, 'bigs');
+    case 'mock_fa_market':
+      return await showFABrowser(interaction, league, userTeam, 'all');
+    case 'mock_fa_clear_signed_targets':
+      return await clearSignedTargets(interaction, league, userTeam);
     default:
+      // Handle add to targets button
+      if (customId.startsWith('mock_fa_target_')) {
+        const playerId = customId.replace('mock_fa_target_', '');
+        return await addToTargets(interaction, league, userTeam, playerId);
+      }
       return interaction.reply({ content: '❌ Unknown FA action.', ephemeral: true });
   }
 }
@@ -269,13 +278,72 @@ async function showMySignings(interaction, league, userTeamId) {
  * Show targets list
  */
 async function showTargets(interaction, league, userTeamId) {
+  const team = league.teams[userTeamId];
+  const targets = team.faTargets || [];
+  const freeAgents = league.freeAgents || [];
+  
   const embed = new EmbedBuilder()
     .setColor(0x1D428A)
     .setTitle('🎯 Free Agent Targets')
-    .setDescription('🚧 **Target list coming soon!**\n\nYou\'ll be able to:\n• Mark players as targets\n• Set max offer amounts\n• Get notifications when targets sign elsewhere')
+    .setDescription(`**${targets.length}** player(s) on your target list`)
     .setTimestamp();
   
-  return interaction.update({ embeds: [embed], components: getBackButton() });
+  if (targets.length === 0) {
+    embed.setDescription('No targets set.\n\nBrowse free agents and click "Add to Targets" to track players you\'re interested in.');
+    return interaction.update({ embeds: [embed], components: getBackButton() });
+  }
+  
+  // Show targets with current status
+  targets.slice(0, 10).forEach(target => {
+    const player = freeAgents.find(fa => fa.id === target.playerId || fa.name === target.playerName);
+    const status = player ? '🟢 Available' : '🔴 Signed';
+    const interestedTeams = player?.interestedTeams?.length || 0;
+    
+    embed.addFields({
+      name: `${target.playerName} (${target.position})`,
+      value: `Status: ${status}\nYour Max: ${formatCurrency(target.maxOffer)}\nAsk: ${formatCurrency(target.askingPrice)}\n${interestedTeams > 0 ? `⚠️ ${interestedTeams} other teams interested` : ''}`,
+      inline: true
+    });
+  });
+  
+  // Build select menu to manage targets
+  const options = targets.slice(0, 25).map(target => ({
+    label: target.playerName,
+    description: `Max: ${formatCurrency(target.maxOffer)} | ${target.position}`,
+    value: `manage_${target.playerId}`,
+    emoji: freeAgents.find(fa => fa.id === target.playerId) ? '🟢' : '🔴'
+  }));
+  
+  const components = [];
+  
+  if (options.length > 0) {
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId('mock_fa_target_manage')
+      .setPlaceholder('Manage target...')
+      .addOptions(options);
+    
+    components.push(new ActionRowBuilder().addComponents(selectMenu));
+  }
+  
+  // Action buttons
+  const actionRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('mock_fa_clear_signed_targets')
+      .setLabel('Clear Signed')
+      .setEmoji('🗑️')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(targets.filter(t => !freeAgents.find(fa => fa.id === t.playerId)).length === 0),
+    new ButtonBuilder()
+      .setCustomId('mock_fa_market')
+      .setLabel('Browse FAs')
+      .setEmoji('🔍')
+      .setStyle(ButtonStyle.Primary)
+  );
+  
+  components.push(actionRow);
+  components.push(...getBackButton());
+  
+  return interaction.update({ embeds: [embed], components });
 }
 
 /**
@@ -321,6 +389,76 @@ export async function handleFASelect(interaction) {
   );
   
   return interaction.update({ embeds: [embed], components: [actionRow, ...getBackButton()] });
+}
+
+/**
+ * Add free agent to targets list
+ */
+async function addToTargets(interaction, league, userTeamId, playerId) {
+  const team = league.teams[userTeamId];
+  const player = (league.freeAgents || []).find(p => 
+    (p.id || p.name.toLowerCase().replace(/\s/g, '_')) === playerId
+  );
+  
+  if (!player) {
+    return interaction.reply({ content: '❌ Player not found.', ephemeral: true });
+  }
+  
+  // Initialize targets if needed
+  if (!team.faTargets) team.faTargets = [];
+  
+  // Check if already targeted
+  if (team.faTargets.find(t => t.playerId === playerId)) {
+    return interaction.reply({ content: '❌ Player is already on your targets list!', ephemeral: true });
+  }
+  
+  // Add to targets
+  team.faTargets.push({
+    playerId: player.id || playerId,
+    playerName: player.name,
+    position: player.position,
+    askingPrice: player.askingPrice,
+    maxOffer: player.askingPrice, // Default max to asking price
+    addedAt: new Date().toISOString()
+  });
+  
+  await saveMockLeague(interaction.guildId, league);
+  
+  return interaction.reply({
+    content: `✅ **${player.name}** added to your targets list!`,
+    ephemeral: true
+  });
+}
+
+/**
+ * Clear signed targets from list
+ */
+async function clearSignedTargets(interaction, league, userTeamId) {
+  const team = league.teams[userTeamId];
+  const freeAgents = league.freeAgents || [];
+  
+  if (!team.faTargets || team.faTargets.length === 0) {
+    return interaction.reply({ content: '❌ No targets to clear.', ephemeral: true });
+  }
+  
+  // Filter to only keep targets that are still free agents
+  const originalCount = team.faTargets.length;
+  team.faTargets = team.faTargets.filter(target => 
+    freeAgents.find(fa => fa.id === target.playerId || fa.name === target.playerName)
+  );
+  
+  const removedCount = originalCount - team.faTargets.length;
+  
+  if (removedCount === 0) {
+    return interaction.reply({ content: '✅ All targets are still available!', ephemeral: true });
+  }
+  
+  await saveMockLeague(interaction.guildId, league);
+  
+  return interaction.reply({
+    content: `✅ Removed **${removedCount}** signed player(s) from your targets list.`,
+    ephemeral: true
+  });
 }
 
 /**
