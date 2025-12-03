@@ -254,6 +254,7 @@ export function deleteTemplate(name) {
  */
 export function scheduleSessionJobs(session, handlers) {
   const now = new Date();
+  const timezone = getCronTimezone();
   
   // Announcement job
   if (session.notifications.announcement.enabled) {
@@ -262,12 +263,15 @@ export function scheduleSessionJobs(session, handlers) {
     if (announcementTime > now) {
       const cronTime = getCronExpression(announcementTime);
       const job = cron.schedule(cronTime, () => {
+        console.log(`[Scheduler] Announcement job triggered for ${session.id}`);
         handlers.sendAnnouncement(session);
         scheduledJobs.delete(`${session.id}_announcement`);
-      });
+      }, { timezone });
       
       scheduledJobs.set(`${session.id}_announcement`, job);
-      console.log(`[Scheduler] Scheduled announcement for ${session.id} at ${announcementTime}`);
+      console.log(`[Scheduler] Scheduled announcement for ${session.id} at ${announcementTime.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT (cron: ${cronTime})`);
+    } else {
+      console.log(`[Scheduler] Announcement time ${announcementTime.toLocaleString()} has already passed for ${session.id}`);
     }
   }
   
@@ -279,12 +283,13 @@ export function scheduleSessionJobs(session, handlers) {
     if (reminderTime > now) {
       const cronTime = getCronExpression(reminderTime);
       const job = cron.schedule(cronTime, () => {
+        console.log(`[Scheduler] Reminder job triggered for ${session.id}`);
         handlers.sendReminders(session);
         scheduledJobs.delete(`${session.id}_reminder`);
-      });
+      }, { timezone });
       
       scheduledJobs.set(`${session.id}_reminder`, job);
-      console.log(`[Scheduler] Scheduled reminder for ${session.id} at ${reminderTime}`);
+      console.log(`[Scheduler] Scheduled reminder for ${session.id} at ${reminderTime.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT (cron: ${cronTime})`);
     }
   }
   
@@ -296,12 +301,13 @@ export function scheduleSessionJobs(session, handlers) {
     if (warningTime > now) {
       const cronTime = getCronExpression(warningTime);
       const job = cron.schedule(cronTime, () => {
+        console.log(`[Scheduler] Warning job triggered for ${session.id}`);
         handlers.sendWarnings(session);
         scheduledJobs.delete(`${session.id}_warning`);
-      });
+      }, { timezone });
       
       scheduledJobs.set(`${session.id}_warning`, job);
-      console.log(`[Scheduler] Scheduled warning for ${session.id} at ${warningTime}`);
+      console.log(`[Scheduler] Scheduled warning for ${session.id} at ${warningTime.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT (cron: ${cronTime})`);
     }
   }
   
@@ -310,27 +316,38 @@ export function scheduleSessionJobs(session, handlers) {
   if (firstGameTime > now) {
     const cronTime = getCronExpression(firstGameTime);
     const job = cron.schedule(cronTime, () => {
+      console.log(`[Scheduler] Start job triggered for ${session.id}`);
       handlers.startSession(session);
       scheduledJobs.delete(`${session.id}_start`);
-    });
+    }, { timezone });
     
     scheduledJobs.set(`${session.id}_start`, job);
-    console.log(`[Scheduler] Scheduled session start for ${session.id} at ${firstGameTime}`);
+    console.log(`[Scheduler] Scheduled session start for ${session.id} at ${firstGameTime.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT (cron: ${cronTime})`);
   }
 }
 
 /**
  * Convert Date to cron expression
+ * Uses America/Los_Angeles timezone to ensure consistent scheduling
  * @param {Date} date - Target date/time
  * @returns {string} Cron expression
  */
 function getCronExpression(date) {
-  const minute = date.getMinutes();
-  const hour = date.getHours();
-  const dayOfMonth = date.getDate();
-  const month = date.getMonth() + 1;
+  // Convert to Pacific time for consistent scheduling
+  const pacificTime = new Date(date.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+  const minute = pacificTime.getMinutes();
+  const hour = pacificTime.getHours();
+  const dayOfMonth = pacificTime.getDate();
+  const month = pacificTime.getMonth() + 1;
   
   return `${minute} ${hour} ${dayOfMonth} ${month} *`;
+}
+
+/**
+ * Get the timezone option for cron scheduling
+ */
+function getCronTimezone() {
+  return 'America/Los_Angeles';
 }
 
 /**
