@@ -26,6 +26,7 @@ import * as patsviewplayerCommand from './commands/patsviewplayer.js';
 import * as patsdeleteplayerCommand from './commands/patsdeleteplayer.js';
 import * as patsrefreshspreadsCommand from './commands/patsrefreshspreads.js';
 import * as patsscheduleCommand from './commands/patsschedule.js';
+import * as mockCommand from './commands/mock.js';
 import { showSettingsMenu, handleToggle } from './utils/userPreferences.js';
 import { ensureUser } from './utils/patsData.js';
 
@@ -58,6 +59,7 @@ client.commands.set(patsviewplayerCommand.data.name, patsviewplayerCommand);
 client.commands.set(patsdeleteplayerCommand.data.name, patsdeleteplayerCommand);
 client.commands.set(patsrefreshspreadsCommand.data.name, patsrefreshspreadsCommand);
 client.commands.set(patsscheduleCommand.data.name, patsscheduleCommand);
+client.commands.set(mockCommand.data.name, mockCommand);
 
 client.once(Events.ClientReady, async (readyClient) => {
   console.log(`✅ Uprise Bot is ready! Logged in as ${readyClient.user.tag}`);
@@ -1396,6 +1398,35 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     } catch (error) {
       console.error('Error handling schedule interaction:', error);
+      const errorMessage = { 
+        content: '❌ There was an error processing your request!', 
+        ephemeral: true 
+      };
+      
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(errorMessage);
+      } else {
+        await interaction.reply(errorMessage);
+      }
+    }
+  }
+  
+  // Handle Mock Offseason interactions (buttons, select menus, modals)
+  if (interaction.customId && interaction.customId.startsWith('mock_')) {
+    try {
+      const mockCommand = await import('./commands/mock.js');
+      
+      if (interaction.isButton()) {
+        await mockCommand.handleButtonInteraction(interaction);
+      }
+      else if (interaction.isStringSelectMenu()) {
+        await mockCommand.handleSelectMenuInteraction(interaction);
+      }
+      else if (interaction.isModalSubmit()) {
+        await mockCommand.handleModalSubmitInteraction(interaction);
+      }
+    } catch (error) {
+      console.error('Error handling Mock Offseason interaction:', error);
       const errorMessage = { 
         content: '❌ There was an error processing your request!', 
         ephemeral: true 
