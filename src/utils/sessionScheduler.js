@@ -271,9 +271,7 @@ export function scheduleSessionJobs(session, handlers) {
       scheduledJobs.set(`${session.id}_announcement`, job);
       console.log(`[Scheduler] Scheduled announcement for ${session.id} at ${announcementTime.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT (cron: ${cronTime})`);
     } else {
-      // Announcement time has passed - start immediately
-      console.log(`[Scheduler] Announcement time ${announcementTime.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT has passed for ${session.id} - starting immediately`);
-      handlers.sendAnnouncement(session);
+      console.log(`[Scheduler] Announcement time ${announcementTime.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT has already passed for ${session.id}`);
     }
   }
   
