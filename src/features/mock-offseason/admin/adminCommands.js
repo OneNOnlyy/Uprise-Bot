@@ -15,6 +15,7 @@ import {
   NBA_TEAMS,
   PHASES
 } from '../mockData.js';
+import { importAllRosters, importProspects, generateFreeAgents, importAllData } from '../data/rosterImport.js';
 
 /**
  * Handle admin subcommands
@@ -265,20 +266,78 @@ async function handleImport(interaction) {
   
   await interaction.deferReply({ ephemeral: true });
   
-  const embed = new EmbedBuilder()
-    .setColor(0x1D428A)
-    .setTitle('📥 Importing Data...')
-    .setDescription(`Importing ${importType}... This feature is coming soon!`)
-    .addFields({
-      name: '🚧 Under Construction',
-      value: 'NBA roster and prospect import will be available in a future update.'
-    })
-    .setTimestamp();
+  const league = await getMockLeague(interaction.guildId);
+  if (!league) {
+    return interaction.editReply({ content: '❌ No league exists. Create one first with `/mock admin create`.' });
+  }
   
-  // TODO: Implement actual NBA API import
-  // For now, we'll set up placeholder rosters
-  
-  return interaction.editReply({ embeds: [embed] });
+  try {
+    let result;
+    let embed;
+    
+    switch (importType) {
+      case 'rosters':
+        result = await importAllRosters(interaction.guildId);
+        embed = new EmbedBuilder()
+          .setColor(0x00FF00)
+          .setTitle('✅ Rosters Imported!')
+          .setDescription(`Successfully imported rosters for all 30 NBA teams.`)
+          .addFields(
+            { name: '📊 Teams', value: `${result.teamsImported}`, inline: true },
+            { name: '👥 Players', value: `${result.totalPlayers}`, inline: true }
+          )
+          .setTimestamp();
+        break;
+        
+      case 'prospects':
+        result = await importProspects(interaction.guildId);
+        embed = new EmbedBuilder()
+          .setColor(0x00FF00)
+          .setTitle('✅ Prospects Imported!')
+          .setDescription(`Successfully imported the 2026 draft class.`)
+          .addFields(
+            { name: '🎓 Prospects', value: `${result.prospectsImported}`, inline: true }
+          )
+          .setTimestamp();
+        break;
+        
+      case 'freeagents':
+        result = await generateFreeAgents(interaction.guildId);
+        embed = new EmbedBuilder()
+          .setColor(0x00FF00)
+          .setTitle('✅ Free Agents Generated!')
+          .setDescription(`Successfully generated the free agent market.`)
+          .addFields(
+            { name: '📝 Free Agents', value: `${result.freeAgentsGenerated}`, inline: true }
+          )
+          .setTimestamp();
+        break;
+        
+      case 'all':
+        result = await importAllData(interaction.guildId);
+        embed = new EmbedBuilder()
+          .setColor(0x00FF00)
+          .setTitle('✅ All Data Imported!')
+          .setDescription(`Successfully imported all mock offseason data.`)
+          .addFields(
+            { name: '📊 Teams', value: `${result.rosters.teamsImported}`, inline: true },
+            { name: '👥 Players', value: `${result.rosters.totalPlayers}`, inline: true },
+            { name: '🎓 Prospects', value: `${result.prospects.prospectsImported}`, inline: true },
+            { name: '📝 Free Agents', value: `${result.freeAgents.freeAgentsGenerated}`, inline: true }
+          )
+          .setTimestamp();
+        break;
+        
+      default:
+        return interaction.editReply({ content: '❌ Invalid import type.' });
+    }
+    
+    return interaction.editReply({ embeds: [embed] });
+    
+  } catch (error) {
+    console.error('Import error:', error);
+    return interaction.editReply({ content: `❌ Import failed: ${error.message}` });
+  }
 }
 
 /**

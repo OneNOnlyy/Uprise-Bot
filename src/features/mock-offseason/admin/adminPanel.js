@@ -67,13 +67,54 @@ export async function handleAdminPanelAction(interaction) {
 async function handleImportAll(interaction) {
   await interaction.deferUpdate();
   
-  const embed = new EmbedBuilder()
-    .setColor(0x1D428A)
-    .setTitle('📥 Importing All Data...')
-    .setDescription('This feature will import:\n• All 30 NBA team rosters\n• Current player contracts\n• 2026 draft prospects\n\n🚧 **Coming Soon!**')
-    .setTimestamp();
+  const league = await getMockLeague(interaction.guildId);
+  if (!league) {
+    return interaction.editReply({ content: '❌ No league exists.', embeds: [], components: [] });
+  }
   
-  return interaction.editReply({ embeds: [embed], components: [] });
+  try {
+    // Dynamic import to avoid circular dependencies
+    const { importAllData } = await import('../data/rosterImport.js');
+    
+    const result = await importAllData(interaction.guildId);
+    
+    const embed = new EmbedBuilder()
+      .setColor(0x00FF00)
+      .setTitle('✅ All Data Imported!')
+      .setDescription('Successfully imported all mock offseason data.')
+      .addFields(
+        { name: '📊 Teams', value: `${result.rosters.teamsImported}`, inline: true },
+        { name: '👥 Players', value: `${result.rosters.totalPlayers}`, inline: true },
+        { name: '🎓 Prospects', value: `${result.prospects.prospectsImported}`, inline: true },
+        { name: '📝 Free Agents', value: `${result.freeAgents.freeAgentsGenerated}`, inline: true }
+      )
+      .setTimestamp();
+    
+    const buttonRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('mock_admin_open_lottery')
+        .setLabel('Open GM Lottery')
+        .setEmoji('🎰')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('mock_nav_dashboard')
+        .setLabel('View Dashboard')
+        .setEmoji('📊')
+        .setStyle(ButtonStyle.Secondary)
+    );
+    
+    return interaction.editReply({ embeds: [embed], components: [buttonRow] });
+    
+  } catch (error) {
+    console.error('Import error:', error);
+    const embed = new EmbedBuilder()
+      .setColor(0xFF0000)
+      .setTitle('❌ Import Failed')
+      .setDescription(`Error: ${error.message}`)
+      .setTimestamp();
+    
+    return interaction.editReply({ embeds: [embed], components: [] });
+  }
 }
 
 /**
