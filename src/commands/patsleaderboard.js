@@ -61,8 +61,7 @@ export async function execute(interaction) {
         try {
           const member = await interaction.guild.members.fetch(entry.userId);
           const displayName = member.displayName;
-          const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅';
-          return `${medal} ${displayName} - ${entry.totalWins}-${entry.totalLosses}-${entry.totalPushes} (${entry.winPercentage.toFixed(1)}%)`;
+          return `${index + 1}. ${displayName} - ${entry.totalWins}-${entry.totalLosses}-${entry.totalPushes} (${entry.winPercentage.toFixed(1)}%)`;
         } catch {
           // Skip users that can't be fetched (deleted accounts, left server, etc.)
           return null;
@@ -70,7 +69,7 @@ export async function execute(interaction) {
       }))).filter(Boolean);
 
       embed.addFields({
-        name: '🏅 All-Time Top 5',
+        name: '🏅 All-Time Leaders',
         value: allTimeText.join('\n') || 'No data yet',
         inline: false
       });
