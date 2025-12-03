@@ -28,12 +28,12 @@ export async function execute(interaction) {
       
       const sessionLeaderboardText = (await Promise.all(top10.map(async (entry, index) => {
         try {
-          const user = await interaction.client.users.fetch(entry.userId);
-          const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+          const member = await interaction.guild.members.fetch(entry.userId);
+          const displayName = member.displayName;
           const record = `${entry.wins}-${entry.losses}-${entry.pushes}`;
           const winPct = entry.totalComplete > 0 ? ` (${entry.winPercentage.toFixed(1)}%)` : '';
           const pendingText = entry.pending > 0 ? ` • ${entry.pending} pending` : '';
-          return `${medal} **${user.username}** - ${record}${winPct}${pendingText}`;
+          return `${index + 1}. ${displayName} - ${record}${winPct}${pendingText}`;
         } catch {
           // Skip users that can't be fetched (deleted accounts, left server, etc.)
           return null;
@@ -59,9 +59,10 @@ export async function execute(interaction) {
       
       const allTimeText = (await Promise.all(top5.map(async (entry, index) => {
         try {
-          const user = await interaction.client.users.fetch(entry.userId);
-          const medal = index === 0 ? '👑' : index === 1 ? '⭐' : index === 2 ? '🌟' : `${index + 1}.`;
-          return `${medal} **${user.username}** - ${entry.totalWins}-${entry.totalLosses}-${entry.totalPushes} (${entry.winPercentage.toFixed(1)}%)`;
+          const member = await interaction.guild.members.fetch(entry.userId);
+          const displayName = member.displayName;
+          const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅';
+          return `${medal} ${displayName} - ${entry.totalWins}-${entry.totalLosses}-${entry.totalPushes} (${entry.winPercentage.toFixed(1)}%)`;
         } catch {
           // Skip users that can't be fetched (deleted accounts, left server, etc.)
           return null;
