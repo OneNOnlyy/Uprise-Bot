@@ -58,6 +58,24 @@ export async function handleAdminPanelAction(interaction) {
     return await handleRunLottery(interaction);
   }
   
+  // Config panel buttons
+  if (customId === 'mock_admin_config_timing') {
+    return await showTimingConfig(interaction);
+  }
+  
+  if (customId === 'mock_admin_config_rules') {
+    return await showRulesConfig(interaction);
+  }
+  
+  if (customId === 'mock_admin_config_cap') {
+    return await showCapConfig(interaction);
+  }
+  
+  // Rule toggle buttons
+  if (customId.startsWith('mock_admin_toggle_')) {
+    return await handleRuleToggle(interaction);
+  }
+  
   return interaction.reply({ content: '❌ Unknown admin action.', ephemeral: true });
 }
 
@@ -172,13 +190,244 @@ async function handleOpenConfig(interaction) {
   
   await interaction.deferUpdate();
   
+  // Ensure default settings
+  if (!league.settings) league.settings = {};
+  if (!league.timingConfig) {
+    league.timingConfig = {
+      gmLotteryPick: 60000,
+      draftPick: 120000,
+      tradeProposalExpiration: 86400000
+    };
+  }
+  
   const embed = new EmbedBuilder()
     .setColor(0x1D428A)
     .setTitle('⚙️ League Configuration')
-    .setDescription('🚧 **Configuration panel coming soon!**\n\nFor now, use `/mock admin config` command.')
+    .setDescription('Select a category to configure.')
+    .addFields(
+      {
+        name: '⏱️ Timing',
+        value: `Draft pick time, trade expiry, etc.`,
+        inline: true
+      },
+      {
+        name: '📋 Rules',
+        value: `Commissioner approval, trade rules`,
+        inline: true
+      },
+      {
+        name: '💰 Cap',
+        value: `Salary cap, tax line, aprons`,
+        inline: true
+      }
+    )
     .setTimestamp();
   
-  return interaction.editReply({ embeds: [embed], components: [] });
+  const buttonRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('mock_admin_config_timing')
+      .setLabel('Timing')
+      .setEmoji('⏱️')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('mock_admin_config_rules')
+      .setLabel('Rules')
+      .setEmoji('📋')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('mock_admin_config_cap')
+      .setLabel('Salary Cap')
+      .setEmoji('💰')
+      .setStyle(ButtonStyle.Secondary)
+  );
+  
+  return interaction.editReply({ embeds: [embed], components: [buttonRow] });
+}
+
+/**
+ * Show timing configuration
+ */
+async function showTimingConfig(interaction) {
+  const league = await getMockLeague(interaction.guildId);
+  if (!league) {
+    return interaction.reply({ content: '❌ No league exists.', ephemeral: true });
+  }
+  
+  await interaction.deferUpdate();
+  
+  const timing = league.timingConfig || {};
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x1D428A)
+    .setTitle('⏱️ Timing Configuration')
+    .setDescription('Current timing settings')
+    .addFields(
+      { name: 'GM Lottery Pick', value: `${(timing.gmLotteryPick || 60000) / 1000} seconds`, inline: true },
+      { name: 'Draft Pick Time', value: `${(timing.draftPick || 120000) / 1000} seconds`, inline: true },
+      { name: 'Trade Expiry', value: `${(timing.tradeProposalExpiration || 86400000) / 3600000} hours`, inline: true }
+    )
+    .setTimestamp();
+  
+  const buttonRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('mock_admin_set_quick_draft')
+      .setLabel('Quick Draft (60s)')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('mock_admin_set_normal_draft')
+      .setLabel('Normal Draft (120s)')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('mock_admin_set_slow_draft')
+      .setLabel('Slow Draft (180s)')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('mock_admin_config')
+      .setLabel('Back')
+      .setEmoji('⬅️')
+      .setStyle(ButtonStyle.Secondary)
+  );
+  
+  return interaction.editReply({ embeds: [embed], components: [buttonRow] });
+}
+
+/**
+ * Show rules configuration
+ */
+async function showRulesConfig(interaction) {
+  const league = await getMockLeague(interaction.guildId);
+  if (!league) {
+    return interaction.reply({ content: '❌ No league exists.', ephemeral: true });
+  }
+  
+  await interaction.deferUpdate();
+  
+  const settings = league.settings || {};
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x1D428A)
+    .setTitle('📋 Rules Configuration')
+    .setDescription('Toggle rules on/off')
+    .addFields(
+      { 
+        name: 'Commissioner Approval', 
+        value: `${settings.requireCommissioner ? '✅ On' : '❌ Off'}\nRequire admin approval for trades`, 
+        inline: true 
+      },
+      { 
+        name: 'Multi-Team Trades', 
+        value: `${settings.allowMultiTeamTrades ? '✅ On' : '❌ Off'}\nAllow 3+ team trades`, 
+        inline: true 
+      },
+      { 
+        name: 'Stepien Rule', 
+        value: `${settings.stepienRuleEnforced !== false ? '✅ On' : '❌ Off'}\nCan't trade consecutive 1st round picks`, 
+        inline: true 
+      }
+    )
+    .setTimestamp();
+  
+  const buttonRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('mock_admin_toggle_commissioner')
+      .setLabel(`Commissioner: ${settings.requireCommissioner ? 'ON' : 'OFF'}`)
+      .setStyle(settings.requireCommissioner ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('mock_admin_toggle_multiteam')
+      .setLabel(`Multi-Team: ${settings.allowMultiTeamTrades ? 'ON' : 'OFF'}`)
+      .setStyle(settings.allowMultiTeamTrades ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('mock_admin_toggle_stepien')
+      .setLabel(`Stepien: ${settings.stepienRuleEnforced !== false ? 'ON' : 'OFF'}`)
+      .setStyle(settings.stepienRuleEnforced !== false ? ButtonStyle.Success : ButtonStyle.Secondary)
+  );
+  
+  const navRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('mock_admin_config')
+      .setLabel('Back')
+      .setEmoji('⬅️')
+      .setStyle(ButtonStyle.Secondary)
+  );
+  
+  return interaction.editReply({ embeds: [embed], components: [buttonRow, navRow] });
+}
+
+/**
+ * Show cap configuration
+ */
+async function showCapConfig(interaction) {
+  const league = await getMockLeague(interaction.guildId);
+  if (!league) {
+    return interaction.reply({ content: '❌ No league exists.', ephemeral: true });
+  }
+  
+  await interaction.deferUpdate();
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x1D428A)
+    .setTitle('💰 Salary Cap Configuration')
+    .setDescription('Current cap settings (2024-25 values)')
+    .addFields(
+      { name: 'Salary Cap', value: `$${((league.salaryCap || 140600000) / 1000000).toFixed(1)}M`, inline: true },
+      { name: 'Luxury Tax', value: `$${((league.luxuryTax || 170800000) / 1000000).toFixed(1)}M`, inline: true },
+      { name: 'First Apron', value: `$${((league.firstApron || 178600000) / 1000000).toFixed(1)}M`, inline: true },
+      { name: 'Second Apron', value: `$${((league.secondApron || 189500000) / 1000000).toFixed(1)}M`, inline: true }
+    )
+    .setTimestamp();
+  
+  const buttonRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('mock_admin_cap_2024')
+      .setLabel('2024-25 Values')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('mock_admin_cap_2025')
+      .setLabel('2025-26 Values')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('mock_admin_cap_custom')
+      .setLabel('Custom')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('mock_admin_config')
+      .setLabel('Back')
+      .setEmoji('⬅️')
+      .setStyle(ButtonStyle.Secondary)
+  );
+  
+  return interaction.editReply({ embeds: [embed], components: [buttonRow] });
+}
+
+/**
+ * Handle rule toggle
+ */
+async function handleRuleToggle(interaction) {
+  const league = await getMockLeague(interaction.guildId);
+  if (!league) {
+    return interaction.reply({ content: '❌ No league exists.', ephemeral: true });
+  }
+  
+  const rule = interaction.customId.replace('mock_admin_toggle_', '');
+  
+  if (!league.settings) league.settings = {};
+  
+  switch (rule) {
+    case 'commissioner':
+      league.settings.requireCommissioner = !league.settings.requireCommissioner;
+      break;
+    case 'multiteam':
+      league.settings.allowMultiTeamTrades = !league.settings.allowMultiTeamTrades;
+      break;
+    case 'stepien':
+      league.settings.stepienRuleEnforced = league.settings.stepienRuleEnforced === false;
+      break;
+  }
+  
+  await saveMockLeague(interaction.guildId, league);
+  
+  // Re-show rules config
+  return await showRulesConfig(interaction);
 }
 
 /**

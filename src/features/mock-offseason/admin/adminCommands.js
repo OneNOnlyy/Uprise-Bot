@@ -429,6 +429,16 @@ async function handleConfig(interaction) {
     return interaction.reply({ content: '❌ No league exists.', ephemeral: true });
   }
   
+  // Ensure default settings exist
+  if (!league.settings) league.settings = {};
+  if (!league.timingConfig) {
+    league.timingConfig = {
+      gmLotteryPick: 60000,
+      draftPick: 120000,
+      tradeProposalExpiration: 86400000
+    };
+  }
+  
   const embed = new EmbedBuilder()
     .setColor(0x1D428A)
     .setTitle('⚙️ League Configuration')
@@ -436,21 +446,20 @@ async function handleConfig(interaction) {
     .addFields(
       {
         name: '💰 Salary Cap Settings',
-        value: `Cap: $${(league.salaryCap / 1000000).toFixed(1)}M\nTax: $${(league.luxuryTax / 1000000).toFixed(1)}M\nFirst Apron: $${(league.firstApron / 1000000).toFixed(1)}M`,
+        value: `Cap: $${((league.salaryCap || 140600000) / 1000000).toFixed(1)}M\nTax: $${((league.luxuryTax || 170800000) / 1000000).toFixed(1)}M\nFirst Apron: $${((league.firstApron || 178600000) / 1000000).toFixed(1)}M`,
         inline: true
       },
       {
         name: '⏱️ Timing Settings',
-        value: `GM Pick: ${league.timingConfig.gmLotteryPick / 1000}s\nDraft Pick: ${league.timingConfig.draftPick / 1000}s\nTrade Expiry: ${league.timingConfig.tradeProposalExpiration / 3600000}h`,
+        value: `GM Pick: ${(league.timingConfig.gmLotteryPick / 1000)}s\nDraft Pick: ${(league.timingConfig.draftPick / 1000)}s\nTrade Expiry: ${(league.timingConfig.tradeProposalExpiration / 3600000)}h`,
         inline: true
       },
       {
         name: '📋 Rules',
-        value: `Commissioner Approval: ${league.settings.requireCommissioner ? '✅' : '❌'}\nMulti-Team Trades: ${league.settings.allowMultiTeamTrades ? '✅' : '❌'}\nStepien Rule: ${league.settings.stepienRuleEnforced ? '✅' : '❌'}`,
+        value: `Commissioner Approval: ${league.settings.requireCommissioner ? '✅' : '❌'}\nMulti-Team Trades: ${league.settings.allowMultiTeamTrades ? '✅' : '❌'}\nStepien Rule: ${league.settings.stepienRuleEnforced !== false ? '✅' : '❌'}`,
         inline: true
       }
     )
-    .setFooter({ text: 'Configuration panel coming soon!' })
     .setTimestamp();
   
   const buttonRow = new ActionRowBuilder().addComponents(
@@ -458,20 +467,17 @@ async function handleConfig(interaction) {
       .setCustomId('mock_admin_config_timing')
       .setLabel('Edit Timing')
       .setEmoji('⏱️')
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(true), // Coming soon
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('mock_admin_config_rules')
       .setLabel('Edit Rules')
       .setEmoji('📋')
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(true), // Coming soon
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('mock_admin_config_cap')
       .setLabel('Edit Cap')
       .setEmoji('💰')
       .setStyle(ButtonStyle.Secondary)
-      .setDisabled(true) // Coming soon
   );
   
   return interaction.reply({ embeds: [embed], components: [buttonRow], ephemeral: true });

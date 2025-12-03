@@ -48,13 +48,53 @@ export async function handleModalSubmit(interaction) {
 async function handleTradeOfferModal(interaction) {
   await interaction.deferReply({ ephemeral: true });
   
+  const league = await getMockLeague(interaction.guildId);
+  if (!league) {
+    return interaction.editReply({ content: '❌ No league exists.' });
+  }
+  
   // Extract trade details from modal
   const tradeMessage = interaction.fields.getTextInputValue('trade_message') || '';
+  const targetTeamId = interaction.customId.replace('mock_trade_offer_modal_', '');
+  
+  // Find user's team
+  const userTeamEntry = Object.entries(league.teams).find(([_, t]) => t.gm === interaction.user.id);
+  if (!userTeamEntry) {
+    return interaction.editReply({ content: '❌ You don\'t have a team!' });
+  }
+  
+  const [userTeamId, userTeam] = userTeamEntry;
+  const targetTeam = league.teams[targetTeamId];
+  
+  if (!targetTeam) {
+    return interaction.editReply({ content: '❌ Target team not found.' });
+  }
+  
+  // Create trade proposal
+  const tradeProposal = {
+    id: `trade_${Date.now()}`,
+    from: userTeamId,
+    to: targetTeamId,
+    message: tradeMessage,
+    status: 'PENDING',
+    proposedAt: new Date().toISOString(),
+    proposedBy: interaction.user.id
+  };
+  
+  // Add to pending trades
+  if (!league.pendingTrades) league.pendingTrades = [];
+  league.pendingTrades.push(tradeProposal);
+  
+  await saveMockLeague(interaction.guildId, league);
   
   const embed = new EmbedBuilder()
     .setColor(0x00FF00)
-    .setTitle('📤 Trade Proposal')
-    .setDescription('🚧 **Trade submission coming soon!**\n\nYour message:\n' + tradeMessage)
+    .setTitle('📤 Trade Proposal Sent')
+    .setDescription(`Your trade message has been sent to **${targetTeam.name}**`)
+    .addFields(
+      { name: 'Message', value: tradeMessage || '_No message included_', inline: false },
+      { name: 'Status', value: '⏳ Awaiting response', inline: true }
+    )
     .setTimestamp();
   
   return interaction.editReply({ embeds: [embed] });
