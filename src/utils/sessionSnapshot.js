@@ -230,7 +230,7 @@ export async function createSessionSnapshot(session) {
       date: session.date,
       closedAt: session.closedAt,
       gameCount: session.games.length,
-      participantCount: session.participants.length,
+      participantCount: Object.keys(session.picks).length, // Users who actually made picks
       totalPicks: Object.values(session.picks).reduce((sum, picks) => sum + picks.length, 0)
     });
     
