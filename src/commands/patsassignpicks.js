@@ -36,18 +36,15 @@ export async function showGameSelection(interaction, targetUser) {
   // Get user's existing picks
   const userPicks = getUserPicks(session.id, targetUser.id);
   
-  // Filter games that haven't started yet
+  // For admin override, allow all games except final ones
   const availableGames = session.games.filter(game => {
-    if (game.result?.isFinal || game.result?.isLive) {
-      return false;
-    }
-    const gameTime = new Date(game.commenceTime);
-    return gameTime > new Date();
+    // Only exclude games that are completely finished
+    return !game.result?.isFinal;
   });
   
   if (availableGames.length === 0) {
     await interaction.editReply({
-      content: '❌ No games available for picks (all games have started or finished).',
+      content: '❌ No games available for picks (all games have finished).',
       components: []
     });
     return;
@@ -67,9 +64,13 @@ export async function showGameSelection(interaction, targetUser) {
     const existingPick = userPicks.find(p => p.gameId === game.id);
     const pickIndicator = existingPick ? ` ✓ (${existingPick.pick})` : '';
     
+    // Show game status
+    const isLive = game.result?.isLive || gameTime <= new Date();
+    const statusIndicator = isLive ? ' 🔴 LIVE' : '';
+    
     return {
-      label: `${game.awayTeam} @ ${game.homeTeam}${pickIndicator}`,
-      description: `${timeStr} - Select to assign pick`,
+      label: `${game.awayTeam} @ ${game.homeTeam}${pickIndicator}`.slice(0, 100),
+      description: `${timeStr}${statusIndicator} - Select to assign/override pick`,
       value: game.id
     };
   });
@@ -221,11 +222,10 @@ export async function assignPick(interaction, targetUserId, gameId, team) {
     return;
   }
   
-  // Check if game has started
-  const gameTime = new Date(game.commenceTime);
-  if (gameTime <= new Date() || game.result?.isLive || game.result?.isFinal) {
+  // Only block final games - admins can override picks for live games
+  if (game.result?.isFinal) {
     await interaction.editReply({
-      content: '❌ This game has already started or finished.',
+      content: '❌ This game has already finished. Cannot change picks for final games.',
       components: []
     });
     return;
