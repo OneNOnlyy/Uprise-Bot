@@ -7,7 +7,7 @@ import {
   ButtonBuilder,
   ButtonStyle
 } from 'discord.js';
-import { getActiveSession, makePick, getUserPicks } from '../utils/patsData.js';
+import { getActiveSession, savePick, getUserPicks } from '../utils/patsData.js';
 import { getTeamAbbreviation } from '../utils/oddsApi.js';
 
 export const data = new SlashCommandBuilder()
@@ -234,8 +234,16 @@ export async function assignPick(interaction, targetUserId, gameId, team) {
   const teamName = team === 'away' ? game.awayTeam : game.homeTeam;
   const spread = team === 'away' ? game.awaySpread : game.homeSpread;
   
-  // Make the pick on behalf of the user
-  makePick(session.id, targetUserId, gameId, teamName, spread);
+  // Make the pick on behalf of the user (savePick allows overriding existing picks)
+  const result = savePick(session.id, targetUserId, gameId, teamName, spread);
+  
+  if (result.error) {
+    await interaction.editReply({
+      content: `❌ ${result.error}`,
+      components: []
+    });
+    return;
+  }
   
   const targetUser = await interaction.guild.members.fetch(targetUserId);
   

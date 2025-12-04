@@ -147,7 +147,8 @@ function initializeScheduledSessions(client) {
           await sendSessionReminder(client, session);
         },
         sendWarnings: async () => {
-          await sendSessionWarning(client, session);
+          // Session warnings disabled - we use individual game warnings instead
+          console.log(`[Scheduler] Session warning skipped for ${session.id} (using game warnings instead)`);
         },
         startSession: async () => {
           // Session already started at announcement time - no action needed
