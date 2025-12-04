@@ -326,10 +326,24 @@ export async function handleDashboardButton(interaction) {
       await interaction.deferUpdate();
       await showPastSessionsBrowser(interaction);
     } else if (interaction.customId === 'pats_stats_menu_leaderboard') {
-      // Show leaderboard
+      // Show leaderboard with toggle buttons
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
-      return await patsleaderboardCommand.execute(interaction);
+      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, false);
+    } else if (interaction.customId === 'pats_leaderboard_global') {
+      // Switch to global leaderboard
+      const patsleaderboardCommand = await import('./patsleaderboard.js');
+      await interaction.deferUpdate();
+      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, false);
+    } else if (interaction.customId === 'pats_leaderboard_blazers') {
+      // Switch to Blazers Uprise leaderboard (PATS role only)
+      const patsleaderboardCommand = await import('./patsleaderboard.js');
+      await interaction.deferUpdate();
+      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, true);
+    } else if (interaction.customId === 'pats_leaderboard_back_to_stats') {
+      // Return to stats menu from leaderboard
+      await interaction.deferUpdate();
+      return await showStatsMenu(interaction);
     } else if (interaction.customId.startsWith('pats_view_player_')) {
       // View specific player's stats from search results
       await interaction.deferUpdate();
