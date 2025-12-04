@@ -6,7 +6,6 @@ import * as sendgamepingCommand from './commands/sendgameping.js';
 import * as configCommand from './commands/config.js';
 import * as patsstartCommand from './commands/patsstart.js';
 import * as patsCommand from './commands/pats.js';
-import * as patsleaderboardCommand from './commands/patsleaderboard.js';
 import * as patsendCommand from './commands/patsend.js';
 import * as patshistoryCommand from './commands/patshistory.js';
 import * as patsreopenCommand from './commands/patsreopen.js';
@@ -17,6 +16,7 @@ import * as patsdeleteplayerCommand from './commands/patsdeleteplayer.js';
 import * as patsrefreshspreadsCommand from './commands/patsrefreshspreads.js';
 import * as patsscheduleCommand from './commands/patsschedule.js';
 import * as mockCommand from './commands/mock.js';
+import * as patsassignpicksCommand from './commands/patsassignpicks.js';
 
 dotenv.config();
 
@@ -27,7 +27,6 @@ const commands = [
   configCommand.data.toJSON(),
   patsstartCommand.data.toJSON(),
   patsCommand.data.toJSON(),
-  patsleaderboardCommand.data.toJSON(),
   patsendCommand.data.toJSON(),
   patshistoryCommand.data.toJSON(),
   patsreopenCommand.data.toJSON(),
@@ -38,6 +37,7 @@ const commands = [
   patsrefreshspreadsCommand.data.toJSON(),
   patsscheduleCommand.data.toJSON(),
   mockCommand.data.toJSON(),
+  patsassignpicksCommand.data.toJSON(),
 ];
 
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);

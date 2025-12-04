@@ -16,7 +16,6 @@ import * as configCommand from './commands/config.js';
 import * as patsstartCommand from './commands/patsstart.js';
 import * as makepickCommand from './commands/makepick.js';
 import * as patsCommand from './commands/pats.js';
-import * as patsleaderboardCommand from './commands/patsleaderboard.js';
 import * as patsendCommand from './commands/patsend.js';
 import * as patshistoryCommand from './commands/patshistory.js';
 import * as patsreopenCommand from './commands/patsreopen.js';
@@ -27,6 +26,7 @@ import * as patsdeleteplayerCommand from './commands/patsdeleteplayer.js';
 import * as patsrefreshspreadsCommand from './commands/patsrefreshspreads.js';
 import * as patsscheduleCommand from './commands/patsschedule.js';
 import * as mockCommand from './commands/mock.js';
+import * as patsassignpicksCommand from './commands/patsassignpicks.js';
 import { showSettingsMenu, handleToggle } from './utils/userPreferences.js';
 import { ensureUser } from './utils/patsData.js';
 
@@ -49,7 +49,6 @@ client.commands.set(sendgamepingCommand.data.name, sendgamepingCommand);
 client.commands.set(configCommand.data.name, configCommand);
 client.commands.set(patsstartCommand.data.name, patsstartCommand);
 client.commands.set(patsCommand.data.name, patsCommand);
-client.commands.set(patsleaderboardCommand.data.name, patsleaderboardCommand);
 client.commands.set(patsendCommand.data.name, patsendCommand);
 client.commands.set(patshistoryCommand.data.name, patshistoryCommand);
 client.commands.set(patsreopenCommand.data.name, patsreopenCommand);
@@ -60,6 +59,7 @@ client.commands.set(patsdeleteplayerCommand.data.name, patsdeleteplayerCommand);
 client.commands.set(patsrefreshspreadsCommand.data.name, patsrefreshspreadsCommand);
 client.commands.set(patsscheduleCommand.data.name, patsscheduleCommand);
 client.commands.set(mockCommand.data.name, mockCommand);
+client.commands.set(patsassignpicksCommand.data.name, patsassignpicksCommand);
 
 client.once(Events.ClientReady, async (readyClient) => {
   console.log(`✅ Uprise Bot is ready! Logged in as ${readyClient.user.tag}`);
