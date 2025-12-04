@@ -3,7 +3,7 @@
  * Imports NBA roster data and generates mock rosters
  */
 
-import { getMockLeague, saveMockLeague, NBA_TEAMS, CBA_CONSTANTS } from '../mockData.js';
+import { getMockLeague, saveMockLeague, NBA_TEAMS } from '../mockData.js';
 import { DRAFT_PROSPECTS_2026 } from './playerData.js';
 
 /**
