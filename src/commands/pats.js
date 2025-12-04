@@ -82,7 +82,84 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('refreshspreads')
-      .setDescription('Refresh spreads from Odds API (Admin only)'));
+      .setDescription('Refresh spreads from Odds API (Admin only)'))
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('addplayer')
+      .setDescription('Add a player to the PATS system (Admin only)')
+      .addUserOption(option =>
+        option.setName('player')
+          .setDescription('The player to add')
+          .setRequired(true))
+      .addIntegerOption(option =>
+        option.setName('wins')
+          .setDescription('Initial wins (default: 0)')
+          .setRequired(false)
+          .setMinValue(0))
+      .addIntegerOption(option =>
+        option.setName('losses')
+          .setDescription('Initial losses (default: 0)')
+          .setRequired(false)
+          .setMinValue(0))
+      .addIntegerOption(option =>
+        option.setName('pushes')
+          .setDescription('Initial pushes (default: 0)')
+          .setRequired(false)
+          .setMinValue(0)))
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('editplayer')
+      .setDescription('Edit a player\'s record in the PATS system (Admin only)')
+      .addUserOption(option =>
+        option.setName('player')
+          .setDescription('The player to edit')
+          .setRequired(true))
+      .addIntegerOption(option =>
+        option.setName('wins')
+          .setDescription('Set total wins')
+          .setRequired(false)
+          .setMinValue(0))
+      .addIntegerOption(option =>
+        option.setName('losses')
+          .setDescription('Set total losses')
+          .setRequired(false)
+          .setMinValue(0))
+      .addIntegerOption(option =>
+        option.setName('pushes')
+          .setDescription('Set total pushes')
+          .setRequired(false)
+          .setMinValue(0))
+      .addIntegerOption(option =>
+        option.setName('sessions')
+          .setDescription('Set total sessions played')
+          .setRequired(false)
+          .setMinValue(0))
+      .addIntegerOption(option =>
+        option.setName('doubledown_wins')
+          .setDescription('Set double down wins')
+          .setRequired(false)
+          .setMinValue(0))
+      .addIntegerOption(option =>
+        option.setName('doubledown_losses')
+          .setDescription('Set double down losses')
+          .setRequired(false)
+          .setMinValue(0)))
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('viewplayer')
+      .setDescription('View player records in the PATS system (Admin only)')
+      .addUserOption(option =>
+        option.setName('player')
+          .setDescription('Specific player to view (leave empty to view all)')
+          .setRequired(false)))
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('deleteplayer')
+      .setDescription('Remove a player from the PATS system (Admin only)')
+      .addUserOption(option =>
+        option.setName('player')
+          .setDescription('The player to remove')
+          .setRequired(true)));
 
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
@@ -121,6 +198,22 @@ export async function execute(interaction) {
       case 'refreshspreads': {
         const patsrefreshspreadsCommand = await import('./patsrefreshspreads.js');
         return await patsrefreshspreadsCommand.execute(interaction);
+      }
+      case 'addplayer': {
+        const patsaddplayerCommand = await import('./patsaddplayer.js');
+        return await patsaddplayerCommand.execute(interaction);
+      }
+      case 'editplayer': {
+        const patseditplayerCommand = await import('./patseditplayer.js');
+        return await patseditplayerCommand.execute(interaction);
+      }
+      case 'viewplayer': {
+        const patsviewplayerCommand = await import('./patsviewplayer.js');
+        return await patsviewplayerCommand.execute(interaction);
+      }
+      case 'deleteplayer': {
+        const patsdeleteplayerCommand = await import('./patsdeleteplayer.js');
+        return await patsdeleteplayerCommand.execute(interaction);
       }
     }
   }
