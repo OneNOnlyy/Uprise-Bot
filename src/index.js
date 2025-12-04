@@ -970,6 +970,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           interaction.customId.startsWith('pats_stats_') ||
           interaction.customId.startsWith('pats_help_') ||
           interaction.customId.startsWith('pats_no_session_') ||
+          interaction.customId.startsWith('pats_leaderboard_') ||
           interaction.customId === 'pats_search_player' ||
           interaction.customId === 'pats_player_selection_back' ||
           interaction.customId === 'pats_past_sessions_back' ||
