@@ -1124,6 +1124,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
   
   // Handle PATS history interactions (admin)
   if (interaction.customId && interaction.customId.startsWith('history_')) {
+    // Dynamic import for history command functions
+    const patshistoryCommand = await import('./commands/patshistory.js');
+    
     try {
       if (interaction.customId === 'history_overview') {
         await patshistoryCommand.handleHistoryButton(interaction);
@@ -1157,6 +1160,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
   
   // Handle schedule interactions
   if (interaction.customId && interaction.customId.startsWith('schedule_')) {
+    // Dynamic import for schedule command functions
+    const patsscheduleCommand = await import('./commands/patsschedule.js');
+    
     try {
       if (interaction.customId === 'schedule_new_session') {
         await interaction.deferUpdate();
