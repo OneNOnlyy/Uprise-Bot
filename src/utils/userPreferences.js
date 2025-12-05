@@ -100,9 +100,9 @@ export async function showSettingsMenu(interaction) {
     const formatTiming = (minutes) => {
         if (!minutes) return '__Using session default__';
         if (Array.isArray(minutes)) {
-            return `Custom: __${minutes.map(m => `${m} min`).join(', ')}__`;
+            return `__${minutes.map(m => `${m} min`).join(', ')}__`;
         }
-        return `Custom: __${minutes} min__`;
+        return `__${minutes} min__`;
     };
     
     const reminderTiming = formatTiming(prefs.reminderMinutes);
