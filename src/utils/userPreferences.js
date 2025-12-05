@@ -96,14 +96,17 @@ export async function showSettingsMenu(interaction) {
     const warningsStatus = prefs.dmNotifications.warnings ? '✅ Enabled' : '❌ Disabled';
     const gameLocksStatus = prefs.dmNotifications.gameLocks ? '✅ Enabled' : '❌ Disabled';
     
-    // Get custom timing info
-    const reminderTiming = prefs.reminderMinutes 
-        ? (Array.isArray(prefs.reminderMinutes) ? `Custom: ${prefs.reminderMinutes.join(', ')} min` : `Custom: ${prefs.reminderMinutes} min`)
-        : 'Using session default';
+    // Get custom timing info (format each number with "min" and underline)
+    const formatTiming = (minutes) => {
+        if (!minutes) return '__Using session default__';
+        if (Array.isArray(minutes)) {
+            return `Custom: __${minutes.map(m => `${m} min`).join(', ')}__`;
+        }
+        return `Custom: __${minutes} min__`;
+    };
     
-    const warningTiming = prefs.warningMinutes 
-        ? (Array.isArray(prefs.warningMinutes) ? `Custom: ${prefs.warningMinutes.join(', ')} min` : `Custom: ${prefs.warningMinutes} min`)
-        : 'Using session default';
+    const reminderTiming = formatTiming(prefs.reminderMinutes);
+    const warningTiming = formatTiming(prefs.warningMinutes);
     
     const embed = new EmbedBuilder()
         .setColor('#2b2d31')
