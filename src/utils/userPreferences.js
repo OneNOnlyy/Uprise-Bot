@@ -114,11 +114,13 @@ export async function showSettingsMenu(interaction) {
                 name: 'Direct Message Notifications',
                 value: [
                     `⏰ **Reminders**: ${remindersStatus}`,
+                    `  └ *Get DMs about games you haven't picked yet*`,
                     `  └ Timing: ${reminderTiming}`,
                     `⚠️ **Warnings**: ${warningsStatus}`,
+                    `  └ *Get DMs when games you missed are about to lock*`,
                     `  └ Timing: ${warningTiming}`,
                     `🔒 **Game Lock Alerts**: ${gameLocksStatus}`,
-                    `  └ Sent when each game starts`
+                    `  └ *Get DMs when each game starts/locks*`
                 ].join('\n')
             },
             {
