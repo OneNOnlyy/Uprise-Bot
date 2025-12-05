@@ -14,6 +14,36 @@ The PATS Seasons system introduces structured competition periods with standings
 
 ---
 
+## ⚙️ Optional Feature
+
+**The PATS Seasons system is entirely optional.**
+
+PATS can continue to operate exactly as it does today without seasons enabled. When no season is active:
+
+- Sessions work exactly as they do now (manual `/pats start` or scheduled via `/pats schedule`)
+- All-time stats continue to track normally
+- Leaderboards show global/all-time standings
+- No changes to existing functionality
+
+### When to Use Seasons
+
+| Use Case | Seasons? |
+|----------|----------|
+| Casual picks with friends | ❌ Not needed |
+| Want monthly competitions with awards | ✅ Enable |
+| Testing PATS features | ❌ Not needed |
+| Running organized league-style competition | ✅ Enable |
+| Just want to track picks over time | ❌ Not needed |
+
+### Enabling/Disabling
+
+- **No Season Active**: PATS works exactly as it does today
+- **Create Season**: Use admin panel to create and activate a season
+- **End Season Early**: Can end anytime, awards calculated, returns to "no season" mode
+- **Seasons are independent**: Historical season data preserved even when not running a season
+
+---
+
 ## 📅 Season Structure
 
 ### Season Types
