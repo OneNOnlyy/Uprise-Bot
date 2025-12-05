@@ -1406,6 +1406,35 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   }
   
+  // Handle PATS Season interactions
+  if (interaction.customId && interaction.customId.startsWith('pats_season_')) {
+    try {
+      const patsseasonCommand = await import('./commands/patsseason.js');
+      
+      if (interaction.isButton()) {
+        await patsseasonCommand.handleButton(interaction);
+      }
+      else if (interaction.isStringSelectMenu() || interaction.isUserSelectMenu() || interaction.isChannelSelectMenu()) {
+        await patsseasonCommand.handleSelectMenu(interaction);
+      }
+      else if (interaction.isModalSubmit()) {
+        await patsseasonCommand.handleModal(interaction);
+      }
+    } catch (error) {
+      console.error('Error handling PATS season interaction:', error);
+      const errorMessage = { 
+        content: '❌ There was an error processing your request!', 
+        ephemeral: true 
+      };
+      
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(errorMessage);
+      } else {
+        await interaction.reply(errorMessage);
+      }
+    }
+  }
+  
   // Handle Mock Offseason interactions (buttons, select menus, modals)
   if (interaction.customId && interaction.customId.startsWith('mock_')) {
     try {

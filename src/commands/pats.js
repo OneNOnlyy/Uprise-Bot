@@ -159,7 +159,11 @@ export const data = new SlashCommandBuilder()
       .addUserOption(option =>
         option.setName('player')
           .setDescription('The player to remove')
-          .setRequired(true)));
+          .setRequired(true)))
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('season')
+      .setDescription('Manage PATS Seasons (Admin only)'));
 
 export async function execute(interaction) {
   const subcommand = interaction.options.getSubcommand();
@@ -214,6 +218,10 @@ export async function execute(interaction) {
       case 'deleteplayer': {
         const patsdeleteplayerCommand = await import('./patsdeleteplayer.js');
         return await patsdeleteplayerCommand.execute(interaction);
+      }
+      case 'season': {
+        const patsseasonCommand = await import('./patsseason.js');
+        return await patsseasonCommand.execute(interaction);
       }
     }
   }
