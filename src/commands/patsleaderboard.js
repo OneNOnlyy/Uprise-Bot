@@ -199,8 +199,10 @@ export async function buildLeaderboardEmbed(interaction, filterType = 'global', 
 
   // User's personal all-time stats (only show for non-season views)
   if (filterType !== 'season') {
-    // allTimeLeaderboard might not be defined if we're in season view, so check it exists
-    const allTimeData = filterType === 'role' ? allTimeLeaderboard : leaderboard;
+    // Calculate allTimeData based on filter type (can't use allTimeLeaderboard as it's block-scoped)
+    const allTimeData = filterType === 'role' 
+      ? leaderboard.filter(entry => patsRoleMembers.has(entry.userId))
+      : leaderboard;
     const userStatsData = leaderboard.find(entry => entry.userId === interaction.user.id);
     if (userStatsData) {
       // Calculate rank in current view (global or filtered)
