@@ -13,7 +13,7 @@ import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats, g
 import { getTeamAbbreviation, fetchCBSSportsScores } from '../utils/oddsApi.js';
 import { getUserSessionSnapshots, loadSessionSnapshot, loadInjuryData, loadRosterData } from '../utils/sessionSnapshot.js';
 import { getUpcomingScheduledSessions } from '../utils/sessionScheduler.js';
-import { getCurrentSeason, getSeasonStandings, isSeasonParticipant } from '../utils/patsSeasons.js';
+import { getCurrentSeason, getSeasonStandings, isUserInCurrentSeason } from '../utils/patsSeasons.js';
 
 /**
  * FAIL-SAFE: Fix spreads where one is 0 but the other isn't (they should be inverse)
@@ -605,7 +605,7 @@ export async function showDashboard(interaction) {
       
       // Add season info if user is participating in current season
       const currentSeason = getCurrentSeason();
-      if (currentSeason && isSeasonParticipant(currentSeason.id, interaction.user.id)) {
+      if (currentSeason && isUserInCurrentSeason(interaction.user.id)) {
         const standings = getSeasonStandings(currentSeason.id);
         const userStanding = standings.find(s => s.oddsUserId === interaction.user.id);
         
@@ -716,7 +716,7 @@ export async function showDashboard(interaction) {
 
   // Add season info if user is participating in current season
   const currentSeason = getCurrentSeason();
-  if (currentSeason && isSeasonParticipant(currentSeason.id, interaction.user.id)) {
+  if (currentSeason && isUserInCurrentSeason(interaction.user.id)) {
     const standings = getSeasonStandings(currentSeason.id);
     const userStanding = standings.find(s => s.oddsUserId === interaction.user.id);
     
