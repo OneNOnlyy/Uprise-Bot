@@ -689,6 +689,172 @@ export async function showSeasonHistory(interaction) {
 }
 
 /**
+ * Show Schedule Settings for current season
+ */
+export async function showScheduleSettings(interaction) {
+  const currentSeason = getCurrentSeason();
+  if (!currentSeason) {
+    return await showSeasonAdminMenu(interaction);
+  }
+  
+  const schedule = currentSeason.schedule || {};
+  
+  const embed = new EmbedBuilder()
+    .setTitle('⚙️ Season Schedule Settings')
+    .setDescription(`Configure auto-scheduling for **${currentSeason.name}**`)
+    .setColor('#5865F2')
+    .addFields(
+      { 
+        name: '🤖 Auto-Schedule', 
+        value: schedule.enabled ? '✅ Enabled - Sessions created automatically' : '❌ Disabled', 
+        inline: true 
+      },
+      { 
+        name: '📢 Announcement Channel', 
+        value: schedule.channelId ? `<#${schedule.channelId}>` : '_Not set_', 
+        inline: true 
+      },
+      { 
+        name: '⏰ Session Start', 
+        value: `${schedule.sessionStartMinutes || 60} min before first game`, 
+        inline: true 
+      },
+      { 
+        name: '📣 Announcement', 
+        value: `${schedule.announcementMinutes || 60} min before session`, 
+        inline: true 
+      },
+      { 
+        name: '🔔 Reminders', 
+        value: schedule.reminders?.enabled 
+          ? `__${(schedule.reminders?.minutes || [60, 30]).join(' min, ')} min__${schedule.reminders?.dm ? ' (DM)' : ''}` 
+          : '❌ Disabled', 
+        inline: true 
+      },
+      { 
+        name: '⚠️ Warnings', 
+        value: schedule.warnings?.enabled 
+          ? `__${(schedule.warnings?.minutes || [30, 10]).join(' min, ')} min__${schedule.warnings?.dm ? ' (DM)' : ''}` 
+          : '❌ Disabled', 
+        inline: true 
+      }
+    );
+  
+  if (schedule.enabled) {
+    embed.addFields({
+      name: '📅 How it works',
+      value: 'The bot checks hourly for NBA games. When games are found, a session is automatically scheduled with the configured settings.',
+      inline: false
+    });
+  }
+  
+  const toggleRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_toggle_auto_schedule')
+        .setLabel(schedule.enabled ? 'Disable Auto-Schedule' : 'Enable Auto-Schedule')
+        .setEmoji(schedule.enabled ? '❌' : '✅')
+        .setStyle(schedule.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
+    );
+  
+  const backButton = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_settings_back')
+        .setLabel('Back')
+        .setEmoji('🔙')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [toggleRow, backButton]
+  });
+}
+
+/**
+ * Show Manage Schedule - view upcoming scheduled sessions for the season
+ */
+export async function showManageSchedule(interaction) {
+  const currentSeason = getCurrentSeason();
+  if (!currentSeason) {
+    return await showSeasonAdminMenu(interaction);
+  }
+  
+  // Get scheduled sessions from the scheduler
+  const { getAllScheduledSessions } = await import('../utils/sessionScheduler.js');
+  const allSessions = getAllScheduledSessions();
+  
+  // Filter to only this season's sessions
+  const seasonSessions = allSessions.filter(s => 
+    s.seasonId === currentSeason.id || 
+    (new Date(s.scheduledDate) >= new Date(currentSeason.startDate) && 
+     new Date(s.scheduledDate) <= new Date(currentSeason.endDate))
+  );
+  
+  // Separate into upcoming and past
+  const now = new Date();
+  const upcomingSessions = seasonSessions.filter(s => new Date(s.firstGameTime) > now);
+  const pastSessions = seasonSessions.filter(s => new Date(s.firstGameTime) <= now);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📅 Season Schedule')
+    .setDescription(`Scheduled sessions for **${currentSeason.name}**`)
+    .setColor('#5865F2');
+  
+  if (upcomingSessions.length > 0) {
+    const upcomingText = upcomingSessions.slice(0, 5).map(s => {
+      const date = new Date(s.scheduledDate);
+      const gameCount = Array.isArray(s.gameDetails) ? s.gameDetails.length : s.games;
+      const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      return `• **${dateStr}** - ${gameCount} games`;
+    }).join('\n');
+    
+    embed.addFields({
+      name: `📆 Upcoming (${upcomingSessions.length})`,
+      value: upcomingText,
+      inline: false
+    });
+  } else {
+    embed.addFields({
+      name: '📆 Upcoming',
+      value: '_No upcoming sessions scheduled_',
+      inline: false
+    });
+  }
+  
+  if (pastSessions.length > 0) {
+    embed.addFields({
+      name: '✅ Completed This Season',
+      value: `${pastSessions.length} session${pastSessions.length !== 1 ? 's' : ''}`,
+      inline: true
+    });
+  }
+  
+  // Show auto-schedule status
+  const schedule = currentSeason.schedule || {};
+  embed.addFields({
+    name: '🤖 Auto-Schedule',
+    value: schedule.enabled ? '✅ Enabled' : '❌ Disabled',
+    inline: true
+  });
+  
+  const backButton = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_schedule_back')
+        .setLabel('Back')
+        .setEmoji('🔙')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [backButton]
+  });
+}
+
+/**
  * Handle button interactions
  */
 export async function handleButton(interaction) {
@@ -702,6 +868,11 @@ export async function handleButton(interaction) {
       // Go back to main PATS dashboard
       const patsCommand = await import('./pats.js');
       return await patsCommand.showDashboard(interaction);
+    }
+    
+    // Back buttons for sub-menus
+    if (customId === 'pats_season_settings_back' || customId === 'pats_season_schedule_back') {
+      return await showSeasonAdminMenu(interaction);
     }
     
     // Create Season Wizard
@@ -958,6 +1129,37 @@ export async function handleButton(interaction) {
         content: '⚠️ To edit dates, select a different season type from the dropdown. For custom dates, choose "Custom" type.',
         ephemeral: true
       });
+    }
+    
+    // Schedule Settings (view/edit current season's schedule settings)
+    if (customId === 'pats_season_settings') {
+      return await showScheduleSettings(interaction);
+    }
+    
+    // Toggle Auto-Schedule for existing season
+    if (customId === 'pats_season_toggle_auto_schedule') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      // Toggle the enabled state
+      if (!currentSeason.schedule) {
+        currentSeason.schedule = { enabled: false };
+      }
+      
+      // Update in data
+      const { updateSeasonScheduleSettings } = await import('../utils/patsSeasons.js');
+      updateSeasonScheduleSettings(currentSeason.id, {
+        enabled: !currentSeason.schedule.enabled
+      });
+      
+      return await showScheduleSettings(interaction);
+    }
+    
+    // Manage Schedule (view upcoming scheduled sessions)
+    if (customId === 'pats_season_schedule') {
+      return await showManageSchedule(interaction);
     }
     
     // Default - show admin menu

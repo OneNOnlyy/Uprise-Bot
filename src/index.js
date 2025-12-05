@@ -8,7 +8,9 @@ import { scheduleGameResultChecking } from './features/checkGameResults.js';
 import { scheduleTransactionFeed } from './features/transactionFeed.js';
 import { initGameWarnings } from './features/gameWarnings.js';
 import { initInjuryTracking, subscribeToInjuries, unsubscribeFromInjuries, isSubscribed } from './features/injuryTracking.js';
-import { loadScheduledSessions, scheduleSessionJobs } from './utils/sessionScheduler.js';
+import { loadScheduledSessions, scheduleSessionJobs, addScheduledSession } from './utils/sessionScheduler.js';
+import { initializeSeasonAutoScheduler } from './utils/patsSeasons.js';
+import { getESPNGamesForDate } from './utils/oddsApi.js';
 import * as gamethreadCommand from './commands/gamethread.js';
 import * as testpingCommand from './commands/testping.js';
 import * as sendgamepingCommand from './commands/sendgameping.js';
@@ -79,6 +81,15 @@ client.once(Events.ClientReady, async (readyClient) => {
   
   // Initialize scheduled PATS sessions
   initializeScheduledSessions(client);
+  
+  // Initialize season auto-scheduler
+  initializeSeasonAutoScheduler(
+    client,
+    getESPNGamesForDate,
+    addScheduledSession,
+    scheduleSessionJobs,
+    createSchedulerHandlers(client)
+  );
   
   // Start the NBA transaction feed
   scheduleTransactionFeed(client);
@@ -151,6 +162,32 @@ function initializeScheduledSessions(client) {
   });
   
   console.log(`   Initialized ${sessions.length} scheduled session(s)`);
+}
+
+/**
+ * Create notification handlers for the scheduler
+ * @param {Client} client - Discord client
+ * @returns {object} Handlers object
+ */
+function createSchedulerHandlers(client) {
+  return {
+    sendAnnouncement: async (session) => {
+      await sendSessionAnnouncement(client, session);
+      // Start the PATS session when announcement is sent
+      await startScheduledSession(client, session);
+    },
+    sendReminders: async (session) => {
+      await sendSessionReminder(client, session);
+    },
+    sendWarnings: async (session) => {
+      // Session warnings disabled - we use individual game warnings instead
+      console.log(`[Scheduler] Session warning skipped for ${session.id} (using game warnings instead)`);
+    },
+    startSession: async (session) => {
+      // Session already started at announcement time - no action needed
+      console.log(`[Scheduler] First game time reached for session ${session.id} (already started at announcement)`);
+    }
+  };
 }
 
 /**

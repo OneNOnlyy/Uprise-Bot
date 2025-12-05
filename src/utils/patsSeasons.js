@@ -1,10 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import cron from 'node-cron';
 import { readPATSData, writePATSData } from './patsData.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Store active season cron jobs
+const seasonCronJobs = new Map();
 
 // ============================================
 // SEASON CRUD OPERATIONS
@@ -980,6 +984,354 @@ export function updateSeasonScheduleConfig(config) {
   
   writePATSData(data);
   return data.seasons.current.scheduleConfig;
+}
+
+/**
+ * Update schedule settings for a specific season
+ * @param {string} seasonId - Season ID
+ * @param {object} settings - New schedule settings
+ * @returns {object} Updated settings
+ */
+export function updateSeasonScheduleSettings(seasonId, settings) {
+  const data = readPATSData();
+  ensureSeasonsStructure(data);
+  
+  let season = null;
+  
+  if (data.seasons.current && data.seasons.current.id === seasonId) {
+    season = data.seasons.current;
+  } else {
+    season = data.seasons.history.find(s => s.id === seasonId);
+  }
+  
+  if (!season) {
+    throw new Error('Season not found.');
+  }
+  
+  if (!season.schedule) {
+    season.schedule = {};
+  }
+  
+  season.schedule = {
+    ...season.schedule,
+    ...settings
+  };
+  
+  writePATSData(data);
+  console.log(`[SEASONS] Updated schedule settings for season ${seasonId}:`, settings);
+  return season.schedule;
+}
+
+// ============================================
+// SEASON AUTO-SCHEDULING
+// ============================================
+
+/**
+ * Check if a session is already scheduled for a given date
+ * @param {string} date - Date in YYYY-MM-DD format
+ * @returns {boolean} True if session already scheduled
+ */
+export function isSessionScheduledForDate(date) {
+  const data = readPATSData();
+  
+  // Check current active session
+  if (data.activeSession && data.activeSession.date === date) {
+    return true;
+  }
+  
+  // Check scheduled sessions (from sessionScheduler)
+  try {
+    const scheduledSessionsPath = path.join(__dirname, '../../data/scheduled-sessions.json');
+    if (fs.existsSync(scheduledSessionsPath)) {
+      const scheduledData = JSON.parse(fs.readFileSync(scheduledSessionsPath, 'utf8'));
+      const hasScheduled = scheduledData.sessions.some(s => s.scheduledDate === date);
+      if (hasScheduled) return true;
+    }
+  } catch (error) {
+    console.error('[SEASONS] Error checking scheduled sessions:', error);
+  }
+  
+  return false;
+}
+
+/**
+ * Get the next date that needs a session scheduled
+ * @param {number} daysAhead - How many days ahead to check (default 2)
+ * @returns {string|null} Date in YYYY-MM-DD format, or null if all scheduled
+ */
+export function getNextUnscheduledDate(daysAhead = 2) {
+  const currentSeason = getCurrentSeason();
+  if (!currentSeason) return null;
+  
+  const now = new Date();
+  const seasonEnd = new Date(currentSeason.endDate);
+  
+  for (let i = 0; i <= daysAhead; i++) {
+    const checkDate = new Date(now);
+    checkDate.setDate(checkDate.getDate() + i);
+    
+    // Don't schedule past season end
+    if (checkDate > seasonEnd) break;
+    
+    const dateStr = checkDate.toISOString().split('T')[0];
+    
+    if (!isSessionScheduledForDate(dateStr)) {
+      return dateStr;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Auto-schedule a session for a given date based on season config
+ * @param {object} client - Discord client for sending notifications
+ * @param {string} date - Date in YYYY-MM-DD format
+ * @param {Function} getGamesForDate - Function to get games for a date
+ * @param {Function} addScheduledSession - Function to add a scheduled session
+ * @returns {object|null} Created session or null if not possible
+ */
+export async function autoScheduleSessionForDate(client, date, getGamesForDate, addScheduledSession) {
+  const currentSeason = getCurrentSeason();
+  if (!currentSeason) {
+    console.log('[SEASONS] No active season for auto-scheduling');
+    return null;
+  }
+  
+  // Check if auto-schedule is enabled
+  if (!currentSeason.schedule?.enabled) {
+    console.log('[SEASONS] Auto-scheduling is disabled for this season');
+    return null;
+  }
+  
+  // Check if already scheduled
+  if (isSessionScheduledForDate(date)) {
+    console.log(`[SEASONS] Session already scheduled for ${date}`);
+    return null;
+  }
+  
+  // Check if date is within season bounds
+  const checkDate = new Date(date);
+  const seasonStart = new Date(currentSeason.startDate);
+  const seasonEnd = new Date(currentSeason.endDate);
+  
+  if (checkDate < seasonStart || checkDate > seasonEnd) {
+    console.log(`[SEASONS] Date ${date} is outside season bounds`);
+    return null;
+  }
+  
+  console.log(`[SEASONS] Auto-scheduling session for ${date}...`);
+  
+  // Fetch games for the date
+  const games = await getGamesForDate(date);
+  
+  if (!games || games.length === 0) {
+    console.log(`[SEASONS] No games found for ${date}`);
+    return null;
+  }
+  
+  const minGames = currentSeason.schedule?.minGames || 3;
+  if (games.length < minGames) {
+    console.log(`[SEASONS] Only ${games.length} games found for ${date}, need at least ${minGames}`);
+    return null;
+  }
+  
+  // Get season schedule config
+  const config = currentSeason.schedule || {};
+  const channelId = config.channelId;
+  
+  if (!channelId) {
+    console.log('[SEASONS] No announcement channel configured for season');
+    return null;
+  }
+  
+  // Calculate times
+  const firstGameTime = new Date(Math.min(...games.map(g => new Date(g.commenceTime))));
+  const sessionStartOffset = config.sessionStartMinutes || 60;
+  const announcementOffset = config.announcementMinutes || 60;
+  
+  // Session starts X minutes before first game
+  const sessionStartTime = new Date(firstGameTime.getTime() - (sessionStartOffset * 60 * 1000));
+  // Announcement goes out X minutes before session starts
+  const announcementTime = new Date(sessionStartTime.getTime() - (announcementOffset * 60 * 1000));
+  
+  // Build game details
+  const gameDetails = games.map(game => ({
+    id: game.id,
+    awayTeam: game.awayTeam,
+    homeTeam: game.homeTeam,
+    awayAbbr: game.awayAbbr,
+    homeAbbr: game.homeAbbr,
+    startTime: game.commenceTime
+  }));
+  
+  // Get guild ID from channel
+  let guildId = null;
+  try {
+    const channel = await client.channels.fetch(channelId);
+    guildId = channel.guild.id;
+  } catch (error) {
+    console.error('[SEASONS] Error fetching channel:', error);
+    return null;
+  }
+  
+  // Build participant lists from season
+  const roleIds = [];
+  const userIds = currentSeason.participants || [];
+  
+  // Create session config
+  const sessionConfig = {
+    guildId: guildId,
+    channelId: channelId,
+    scheduledDate: date,
+    firstGameTime: firstGameTime.toISOString(),
+    games: games.length,
+    gameDetails: gameDetails,
+    participantType: 'users',
+    roleIds: roleIds,
+    userIds: userIds,
+    notifications: {
+      announcement: {
+        enabled: true,
+        time: announcementTime.toISOString()
+      },
+      reminder: {
+        enabled: config.reminders?.enabled ?? true,
+        minutesBefore: config.reminders?.minutes?.[0] || 60
+      },
+      warning: {
+        enabled: config.warnings?.enabled ?? true,
+        minutesBefore: config.warnings?.minutes?.[0] || 30
+      }
+    },
+    createdBy: 'auto',
+    createdByUsername: 'Season Auto-Scheduler',
+    seasonId: currentSeason.id,
+    seasonName: currentSeason.name
+  };
+  
+  // Add the scheduled session
+  const session = addScheduledSession(sessionConfig);
+  
+  console.log(`[SEASONS] ✅ Auto-scheduled session ${session.id} for ${date} with ${games.length} games`);
+  console.log(`[SEASONS]    Announcement: ${announcementTime.toLocaleString()}`);
+  console.log(`[SEASONS]    Session Start: ${sessionStartTime.toLocaleString()}`);
+  console.log(`[SEASONS]    First Game: ${firstGameTime.toLocaleString()}`);
+  
+  return session;
+}
+
+/**
+ * Run the auto-scheduler check
+ * This checks for any dates that need sessions scheduled
+ * @param {object} client - Discord client
+ * @param {Function} getGamesForDate - Function to get games for a date
+ * @param {Function} addScheduledSession - Function to add a scheduled session
+ * @param {Function} scheduleSessionJobs - Function to schedule cron jobs for a session
+ * @param {object} handlers - Notification handlers
+ */
+export async function runAutoSchedulerCheck(client, getGamesForDate, addScheduledSession, scheduleSessionJobs, handlers) {
+  const currentSeason = getCurrentSeason();
+  if (!currentSeason) {
+    console.log('[SEASONS] No active season - skipping auto-schedule check');
+    return;
+  }
+  
+  if (!currentSeason.schedule?.enabled) {
+    console.log('[SEASONS] Auto-scheduling disabled for current season');
+    return;
+  }
+  
+  console.log('[SEASONS] Running auto-scheduler check...');
+  
+  const daysAhead = currentSeason.schedule?.scheduleDaysAhead || 2;
+  
+  // Check today and future days
+  for (let i = 0; i <= daysAhead; i++) {
+    const checkDate = new Date();
+    checkDate.setDate(checkDate.getDate() + i);
+    const dateStr = checkDate.toISOString().split('T')[0];
+    
+    // Check if within season bounds
+    const seasonEnd = new Date(currentSeason.endDate);
+    if (checkDate > seasonEnd) {
+      console.log(`[SEASONS] Date ${dateStr} is past season end - stopping check`);
+      break;
+    }
+    
+    if (!isSessionScheduledForDate(dateStr)) {
+      console.log(`[SEASONS] No session scheduled for ${dateStr} - attempting to auto-schedule`);
+      
+      const session = await autoScheduleSessionForDate(
+        client, 
+        dateStr, 
+        getGamesForDate, 
+        addScheduledSession
+      );
+      
+      if (session && scheduleSessionJobs && handlers) {
+        // Schedule cron jobs for the new session
+        scheduleSessionJobs(session, handlers);
+      }
+    }
+  }
+  
+  console.log('[SEASONS] Auto-scheduler check complete');
+}
+
+/**
+ * Initialize the season auto-scheduler cron job
+ * Runs every hour to check for sessions that need scheduling
+ * @param {object} client - Discord client
+ * @param {Function} getGamesForDate - Function to get games for a date
+ * @param {Function} addScheduledSession - Function to add a scheduled session
+ * @param {Function} scheduleSessionJobs - Function to schedule cron jobs for a session
+ * @param {object} handlers - Notification handlers
+ */
+export function initializeSeasonAutoScheduler(client, getGamesForDate, addScheduledSession, scheduleSessionJobs, handlers) {
+  console.log('[SEASONS] Initializing season auto-scheduler...');
+  
+  // Stop any existing cron job
+  const existingJob = seasonCronJobs.get('auto_scheduler');
+  if (existingJob) {
+    existingJob.stop();
+    seasonCronJobs.delete('auto_scheduler');
+  }
+  
+  // Run immediately on startup
+  setTimeout(async () => {
+    await runAutoSchedulerCheck(client, getGamesForDate, addScheduledSession, scheduleSessionJobs, handlers);
+  }, 5000); // Wait 5 seconds after startup
+  
+  // Schedule to run every hour at minute 0
+  // This gives us good coverage for scheduling sessions in advance
+  const job = cron.schedule('0 * * * *', async () => {
+    console.log('[SEASONS] Hourly auto-scheduler check triggered');
+    await runAutoSchedulerCheck(client, getGamesForDate, addScheduledSession, scheduleSessionJobs, handlers);
+  }, { timezone: 'America/Los_Angeles' });
+  
+  seasonCronJobs.set('auto_scheduler', job);
+  console.log('[SEASONS] ✅ Season auto-scheduler initialized (runs hourly)');
+}
+
+/**
+ * Stop the season auto-scheduler
+ */
+export function stopSeasonAutoScheduler() {
+  const job = seasonCronJobs.get('auto_scheduler');
+  if (job) {
+    job.stop();
+    seasonCronJobs.delete('auto_scheduler');
+    console.log('[SEASONS] Season auto-scheduler stopped');
+  }
+}
+
+/**
+ * Check if auto-scheduler is running
+ * @returns {boolean} True if running
+ */
+export function isAutoSchedulerRunning() {
+  return seasonCronJobs.has('auto_scheduler');
 }
 
 // Export loadPATSData and savePATSData aliases for compatibility
