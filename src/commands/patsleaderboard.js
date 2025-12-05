@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { getLeaderboard, getActiveSession, getUserPicks, getLiveSessionLeaderboard, getCurrentSessionStats } from '../utils/patsData.js';
+import { getCurrentSeason, getSeasonStandings } from '../utils/patsSeasons.js';
 
 // PATS Role ID for Blazers Uprise filter
 const PATS_ROLE_ID = '1445979227525746798';
@@ -9,27 +10,37 @@ export const data = new SlashCommandBuilder()
   .setDescription('View the Picks Against The Spread leaderboard');
 
 /**
- * Build leaderboard embed with optional role filter
+ * Build leaderboard embed with optional filters
  * @param {Interaction} interaction 
- * @param {boolean} filterByRole - If true, only show members with PATS role
+ * @param {string} filterType - 'global', 'role', or 'season'
  * @param {boolean} fromStatsMenu - If true, show navigation buttons for stats menu
  */
-export async function buildLeaderboardEmbed(interaction, filterByRole = false, fromStatsMenu = false) {
+export async function buildLeaderboardEmbed(interaction, filterType = 'global', fromStatsMenu = false) {
+  // Handle legacy boolean parameter
+  if (typeof filterType === 'boolean') {
+    filterType = filterType ? 'role' : 'global';
+  }
+  
   const leaderboard = getLeaderboard();
   const session = getActiveSession();
   const liveLeaderboard = getLiveSessionLeaderboard();
+  const currentSeason = getCurrentSeason();
   
-  const leaderboardType = filterByRole ? "Blazers Uprise" : "Global";
+  const leaderboardTitles = {
+    global: '🌐 Global PATS Leaderboard',
+    role: '🔥 Blazers Uprise PATS Leaderboard',
+    season: currentSeason ? `🏆 ${currentSeason.name} Leaderboard` : '🏆 Season Leaderboard'
+  };
   
   const embed = new EmbedBuilder()
-    .setTitle(`🏆 ${leaderboardType} PATS Leaderboard`)
-    .setDescription(`Top performers in Picks Against The Spread${filterByRole ? ' (PATS Role Members)' : ''}`)
-    .setColor(filterByRole ? 0xE03A3E : 0x5865F2) // Blazers red for filtered, blue for global
+    .setTitle(leaderboardTitles[filterType] || leaderboardTitles.global)
+    .setDescription(`Top performers in Picks Against The Spread`)
+    .setColor(filterType === 'role' ? 0xE03A3E : (filterType === 'season' ? 0xFFD700 : 0x5865F2))
     .setTimestamp();
 
-  // Get members with PATS role if filtering
+  // Get members with PATS role if filtering by role
   let patsRoleMembers = new Set();
-  if (filterByRole) {
+  if (filterType === 'role') {
     try {
       const role = await interaction.guild.roles.fetch(PATS_ROLE_ID);
       if (role) {
@@ -40,28 +51,91 @@ export async function buildLeaderboardEmbed(interaction, filterByRole = false, f
     }
   }
 
-  // Show live session leaderboard if active
-  if (liveLeaderboard && liveLeaderboard.standings.length > 0) {
-    let standings = liveLeaderboard.standings;
-    
-    // Filter by role if needed
-    if (filterByRole) {
-      standings = standings.filter(entry => patsRoleMembers.has(entry.userId));
-    }
-    
-    const top10 = standings.slice(0, 10);
-    
-    const sessionLeaderboardText = (await Promise.all(top10.map(async (entry, index) => {
-      try {
-        const member = await interaction.guild.members.fetch(entry.userId);
-        const displayName = member.displayName;
-        const record = `${entry.wins}-${entry.losses}-${entry.pushes}`;
-        const winPct = entry.totalComplete > 0 ? ` (${entry.winPercentage.toFixed(1)}%)` : '';
-        const pendingText = entry.pending > 0 ? ` • ${entry.pending} pending` : '';
-        return `${index + 1}. ${displayName} - ${record}${winPct}${pendingText}`;
-      } catch {
-        return null;
+  // SEASON LEADERBOARD
+  if (filterType === 'season') {
+    if (!currentSeason) {
+      embed.setDescription('No active season. Create a season with `/pats season` to track season standings.');
+    } else {
+      const seasonStandings = getSeasonStandings(currentSeason.id);
+      
+      // Calculate days remaining
+      const endDate = new Date(currentSeason.endDate);
+      const now = new Date();
+      const daysRemaining = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+      const daysText = daysRemaining > 0 ? `${daysRemaining} days remaining` : 'Ending soon';
+      
+      embed.setDescription(`Season standings for **${currentSeason.name}**\n${daysText} • ${currentSeason.sessionCount || 0} sessions played`);
+      
+      if (seasonStandings.length > 0) {
+        const top10 = seasonStandings.slice(0, 10);
+        
+        const seasonText = (await Promise.all(top10.map(async (entry, index) => {
+          try {
+            const member = await interaction.guild.members.fetch(entry.oddsUserId);
+            const displayName = member.displayName;
+            const totalPicks = entry.wins + entry.losses + entry.pushes;
+            const record = `${entry.wins}-${entry.losses}-${entry.pushes}`;
+            return `${index + 1}. ${displayName} - ${record} (${entry.winPercentage.toFixed(1)}%)`;
+          } catch {
+            const record = `${entry.wins}-${entry.losses}-${entry.pushes}`;
+            return `${index + 1}. ${entry.username || 'Unknown'} - ${record} (${entry.winPercentage.toFixed(1)}%)`;
+          }
+        }))).filter(Boolean);
+
+        embed.addFields({
+          name: '🏆 Season Standings',
+          value: seasonText.join('\n') || 'No picks yet this season',
+          inline: false
+        });
+      } else {
+        embed.addFields({
+          name: '🏆 Season Standings',
+          value: 'No participants have made picks this season yet.',
+          inline: false
+        });
       }
+      
+      // Show user's season rank
+      const userSeasonEntry = seasonStandings.find(e => e.oddsUserId === interaction.user.id);
+      if (userSeasonEntry) {
+        const userRank = seasonStandings.indexOf(userSeasonEntry) + 1;
+        const totalPicks = userSeasonEntry.wins + userSeasonEntry.losses + userSeasonEntry.pushes;
+        
+        embed.addFields({
+          name: '📈 Your Season Stats',
+          value: `**Rank:** #${userRank} of ${seasonStandings.length}\n` +
+                 `**Record:** ${userSeasonEntry.wins}-${userSeasonEntry.losses}-${userSeasonEntry.pushes}\n` +
+                 `**Win %:** ${userSeasonEntry.winPercentage.toFixed(1)}%\n` +
+                 `**Total Picks:** ${totalPicks}`,
+          inline: true
+        });
+      }
+    }
+  } else {
+    // GLOBAL or ROLE LEADERBOARD (original logic)
+    
+    // Show live session leaderboard if active
+    if (liveLeaderboard && liveLeaderboard.standings.length > 0) {
+      let standings = liveLeaderboard.standings;
+      
+      // Filter by role if needed
+      if (filterType === 'role') {
+        standings = standings.filter(entry => patsRoleMembers.has(entry.userId));
+      }
+      
+      const top10 = standings.slice(0, 10);
+      
+      const sessionLeaderboardText = (await Promise.all(top10.map(async (entry, index) => {
+        try {
+          const member = await interaction.guild.members.fetch(entry.userId);
+          const displayName = member.displayName;
+          const record = `${entry.wins}-${entry.losses}-${entry.pushes}`;
+          const winPct = entry.totalComplete > 0 ? ` (${entry.winPercentage.toFixed(1)}%)` : '';
+          const pendingText = entry.pending > 0 ? ` • ${entry.pending} pending` : '';
+          return `${index + 1}. ${displayName} - ${record}${winPct}${pendingText}`;
+        } catch {
+          return null;
+        }
     }))).filter(Boolean);
 
     if (sessionLeaderboardText.length > 0) {
@@ -75,7 +149,7 @@ export async function buildLeaderboardEmbed(interaction, filterByRole = false, f
 
   // Overall all-time stats
   let allTimeLeaderboard = leaderboard;
-  if (filterByRole) {
+  if (filterType === 'role') {
     allTimeLeaderboard = leaderboard.filter(entry => patsRoleMembers.has(entry.userId));
   }
   
@@ -100,7 +174,7 @@ export async function buildLeaderboardEmbed(interaction, filterByRole = false, f
   } else {
     embed.addFields({
       name: '🏅 All-Time Leaders',
-      value: filterByRole ? 'No PATS role members have stats yet.' : 'No stats yet! Be the first to participate in PATS.',
+      value: filterType === 'role' ? 'No PATS role members have stats yet.' : 'No stats yet! Be the first to participate in PATS.',
       inline: false
     });
   }
@@ -121,27 +195,32 @@ export async function buildLeaderboardEmbed(interaction, filterByRole = false, f
       });
     }
   }
+  } // End of else block (non-season leaderboard)
 
-  // User's personal all-time stats
-  const userStatsData = leaderboard.find(entry => entry.userId === interaction.user.id);
-  if (userStatsData) {
-    // Calculate rank in current view (global or filtered)
-    const rankLeaderboard = filterByRole ? allTimeLeaderboard : leaderboard;
-    const rank = rankLeaderboard.findIndex(entry => entry.userId === interaction.user.id) + 1;
-    const rankDisplay = rank > 0 ? `#${rank}` : 'Unranked';
-    
-    const ddStats = (userStatsData.doubleDownsUsed || 0) > 0 
-      ? `\n**Double Downs:** ${userStatsData.doubleDownWins || 0}-${userStatsData.doubleDownLosses || 0}-${userStatsData.doubleDownPushes || 0} 💰`
-      : '';
-    
-    embed.addFields({
-      name: '📈 Your All-Time Stats',
-      value: `**Rank:** ${rankDisplay}${filterByRole ? ' (Blazers Uprise)' : ' (Global)'}\n` +
-             `**Record:** ${userStatsData.totalWins}-${userStatsData.totalLosses}-${userStatsData.totalPushes}\n` +
-             `**Win %:** ${userStatsData.winPercentage.toFixed(1)}%\n` +
-             `**Sessions:** ${userStatsData.sessions}${ddStats}`,
-      inline: true
-    });
+  // User's personal all-time stats (only show for non-season views)
+  if (filterType !== 'season') {
+    // allTimeLeaderboard might not be defined if we're in season view, so check it exists
+    const allTimeData = filterType === 'role' ? allTimeLeaderboard : leaderboard;
+    const userStatsData = leaderboard.find(entry => entry.userId === interaction.user.id);
+    if (userStatsData) {
+      // Calculate rank in current view (global or filtered)
+      const rankLeaderboard = allTimeData;
+      const rank = rankLeaderboard.findIndex(entry => entry.userId === interaction.user.id) + 1;
+      const rankDisplay = rank > 0 ? `#${rank}` : 'Unranked';
+      
+      const ddStats = (userStatsData.doubleDownsUsed || 0) > 0 
+        ? `\n**Double Downs:** ${userStatsData.doubleDownWins || 0}-${userStatsData.doubleDownLosses || 0}-${userStatsData.doubleDownPushes || 0} 💰`
+        : '';
+      
+      embed.addFields({
+        name: '📈 Your All-Time Stats',
+        value: `**Rank:** ${rankDisplay}${filterType === 'role' ? ' (Blazers Uprise)' : ' (Global)'}\n` +
+               `**Record:** ${userStatsData.totalWins}-${userStatsData.totalLosses}-${userStatsData.totalPushes}\n` +
+               `**Win %:** ${userStatsData.winPercentage.toFixed(1)}%\n` +
+               `**Sessions:** ${userStatsData.sessions}${ddStats}`,
+        inline: true
+      });
+    }
   }
 
   embed.setFooter({ text: 'Keep making picks to climb the leaderboard!' });
@@ -152,19 +231,25 @@ export async function buildLeaderboardEmbed(interaction, filterByRole = false, f
   // Use different button IDs based on context to preserve navigation state
   const globalButtonId = fromStatsMenu ? 'pats_leaderboard_global_stats' : 'pats_leaderboard_global_cmd';
   const blazersButtonId = fromStatsMenu ? 'pats_leaderboard_blazers_stats' : 'pats_leaderboard_blazers_cmd';
+  const seasonButtonId = fromStatsMenu ? 'pats_leaderboard_season_stats' : 'pats_leaderboard_season_cmd';
   
-  // Toggle buttons row
+  // Toggle buttons row - now with 3 options
   const toggleRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(globalButtonId)
       .setLabel('🌐 Global')
-      .setStyle(filterByRole ? ButtonStyle.Secondary : ButtonStyle.Primary)
-      .setDisabled(!filterByRole),
+      .setStyle(filterType === 'global' ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setDisabled(filterType === 'global'),
     new ButtonBuilder()
       .setCustomId(blazersButtonId)
-      .setLabel('🔥 Blazers Uprise')
-      .setStyle(filterByRole ? ButtonStyle.Primary : ButtonStyle.Secondary)
-      .setDisabled(filterByRole)
+      .setLabel('🔥 Blazers')
+      .setStyle(filterType === 'role' ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setDisabled(filterType === 'role'),
+    new ButtonBuilder()
+      .setCustomId(seasonButtonId)
+      .setLabel('🏆 This Season')
+      .setStyle(filterType === 'season' ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setDisabled(filterType === 'season' || !currentSeason)
   );
   components.push(toggleRow);
   
@@ -186,8 +271,12 @@ export async function buildLeaderboardEmbed(interaction, filterByRole = false, f
 /**
  * Show leaderboard with toggle buttons (called from stats menu)
  */
-export async function showLeaderboardFromStats(interaction, filterByRole = false) {
-  const { embed, components } = await buildLeaderboardEmbed(interaction, filterByRole, true);
+export async function showLeaderboardFromStats(interaction, filterType = 'global') {
+  // Handle legacy boolean parameter
+  if (typeof filterType === 'boolean') {
+    filterType = filterType ? 'role' : 'global';
+  }
+  const { embed, components } = await buildLeaderboardEmbed(interaction, filterType, true);
   
   await interaction.editReply({
     embeds: [embed],
@@ -198,8 +287,12 @@ export async function showLeaderboardFromStats(interaction, filterByRole = false
 /**
  * Show leaderboard standalone (called from /pats leaderboard command or its toggle buttons)
  */
-export async function showLeaderboardStandalone(interaction, filterByRole = false) {
-  const { embed, components } = await buildLeaderboardEmbed(interaction, filterByRole, false);
+export async function showLeaderboardStandalone(interaction, filterType = 'global') {
+  // Handle legacy boolean parameter
+  if (typeof filterType === 'boolean') {
+    filterType = filterType ? 'role' : 'global';
+  }
+  const { embed, components } = await buildLeaderboardEmbed(interaction, filterType, false);
   
   await interaction.editReply({
     embeds: [embed],
@@ -214,7 +307,7 @@ export async function execute(interaction) {
       await interaction.deferReply();
     }
 
-    const { embed, components } = await buildLeaderboardEmbed(interaction, false, false);
+    const { embed, components } = await buildLeaderboardEmbed(interaction, 'global', false);
 
     await interaction.editReply({ 
       embeds: [embed],

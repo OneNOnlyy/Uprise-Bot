@@ -343,22 +343,32 @@ export async function handleDashboardButton(interaction) {
       // Switch to global leaderboard (from stats menu)
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
-      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, false);
+      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'global');
     } else if (interaction.customId === 'pats_leaderboard_blazers_stats') {
       // Switch to Blazers Uprise leaderboard (from stats menu)
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
-      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, true);
+      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'role');
+    } else if (interaction.customId === 'pats_leaderboard_season_stats') {
+      // Switch to This Season leaderboard (from stats menu)
+      const patsleaderboardCommand = await import('./patsleaderboard.js');
+      await interaction.deferUpdate();
+      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'season');
     } else if (interaction.customId === 'pats_leaderboard_global_cmd') {
       // Switch to global leaderboard (from /pats leaderboard command)
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
-      return await patsleaderboardCommand.showLeaderboardStandalone(interaction, false);
+      return await patsleaderboardCommand.showLeaderboardStandalone(interaction, 'global');
     } else if (interaction.customId === 'pats_leaderboard_blazers_cmd') {
       // Switch to Blazers Uprise leaderboard (from /pats leaderboard command)
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
-      return await patsleaderboardCommand.showLeaderboardStandalone(interaction, true);
+      return await patsleaderboardCommand.showLeaderboardStandalone(interaction, 'role');
+    } else if (interaction.customId === 'pats_leaderboard_season_cmd') {
+      // Switch to This Season leaderboard (from /pats leaderboard command)
+      const patsleaderboardCommand = await import('./patsleaderboard.js');
+      await interaction.deferUpdate();
+      return await patsleaderboardCommand.showLeaderboardStandalone(interaction, 'season');
     } else if (interaction.customId === 'pats_leaderboard_back_to_stats') {
       // Return to stats menu from leaderboard
       await interaction.deferUpdate();
