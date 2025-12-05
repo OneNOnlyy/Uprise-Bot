@@ -10,7 +10,7 @@ import {
   getSeasonSchedule,
   addScheduledSession,
   removeScheduledSession,
-  isSeasonParticipant,
+  isUserInCurrentSeason,
   getSeasonHistory,
   getSessionsInSeason,
   getSeasonById
@@ -1023,8 +1023,8 @@ export async function handleButton(interaction) {
         if (role) {
           let addedCount = 0;
           for (const [memberId, member] of role.members) {
-            if (!isSeasonParticipant(currentSeason.id, memberId)) {
-              addSeasonParticipant(currentSeason.id, memberId, member.user.username);
+            if (!isUserInCurrentSeason(memberId)) {
+              addSeasonParticipant(memberId);
               addedCount++;
             }
           }
@@ -1276,13 +1276,8 @@ export async function handleSelectMenu(interaction) {
       
       const userId = interaction.values[0];
       
-      // Get username
-      try {
-        const user = await interaction.client.users.fetch(userId);
-        addSeasonParticipant(currentSeason.id, userId, user.username);
-      } catch (error) {
-        addSeasonParticipant(currentSeason.id, userId);
-      }
+      // Add participant
+      addSeasonParticipant(userId);
       
       return await showManageParticipants(interaction);
     }
@@ -1295,7 +1290,7 @@ export async function handleSelectMenu(interaction) {
       }
       
       const userId = interaction.values[0];
-      removeSeasonParticipant(currentSeason.id, userId);
+      removeSeasonParticipant(userId);
       
       return await showManageParticipants(interaction);
     }
