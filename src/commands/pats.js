@@ -1425,9 +1425,9 @@ async function showEveryonesPicks(interaction, gameIndex = 0) {
     for (const { userId, pick } of gamePicks) {
       const ddTag = pick.isDoubleDown ? ' 💰' : '';
       
-      // Use fetched member for display name, fallback to mention
+      // Use display name directly to avoid Discord client-side mention resolution issues
       const member = memberCache.get(userId);
-      const userDisplay = member ? `<@${userId}>` : `Unknown User`;
+      const userDisplay = member ? `**${member.displayName}**` : `Unknown User`;
       
       // Determine if this pick won/lost/pending
       let resultEmoji = '';
