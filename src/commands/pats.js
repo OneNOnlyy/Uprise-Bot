@@ -326,20 +326,30 @@ export async function handleDashboardButton(interaction) {
       await interaction.deferUpdate();
       await showPastSessionsBrowser(interaction);
     } else if (interaction.customId === 'pats_stats_menu_leaderboard') {
-      // Show leaderboard with toggle buttons
+      // Show leaderboard with toggle buttons (from stats menu)
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
       return await patsleaderboardCommand.showLeaderboardFromStats(interaction, false);
-    } else if (interaction.customId === 'pats_leaderboard_global') {
-      // Switch to global leaderboard
+    } else if (interaction.customId === 'pats_leaderboard_global_stats') {
+      // Switch to global leaderboard (from stats menu)
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
       return await patsleaderboardCommand.showLeaderboardFromStats(interaction, false);
-    } else if (interaction.customId === 'pats_leaderboard_blazers') {
-      // Switch to Blazers Uprise leaderboard (PATS role only)
+    } else if (interaction.customId === 'pats_leaderboard_blazers_stats') {
+      // Switch to Blazers Uprise leaderboard (from stats menu)
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
       return await patsleaderboardCommand.showLeaderboardFromStats(interaction, true);
+    } else if (interaction.customId === 'pats_leaderboard_global_cmd') {
+      // Switch to global leaderboard (from /pats leaderboard command)
+      const patsleaderboardCommand = await import('./patsleaderboard.js');
+      await interaction.deferUpdate();
+      return await patsleaderboardCommand.showLeaderboardStandalone(interaction, false);
+    } else if (interaction.customId === 'pats_leaderboard_blazers_cmd') {
+      // Switch to Blazers Uprise leaderboard (from /pats leaderboard command)
+      const patsleaderboardCommand = await import('./patsleaderboard.js');
+      await interaction.deferUpdate();
+      return await patsleaderboardCommand.showLeaderboardStandalone(interaction, true);
     } else if (interaction.customId === 'pats_leaderboard_back_to_stats') {
       // Return to stats menu from leaderboard
       await interaction.deferUpdate();

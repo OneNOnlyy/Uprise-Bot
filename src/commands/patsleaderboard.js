@@ -149,15 +149,19 @@ export async function buildLeaderboardEmbed(interaction, filterByRole = false, f
   // Build components based on context
   const components = [];
   
+  // Use different button IDs based on context to preserve navigation state
+  const globalButtonId = fromStatsMenu ? 'pats_leaderboard_global_stats' : 'pats_leaderboard_global_cmd';
+  const blazersButtonId = fromStatsMenu ? 'pats_leaderboard_blazers_stats' : 'pats_leaderboard_blazers_cmd';
+  
   // Toggle buttons row
   const toggleRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId('pats_leaderboard_global')
+      .setCustomId(globalButtonId)
       .setLabel('🌐 Global')
       .setStyle(filterByRole ? ButtonStyle.Secondary : ButtonStyle.Primary)
       .setDisabled(!filterByRole),
     new ButtonBuilder()
-      .setCustomId('pats_leaderboard_blazers')
+      .setCustomId(blazersButtonId)
       .setLabel('🔥 Blazers Uprise')
       .setStyle(filterByRole ? ButtonStyle.Primary : ButtonStyle.Secondary)
       .setDisabled(filterByRole)
@@ -184,6 +188,18 @@ export async function buildLeaderboardEmbed(interaction, filterByRole = false, f
  */
 export async function showLeaderboardFromStats(interaction, filterByRole = false) {
   const { embed, components } = await buildLeaderboardEmbed(interaction, filterByRole, true);
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: components
+  });
+}
+
+/**
+ * Show leaderboard standalone (called from /pats leaderboard command or its toggle buttons)
+ */
+export async function showLeaderboardStandalone(interaction, filterByRole = false) {
+  const { embed, components } = await buildLeaderboardEmbed(interaction, filterByRole, false);
   
   await interaction.editReply({
     embeds: [embed],
