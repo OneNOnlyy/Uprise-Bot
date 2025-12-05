@@ -343,3 +343,50 @@ export function fixSnapshotParticipants() {
   console.log(`[SNAPSHOT] Fixed ${fixedCount} snapshots`);
   return fixedCount;
 }
+
+/**
+ * Rebuild the snapshot index from existing snapshot files
+ * Use this if the index is empty but snapshot files exist
+ */
+export function rebuildSnapshotIndex() {
+  console.log(`[SNAPSHOT] Rebuilding snapshot index from files...`);
+  ensureSnapshotDirectory();
+  
+  const files = fs.readdirSync(SNAPSHOTS_DIR);
+  const snapshotFiles = files.filter(f => f.startsWith('session-') && f.endsWith('.json'));
+  
+  console.log(`[SNAPSHOT] Found ${snapshotFiles.length} snapshot files`);
+  
+  const sessions = [];
+  
+  for (const file of snapshotFiles) {
+    try {
+      const filePath = path.join(SNAPSHOTS_DIR, file);
+      const snapshot = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      
+      // Extract session info for the index
+      const sessionInfo = {
+        sessionId: snapshot.sessionId,
+        date: snapshot.date,
+        gameCount: snapshot.games?.length || 0,
+        participantCount: snapshot.participants?.length || Object.keys(snapshot.picks || {}).length,
+        createdAt: snapshot.closedAt || snapshot.createdAt || new Date().toISOString()
+      };
+      
+      sessions.push(sessionInfo);
+      console.log(`[SNAPSHOT] Added ${snapshot.sessionId} (${snapshot.date}) to index`);
+    } catch (error) {
+      console.error(`[SNAPSHOT] Error reading ${file}:`, error.message);
+    }
+  }
+  
+  // Sort by date descending (most recent first)
+  sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+  
+  // Write the rebuilt index
+  const index = { sessions };
+  writeSnapshotIndex(index);
+  
+  console.log(`[SNAPSHOT] Rebuilt index with ${sessions.length} sessions`);
+  return sessions.length;
+}

@@ -86,12 +86,21 @@ client.once(Events.ClientReady, async (readyClient) => {
   // One-time fix for snapshot participants (can be removed after running once)
   setTimeout(async () => {
     try {
-      const { fixSnapshotParticipants } = await import('./utils/sessionSnapshot.js');
-      console.log('[STARTUP] Running one-time snapshot participant fix...');
+      const { fixSnapshotParticipants, rebuildSnapshotIndex } = await import('./utils/sessionSnapshot.js');
+      
+      // First, rebuild the snapshot index if it's empty
+      console.log('[STARTUP] Checking snapshot index...');
+      const rebuiltCount = rebuildSnapshotIndex();
+      if (rebuiltCount > 0) {
+        console.log(`[STARTUP] Rebuilt snapshot index with ${rebuiltCount} sessions`);
+      }
+      
+      // Then fix participant lists
+      console.log('[STARTUP] Running snapshot participant fix...');
       const fixed = fixSnapshotParticipants();
       console.log(`[STARTUP] Fixed ${fixed} snapshot(s)`);
     } catch (error) {
-      console.error('[STARTUP] Error fixing snapshots:', error);
+      console.error('[STARTUP] Error with snapshots:', error);
     }
   }, 10000); // Run 10 seconds after startup
 });

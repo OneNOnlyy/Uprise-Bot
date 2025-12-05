@@ -1,0 +1,433 @@
+{
+  "sessionId": "1764795601106",
+  "date": "2025-12-03",
+  "closedAt": "2025-12-04T05:20:34.904Z",
+  "status": "closed",
+  "games": [
+    {
+      "id": "bcd9318487d7479baa6c67c6dac77d82",
+      "homeTeam": "Cleveland Cavaliers",
+      "awayTeam": "Portland Trail Blazers",
+      "commenceTime": "2025-12-04T00:10:00.000Z",
+      "timeString": "Dec 3, 4:10 PM PST",
+      "homeSpread": -11.5,
+      "awaySpread": 11.5,
+      "favored": "home",
+      "spreadDisplay": {
+        "home": "-11.5",
+        "away": "+11.5"
+      },
+      "result": {
+        "homeScore": 110,
+        "awayScore": 122,
+        "winner": "away",
+        "status": "Final"
+      }
+    },
+    {
+      "id": "ab009f7f2a7d899ac245a0c7d959c172",
+      "homeTeam": "Indiana Pacers",
+      "awayTeam": "Denver Nuggets",
+      "commenceTime": "2025-12-04T00:10:00.000Z",
+      "timeString": "Dec 3, 4:10 PM PST",
+      "homeSpread": 8,
+      "awaySpread": -8,
+      "favored": "away",
+      "spreadDisplay": {
+        "home": "+8",
+        "away": "-8"
+      },
+      "result": {
+        "homeScore": 120,
+        "awayScore": 135,
+        "winner": "away",
+        "status": "Final"
+      }
+    },
+    {
+      "id": "936b0e45efe15e5fd011019517643b4f",
+      "homeTeam": "Orlando Magic",
+      "awayTeam": "San Antonio Spurs",
+      "commenceTime": "2025-12-04T00:10:00.000Z",
+      "timeString": "Dec 3, 4:10 PM PST",
+      "homeSpread": -8,
+      "awaySpread": 8,
+      "favored": "home",
+      "spreadDisplay": {
+        "home": "-8",
+        "away": "+8"
+      },
+      "result": {
+        "homeScore": 112,
+        "awayScore": 114,
+        "winner": "away",
+        "status": "Final"
+      }
+    },
+    {
+      "id": "9e2229439904067904831257668485a4",
+      "homeTeam": "Atlanta Hawks",
+      "awayTeam": "Los Angeles Clippers",
+      "commenceTime": "2025-12-04T00:40:00.000Z",
+      "timeString": "Dec 3, 4:40 PM PST",
+      "homeSpread": -3,
+      "awaySpread": 3,
+      "favored": "home",
+      "spreadDisplay": {
+        "home": "-3",
+        "away": "+3"
+      },
+      "result": {
+        "homeScore": 92,
+        "awayScore": 115,
+        "winner": "away",
+        "status": "Final"
+      }
+    },
+    {
+      "id": "6303a20d9193cbb7cad95eb1a593f830",
+      "homeTeam": "New York Knicks",
+      "awayTeam": "Charlotte Hornets",
+      "commenceTime": "2025-12-04T00:40:00.000Z",
+      "timeString": "Dec 3, 4:40 PM PST",
+      "homeSpread": -9.5,
+      "awaySpread": 9.5,
+      "favored": "home",
+      "spreadDisplay": {
+        "home": "-9.5",
+        "away": "+9.5"
+      },
+      "result": {
+        "homeScore": 119,
+        "awayScore": 104,
+        "winner": "home",
+        "status": "Final"
+      }
+    },
+    {
+      "id": "9421da303e9d1d538a8e49b3287d052c",
+      "homeTeam": "Chicago Bulls",
+      "awayTeam": "Brooklyn Nets",
+      "commenceTime": "2025-12-04T01:10:00.000Z",
+      "timeString": "Dec 3, 5:10 PM PST",
+      "homeSpread": -8,
+      "awaySpread": 8,
+      "favored": "home",
+      "spreadDisplay": {
+        "home": "-8",
+        "away": "+8"
+      },
+      "result": {
+        "homeScore": 103,
+        "awayScore": 113,
+        "winner": "away",
+        "status": "Final"
+      }
+    },
+    {
+      "id": "f1911824d4907eed6e6f89a9be9a84ed",
+      "homeTeam": "Houston Rockets",
+      "awayTeam": "Sacramento Kings",
+      "commenceTime": "2025-12-04T01:10:00.000Z",
+      "timeString": "Dec 3, 5:10 PM PST",
+      "homeSpread": -15.5,
+      "awaySpread": 15.5,
+      "favored": "home",
+      "spreadDisplay": {
+        "home": "-15.5",
+        "away": "+15.5"
+      },
+      "result": {
+        "homeScore": 121,
+        "awayScore": 95,
+        "winner": "home",
+        "status": "Final"
+      }
+    },
+    {
+      "id": "156b51c1cdfdee88329898e7923855ee",
+      "homeTeam": "Milwaukee Bucks",
+      "awayTeam": "Detroit Pistons",
+      "commenceTime": "2025-12-04T01:11:00.000Z",
+      "timeString": "Dec 3, 5:11 PM PST",
+      "homeSpread": 4.5,
+      "awaySpread": -4.5,
+      "favored": "away",
+      "spreadDisplay": {
+        "home": "+4.5",
+        "away": "-4.5"
+      },
+      "result": {
+        "homeScore": 113,
+        "awayScore": 109,
+        "winner": "home",
+        "status": "Final"
+      }
+    },
+    {
+      "id": "598be080fed3a6c477b581ad0744d1a0",
+      "homeTeam": "Dallas Mavericks",
+      "awayTeam": "Miami Heat",
+      "commenceTime": "2025-12-04T01:30:00.000Z",
+      "timeString": "Dec 3, 5:30 PM PST",
+      "homeSpread": 4.5,
+      "awaySpread": -4.5,
+      "favored": "away",
+      "spreadDisplay": {
+        "home": "+4.5",
+        "away": "-4.5"
+      },
+      "result": {
+        "homeScore": 118,
+        "awayScore": 108,
+        "winner": "home",
+        "status": "Final"
+      }
+    }
+  ],
+  "picks": {
+    "158054977355382785": [
+      {
+        "gameId": "936b0e45efe15e5fd011019517643b4f",
+        "pick": "home",
+        "spread": -8,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T21:12:11.907Z"
+      },
+      {
+        "gameId": "9e2229439904067904831257668485a4",
+        "pick": "home",
+        "spread": -3,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T21:13:21.846Z"
+      },
+      {
+        "gameId": "6303a20d9193cbb7cad95eb1a593f830",
+        "pick": "home",
+        "spread": -9.5,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T21:13:41.847Z"
+      },
+      {
+        "gameId": "156b51c1cdfdee88329898e7923855ee",
+        "pick": "away",
+        "spread": -4.5,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T21:14:52.387Z"
+      },
+      {
+        "gameId": "598be080fed3a6c477b581ad0744d1a0",
+        "pick": "away",
+        "spread": -4.5,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T21:15:00.060Z"
+      },
+      {
+        "gameId": "ab009f7f2a7d899ac245a0c7d959c172",
+        "pick": "away",
+        "spread": -8,
+        "isDoubleDown": true,
+        "timestamp": "2025-12-03T23:28:04.586Z"
+      },
+      {
+        "gameId": "9421da303e9d1d538a8e49b3287d052c",
+        "pick": "away",
+        "spread": 8,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-04T00:23:02.959Z"
+      },
+      {
+        "gameId": "f1911824d4907eed6e6f89a9be9a84ed",
+        "pick": "away",
+        "spread": 15.5,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-04T00:23:24.828Z"
+      },
+      {
+        "gameId": "bcd9318487d7479baa6c67c6dac77d82",
+        "pick": "Portland Trail Blazers",
+        "spread": 11.5,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-04T02:59:58.065Z"
+      }
+    ],
+    "192242302532452352": [
+      {
+        "gameId": "bcd9318487d7479baa6c67c6dac77d82",
+        "pick": "away",
+        "spread": 11.5,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T22:28:46.892Z"
+      },
+      {
+        "gameId": "ab009f7f2a7d899ac245a0c7d959c172",
+        "pick": "away",
+        "spread": -8,
+        "isDoubleDown": true,
+        "timestamp": "2025-12-03T22:29:03.708Z"
+      },
+      {
+        "gameId": "936b0e45efe15e5fd011019517643b4f",
+        "pick": "away",
+        "spread": 8,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T22:29:25.052Z"
+      },
+      {
+        "gameId": "9e2229439904067904831257668485a4",
+        "pick": "home",
+        "spread": -3,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T22:29:29.618Z"
+      },
+      {
+        "gameId": "6303a20d9193cbb7cad95eb1a593f830",
+        "pick": "home",
+        "spread": -9.5,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T22:29:41.764Z"
+      },
+      {
+        "gameId": "9421da303e9d1d538a8e49b3287d052c",
+        "pick": "away",
+        "spread": 8,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T22:30:07.243Z"
+      },
+      {
+        "gameId": "f1911824d4907eed6e6f89a9be9a84ed",
+        "pick": "away",
+        "spread": 15.5,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T22:30:24.251Z"
+      },
+      {
+        "gameId": "156b51c1cdfdee88329898e7923855ee",
+        "pick": "away",
+        "spread": -4.5,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T22:30:28.596Z"
+      },
+      {
+        "gameId": "598be080fed3a6c477b581ad0744d1a0",
+        "pick": "away",
+        "spread": -4.5,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T22:30:34.828Z"
+      }
+    ],
+    "254848719420129280": [
+      {
+        "gameId": "bcd9318487d7479baa6c67c6dac77d82",
+        "pick": "away",
+        "spread": 11.5,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T23:08:22.845Z"
+      },
+      {
+        "gameId": "ab009f7f2a7d899ac245a0c7d959c172",
+        "pick": "away",
+        "spread": -8,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T23:08:51.247Z"
+      },
+      {
+        "gameId": "936b0e45efe15e5fd011019517643b4f",
+        "pick": "away",
+        "spread": 8,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T23:09:05.107Z"
+      },
+      {
+        "gameId": "9e2229439904067904831257668485a4",
+        "pick": "home",
+        "spread": -3,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T23:09:27.357Z"
+      },
+      {
+        "gameId": "6303a20d9193cbb7cad95eb1a593f830",
+        "pick": "home",
+        "spread": -9.5,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T23:09:39.581Z"
+      },
+      {
+        "gameId": "9421da303e9d1d538a8e49b3287d052c",
+        "pick": "home",
+        "spread": -8,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T23:10:12.334Z"
+      },
+      {
+        "gameId": "f1911824d4907eed6e6f89a9be9a84ed",
+        "pick": "away",
+        "spread": 15.5,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T23:10:20.334Z"
+      },
+      {
+        "gameId": "156b51c1cdfdee88329898e7923855ee",
+        "pick": "away",
+        "spread": -4.5,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T23:10:34.681Z"
+      },
+      {
+        "gameId": "598be080fed3a6c477b581ad0744d1a0",
+        "pick": "away",
+        "spread": -4.5,
+        "isDoubleDown": false,
+        "timestamp": "2025-12-03T23:10:47.192Z"
+      }
+    ]
+  },
+  "results": {
+    "158054977355382785": {
+      "wins": 5,
+      "losses": 5,
+      "pushes": 0,
+      "missedPicks": 0
+    },
+    "192242302532452352": {
+      "wins": 6,
+      "losses": 4,
+      "pushes": 0,
+      "missedPicks": 0
+    },
+    "254848719420129280": {
+      "wins": 4,
+      "losses": 5,
+      "pushes": 0,
+      "missedPicks": 0
+    }
+  },
+  "participants": [
+    "158054977355382785",
+    "192242302532452352",
+    "254848719420129280"
+  ],
+  "injuryRefs": {},
+  "rosterRefs": {
+    "Cleveland Cavaliers": "eyJ0ZWFtIjoiQ2xl",
+    "Portland Trail Blazers": "eyJ0ZWFtIjoiUG9y",
+    "Indiana Pacers": "eyJ0ZWFtIjoiSW5k",
+    "Denver Nuggets": "eyJ0ZWFtIjoiRGVu",
+    "Orlando Magic": "eyJ0ZWFtIjoiT3Js",
+    "San Antonio Spurs": "eyJ0ZWFtIjoiU2Fu",
+    "Atlanta Hawks": "eyJ0ZWFtIjoiQXRs",
+    "Los Angeles Clippers": "eyJ0ZWFtIjoiTG9z",
+    "New York Knicks": "eyJ0ZWFtIjoiTmV3",
+    "Charlotte Hornets": "eyJ0ZWFtIjoiQ2hh",
+    "Chicago Bulls": "eyJ0ZWFtIjoiQ2hp",
+    "Brooklyn Nets": "eyJ0ZWFtIjoiQnJv",
+    "Houston Rockets": "eyJ0ZWFtIjoiSG91",
+    "Sacramento Kings": "eyJ0ZWFtIjoiU2Fj",
+    "Milwaukee Bucks": "eyJ0ZWFtIjoiTWls",
+    "Detroit Pistons": "eyJ0ZWFtIjoiRGV0",
+    "Dallas Mavericks": "eyJ0ZWFtIjoiRGFs",
+    "Miami Heat": "eyJ0ZWFtIjoiTWlh"
+  },
+  "createdAt": "2025-12-03T21:00:01.106Z",
+  "snapshotCreatedAt": "2025-12-04T05:20:38.456Z"
+}
