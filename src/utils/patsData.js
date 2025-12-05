@@ -13,6 +13,15 @@ let leaderboardCache = null;
 let lastLeaderboardUpdate = 0;
 const LEADERBOARD_CACHE_DURATION = 60000; // 1 minute in milliseconds
 
+// Lazy import for patsSeasons to avoid circular dependency
+let patsSeasons = null;
+async function getSeasonsModule() {
+  if (!patsSeasons) {
+    patsSeasons = await import('./patsSeasons.js');
+  }
+  return patsSeasons;
+}
+
 /**
  * Ensure data directory and file exist
  */
@@ -25,19 +34,32 @@ function ensureDataFile() {
     const initialData = {
       activeSessions: [],
       users: {},
-      history: []
+      history: [],
+      seasons: {
+        current: null,
+        history: []
+      }
     };
     fs.writeFileSync(PATS_FILE, JSON.stringify(initialData, null, 2));
   }
 }
 
 /**
- * Read PATS data
+ * Read PATS data and ensure seasons structure exists
  */
 export function readPATSData() {
   ensureDataFile();
-  const data = fs.readFileSync(PATS_FILE, 'utf8');
-  return JSON.parse(data);
+  const data = JSON.parse(fs.readFileSync(PATS_FILE, 'utf8'));
+  
+  // Ensure seasons structure exists (for existing data files)
+  if (!data.seasons) {
+    data.seasons = {
+      current: null,
+      history: []
+    };
+  }
+  
+  return data;
 }
 
 /**
@@ -144,11 +166,33 @@ export function createPATSSession(date, games, participants, options = {}) {
     picks: {}, // userId: [{ gameId, pick, spread }]
     status: 'active',
     createdAt: new Date().toISOString(),
-    warningMinutes: options.warningMinutes || 30 // Default warning time from schedule or 30
+    warningMinutes: options.warningMinutes || 30, // Default warning time from schedule or 30
+    seasonId: null // Will be set if a season is active
   };
   
   data.activeSessions.push(session);
   writePATSData(data);
+  
+  // Link session to current season if one is active
+  (async () => {
+    try {
+      const seasons = await getSeasonsModule();
+      const currentSeason = seasons.getCurrentSeason();
+      if (currentSeason) {
+        seasons.linkSessionToSeason(session.id);
+        // Update the session with seasonId
+        const freshData = readPATSData();
+        const freshSession = freshData.activeSessions.find(s => s.id === session.id);
+        if (freshSession) {
+          freshSession.seasonId = currentSeason.id;
+          writePATSData(freshData);
+        }
+        console.log(`[PATS] Session ${session.id} linked to season ${currentSeason.name}`);
+      }
+    } catch (error) {
+      console.error('[PATS] Error linking session to season:', error);
+    }
+  })();
   
   // Start monitoring injuries for all session games
   (async () => {
@@ -439,6 +483,35 @@ export function updateGameResult(sessionId, gameId, result) {
         }
       }
     }
+    
+    // Update season standings if a season is active
+    (async () => {
+      try {
+        const seasons = await getSeasonsModule();
+        const currentSeason = seasons.getCurrentSeason();
+        if (currentSeason && currentSeason.participants.includes(userId)) {
+          // Determine result for season standings
+          let isWin = false;
+          let isPush = false;
+          
+          if (pick.pick === 'home') {
+            isPush = adjustedHomeScore === awayScore;
+            isWin = adjustedHomeScore > awayScore;
+          } else {
+            isPush = adjustedAwayScore === homeScore;
+            isWin = adjustedAwayScore > homeScore;
+          }
+          
+          seasons.updateSeasonStandings(userId, {
+            win: isWin,
+            push: isPush,
+            isDoubleDown: pick.isDoubleDown || false
+          });
+        }
+      } catch (error) {
+        console.error('[PATS] Error updating season standings:', error);
+      }
+    })();
   }
   
   writePATSData(data);
@@ -606,6 +679,22 @@ export function closePATSSession(sessionId, gameResults) {
     
     // Increment session count (this only happens at session close)
     data.users[userId].sessions += 1;
+    
+    // Record session participation in season
+    (async () => {
+      try {
+        const seasons = await getSeasonsModule();
+        const currentSeason = seasons.getCurrentSeason();
+        if (currentSeason && currentSeason.participants.includes(userId)) {
+          seasons.recordSeasonSessionParticipation(userId);
+          
+          // Track first season participation for rookie detection
+          seasons.recordFirstSeasonParticipation(userId);
+        }
+      } catch (error) {
+        console.error('[PATS] Error recording season participation:', error);
+      }
+    })();
   });
   
   session.status = 'closed';
