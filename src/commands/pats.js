@@ -1404,6 +1404,18 @@ async function showEveryonesPicks(interaction, gameIndex = 0) {
       inline: false
     });
   } else {
+    // Pre-fetch all members to ensure mentions resolve properly
+    const memberCache = new Map();
+    for (const { userId } of gamePicks) {
+      try {
+        const member = await interaction.guild.members.fetch(userId);
+        memberCache.set(userId, member);
+      } catch {
+        // User may have left server
+        memberCache.set(userId, null);
+      }
+    }
+    
     // Count picks for each team
     let homePicks = 0;
     let awayPicks = 0;
@@ -1412,7 +1424,10 @@ async function showEveryonesPicks(interaction, gameIndex = 0) {
 
     for (const { userId, pick } of gamePicks) {
       const ddTag = pick.isDoubleDown ? ' 💰' : '';
-      const userMention = `<@${userId}>`;
+      
+      // Use fetched member for display name, fallback to mention
+      const member = memberCache.get(userId);
+      const userDisplay = member ? `<@${userId}>` : `Unknown User`;
       
       // Determine if this pick won/lost/pending
       let resultEmoji = '';
@@ -1442,11 +1457,11 @@ async function showEveryonesPicks(interaction, gameIndex = 0) {
       if (pick.pick === 'home') {
         homePicks++;
         const spread = homeSpread > 0 ? `+${homeSpread}` : homeSpread;
-        homePickDetails.push(`${userMention} (${spread})${ddTag}${resultEmoji}`);
+        homePickDetails.push(`${userDisplay} (${spread})${ddTag}${resultEmoji}`);
       } else {
         awayPicks++;
         const spread = awaySpread > 0 ? `+${awaySpread}` : awaySpread;
-        awayPickDetails.push(`${userMention} (${spread})${ddTag}${resultEmoji}`);
+        awayPickDetails.push(`${userDisplay} (${spread})${ddTag}${resultEmoji}`);
       }
     }
 
