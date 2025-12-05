@@ -13,6 +13,7 @@ import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats, g
 import { getTeamAbbreviation, fetchCBSSportsScores } from '../utils/oddsApi.js';
 import { getUserSessionSnapshots, loadSessionSnapshot, loadInjuryData, loadRosterData } from '../utils/sessionSnapshot.js';
 import { getUpcomingScheduledSessions } from '../utils/sessionScheduler.js';
+import { getCurrentSeason, getSeasonStandings, isSeasonParticipant } from '../utils/patsSeasons.js';
 
 /**
  * FAIL-SAFE: Fix spreads where one is 0 but the other isn't (they should be inverse)
@@ -592,6 +593,33 @@ export async function showDashboard(interaction) {
         inline: false
       });
       
+      // Add season info if user is participating in current season
+      const currentSeason = getCurrentSeason();
+      if (currentSeason && isSeasonParticipant(currentSeason.id, interaction.user.id)) {
+        const standings = getSeasonStandings(currentSeason.id);
+        const userStanding = standings.find(s => s.oddsUserId === interaction.user.id);
+        
+        if (userStanding) {
+          const rank = standings.indexOf(userStanding) + 1;
+          
+          // Calculate days remaining
+          const endDate = new Date(currentSeason.endDate);
+          const now = new Date();
+          const daysRemaining = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+          const daysText = daysRemaining > 0 ? `${daysRemaining} days left` : 'Ending soon';
+          
+          embed.addFields({
+            name: `🏆 ${currentSeason.name}`,
+            value: [
+              `**Your Rank:** #${rank} of ${standings.length}`,
+              `**Season Record:** ${userStanding.wins}-${userStanding.losses}-${userStanding.pushes} (${userStanding.winPercentage.toFixed(1)}%)`,
+              `**${daysText}**`
+            ].join('\n'),
+            inline: false
+          });
+        }
+      }
+      
       // Add buttons to view detailed stats and help
       const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -675,6 +703,34 @@ export async function showDashboard(interaction) {
         inline: true
       }
     );
+
+  // Add season info if user is participating in current season
+  const currentSeason = getCurrentSeason();
+  if (currentSeason && isSeasonParticipant(currentSeason.id, interaction.user.id)) {
+    const standings = getSeasonStandings(currentSeason.id);
+    const userStanding = standings.find(s => s.oddsUserId === interaction.user.id);
+    
+    if (userStanding) {
+      const rank = standings.indexOf(userStanding) + 1;
+      const totalPicks = userStanding.wins + userStanding.losses + userStanding.pushes;
+      
+      // Calculate days remaining
+      const endDate = new Date(currentSeason.endDate);
+      const now = new Date();
+      const daysRemaining = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+      const daysText = daysRemaining > 0 ? `${daysRemaining} days left` : 'Ending soon';
+      
+      embed.addFields({
+        name: `🏆 ${currentSeason.name}`,
+        value: [
+          `**Your Rank:** #${rank} of ${standings.length}`,
+          `**Season Record:** ${userStanding.wins}-${userStanding.losses}-${userStanding.pushes} (${userStanding.winPercentage.toFixed(1)}%)`,
+          `**${daysText}**`
+        ].join('\n'),
+        inline: false
+      });
+    }
+  }
 
   // Add warning about missed picks
   if (missedPicks > 0) {
