@@ -219,8 +219,8 @@ async function handleTrackInjuries(interaction) {
       return;
     }
     
-    // Get current injury snapshot
-    const matchupInfo = await getCachedMatchupInfo(game.homeTeam, game.awayTeam);
+    // Get current injury snapshot - force refresh to ensure accurate baseline
+    const matchupInfo = await getCachedMatchupInfo(game.homeTeam, game.awayTeam, game.id, true);
     const initialSnapshot = {
       home: matchupInfo.home.injuries || [],
       away: matchupInfo.away.injuries || []
@@ -348,8 +348,8 @@ async function handleUntrackInjuries(interaction) {
     // Unsubscribe user from injury tracking
     unsubscribeFromInjuries(interaction.user.id, gameId);
     
-    // Rebuild the matchup embed with updated button
-    const matchupInfo = await getCachedMatchupInfo(game.homeTeam, game.awayTeam);
+    // Rebuild the matchup embed with updated button - force refresh for accuracy
+    const matchupInfo = await getCachedMatchupInfo(game.homeTeam, game.awayTeam, game.id, true);
     
     const embed = new EmbedBuilder()
       .setTitle(`📊 Full Matchup Info: ${game.awayTeam} @ ${game.homeTeam}`)
