@@ -762,8 +762,35 @@ export function getAwardEligibility(userId) {
  */
 export function getSeasonSchedule(seasonId = null) {
   const season = seasonId ? getSeasonById(seasonId) : getCurrentSeason();
-  if (!season) return [];
-  return season.scheduledSessions || [];
+  if (!season) return { sessions: [], upcoming: [] };
+  
+  // Get sessions from the global scheduler that belong to this season
+  try {
+    const scheduledSessionsPath = path.join(__dirname, '../../data/scheduled-sessions.json');
+    if (fs.existsSync(scheduledSessionsPath)) {
+      const scheduledData = JSON.parse(fs.readFileSync(scheduledSessionsPath, 'utf8'));
+      
+      // Filter sessions that explicitly belong to this season (must have seasonId)
+      const now = new Date();
+      const seasonSessions = scheduledData.sessions.filter(s => {
+        const sessionDate = new Date(s.scheduledDate);
+        return s.seasonId === season.id && sessionDate >= now;
+      });
+      
+      // Sort by date
+      seasonSessions.sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate));
+      
+      // Return up to 7 upcoming sessions
+      return {
+        sessions: seasonSessions.slice(0, 7),
+        total: seasonSessions.length
+      };
+    }
+  } catch (error) {
+    console.error('[SEASONS] Error getting season schedule:', error);
+  }
+  
+  return { sessions: [], total: 0 };
 }
 
 /**
@@ -1033,6 +1060,7 @@ export function updateSeasonScheduleSettings(seasonId, settings) {
  */
 export function isSessionScheduledForDate(date) {
   const data = readPATSData();
+  const currentSeason = getCurrentSeason();
   
   // Check current active session
   if (data.activeSession && data.activeSession.date === date) {
@@ -1040,12 +1068,23 @@ export function isSessionScheduledForDate(date) {
   }
   
   // Check scheduled sessions (from sessionScheduler)
+  // Only check for season sessions if we have an active season
   try {
     const scheduledSessionsPath = path.join(__dirname, '../../data/scheduled-sessions.json');
     if (fs.existsSync(scheduledSessionsPath)) {
       const scheduledData = JSON.parse(fs.readFileSync(scheduledSessionsPath, 'utf8'));
-      const hasScheduled = scheduledData.sessions.some(s => s.scheduledDate === date);
-      if (hasScheduled) return true;
+      
+      if (currentSeason) {
+        // Only check sessions that belong to the current season
+        const hasScheduled = scheduledData.sessions.some(s => 
+          s.scheduledDate === date && s.seasonId === currentSeason.id
+        );
+        if (hasScheduled) return true;
+      } else {
+        // No season - check all sessions
+        const hasScheduled = scheduledData.sessions.some(s => s.scheduledDate === date);
+        if (hasScheduled) return true;
+      }
     }
   } catch (error) {
     console.error('[SEASONS] Error checking scheduled sessions:', error);

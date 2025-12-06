@@ -202,8 +202,11 @@ export async function showSeasonAdminMenu(interaction) {
     const endDate = new Date(currentSeason.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     embed.addFields({ name: '🗓️ Duration', value: `${startDate} - ${endDate}`, inline: true });
     
-    if (schedule?.sessions?.length > 0) {
-      embed.addFields({ name: '📅 Scheduled Sessions', value: `${schedule.sessions.length} upcoming`, inline: true });
+    if (schedule.sessions && schedule.sessions.length > 0) {
+      const sessionText = schedule.total > 7 
+        ? `${schedule.sessions.length} shown (${schedule.total} total)`
+        : `${schedule.sessions.length} upcoming`;
+      embed.addFields({ name: '📅 Scheduled Sessions', value: sessionText, inline: true });
     }
   } else {
     embed.setDescription(
@@ -885,12 +888,8 @@ export async function showManageSchedule(interaction) {
   const { getAllScheduledSessions } = await import('../utils/sessionScheduler.js');
   const allSessions = getAllScheduledSessions();
   
-  // Filter to only this season's sessions
-  const seasonSessions = allSessions.filter(s => 
-    s.seasonId === currentSeason.id || 
-    (new Date(s.scheduledDate) >= new Date(currentSeason.startDate) && 
-     new Date(s.scheduledDate) <= new Date(currentSeason.endDate))
-  );
+  // Filter to only this season's sessions (must have seasonId)
+  const seasonSessions = allSessions.filter(s => s.seasonId === currentSeason.id);
   
   // Separate into upcoming and past
   const now = new Date();
