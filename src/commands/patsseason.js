@@ -861,6 +861,67 @@ export async function handleButton(interaction) {
   const customId = interaction.customId;
   
   try {
+    // Handle Edit Name Modal - DON'T defer, show modal immediately
+    if (customId === 'pats_season_create_edit_name') {
+      const config = getSeasonConfig(interaction.user.id);
+      
+      const modal = new ModalBuilder()
+        .setCustomId('pats_season_modal_name')
+        .setTitle('Edit Season Name');
+      
+      const nameInput = new TextInputBuilder()
+        .setCustomId('season_name')
+        .setLabel('Season Name')
+        .setStyle(TextInputStyle.Short)
+        .setValue(config.name)
+        .setRequired(true)
+        .setMaxLength(50);
+      
+      modal.addComponents(new ActionRowBuilder().addComponents(nameInput));
+      return await interaction.showModal(modal);
+    }
+    
+    // Handle Edit Dates Modal - DON'T defer, show modal immediately
+    if (customId === 'pats_season_create_edit_dates') {
+      const config = getSeasonConfig(interaction.user.id);
+      
+      // Only allow editing dates if type is 'custom'
+      if (config.type !== 'custom') {
+        await interaction.reply({
+          content: '⚠️ To edit dates, select "Custom" from the season type dropdown first.',
+          ephemeral: true
+        });
+        return;
+      }
+      
+      const modal = new ModalBuilder()
+        .setCustomId('pats_season_modal_dates')
+        .setTitle('Edit Season Dates');
+      
+      const startInput = new TextInputBuilder()
+        .setCustomId('start_date')
+        .setLabel('Start Date (YYYY-MM-DD)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(config.startDate)
+        .setRequired(true)
+        .setPlaceholder('2025-01-01');
+      
+      const endInput = new TextInputBuilder()
+        .setCustomId('end_date')
+        .setLabel('End Date (YYYY-MM-DD)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(config.endDate)
+        .setRequired(true)
+        .setPlaceholder('2025-04-30');
+      
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(startInput),
+        new ActionRowBuilder().addComponents(endInput)
+      );
+      return await interaction.showModal(modal);
+    }
+    
+    // For all other buttons, defer the update
     await interaction.deferUpdate();
     
     // Main menu navigation
@@ -1096,41 +1157,6 @@ export async function handleButton(interaction) {
       return await showSeasonHistory(interaction);
     }
     
-    // Edit Name Modal
-    if (customId === 'pats_season_create_edit_name') {
-      const config = getSeasonConfig(interaction.user.id);
-      
-      const modal = new ModalBuilder()
-        .setCustomId('pats_season_modal_name')
-        .setTitle('Edit Season Name');
-      
-      const nameInput = new TextInputBuilder()
-        .setCustomId('season_name')
-        .setLabel('Season Name')
-        .setStyle(TextInputStyle.Short)
-        .setValue(config.name)
-        .setRequired(true)
-        .setMaxLength(50);
-      
-      modal.addComponents(new ActionRowBuilder().addComponents(nameInput));
-      
-      // For modals, we need to show modal without deferring
-      // But we already deferred above, so we need to handle this differently
-      // Let's use a workaround - we'll need to check if this works
-      return await interaction.followUp({
-        content: '⚠️ To edit the name, use `/pats season` and click "Edit Name" without any prior interaction.',
-        ephemeral: true
-      });
-    }
-    
-    // Edit Dates Modal
-    if (customId === 'pats_season_create_edit_dates') {
-      return await interaction.followUp({
-        content: '⚠️ To edit dates, select a different season type from the dropdown. For custom dates, choose "Custom" type.',
-        ephemeral: true
-      });
-    }
-    
     // Schedule Settings (view/edit current season's schedule settings)
     if (customId === 'pats_season_settings') {
       return await showScheduleSettings(interaction);
@@ -1317,6 +1343,46 @@ export async function handleModal(interaction) {
     if (customId === 'pats_season_modal_name') {
       const config = getSeasonConfig(interaction.user.id);
       config.name = interaction.fields.getTextInputValue('season_name');
+      return await showCreateSeasonStep1(interaction);
+    }
+    
+    if (customId === 'pats_season_modal_dates') {
+      const config = getSeasonConfig(interaction.user.id);
+      const startDate = interaction.fields.getTextInputValue('start_date');
+      const endDate = interaction.fields.getTextInputValue('end_date');
+      
+      // Validate date format
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+        await interaction.followUp({
+          content: '❌ Invalid date format. Please use YYYY-MM-DD format (e.g., 2025-01-01)',
+          ephemeral: true
+        });
+        return await showCreateSeasonStep1(interaction);
+      }
+      
+      // Validate dates are valid
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        await interaction.followUp({
+          content: '❌ Invalid dates. Please check your dates and try again.',
+          ephemeral: true
+        });
+        return await showCreateSeasonStep1(interaction);
+      }
+      
+      if (start >= end) {
+        await interaction.followUp({
+          content: '❌ Start date must be before end date.',
+          ephemeral: true
+        });
+        return await showCreateSeasonStep1(interaction);
+      }
+      
+      config.startDate = startDate;
+      config.endDate = endDate;
       return await showCreateSeasonStep1(interaction);
     }
     
