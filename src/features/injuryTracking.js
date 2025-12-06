@@ -58,6 +58,22 @@ export async function subscribeToInjuries(userId, gameId, homeTeam, awayTeam, in
     return { success: false, message: 'You are already tracking injuries for this game.' };
   }
 
+  // SAFEGUARD: Log warning if initial snapshot looks suspicious (too many injuries = might be wrong data)
+  const homeInjuryCount = initialSnapshot.home?.length || 0;
+  const awayInjuryCount = initialSnapshot.away?.length || 0;
+  const totalInjuries = homeInjuryCount + awayInjuryCount;
+  
+  if (totalInjuries > 15) {
+    console.warn(`[Injury Tracking] ⚠️ SUSPICIOUS initial snapshot for ${awayTeam} @ ${homeTeam}: ${totalInjuries} total injuries (Home: ${homeInjuryCount}, Away: ${awayInjuryCount})`);
+    console.warn(`[Injury Tracking] This might be roster data instead of injury data. Check ESPN API.`);
+    if (initialSnapshot.home?.length > 0) {
+      console.warn(`[Injury Tracking] Home players: ${initialSnapshot.home.map(i => i.player).join(', ')}`);
+    }
+    if (initialSnapshot.away?.length > 0) {
+      console.warn(`[Injury Tracking] Away players: ${initialSnapshot.away.map(i => i.player).join(', ')}`);
+    }
+  }
+
   trackingData.subscriptions.push({
     userId,
     gameId,
@@ -68,7 +84,7 @@ export async function subscribeToInjuries(userId, gameId, homeTeam, awayTeam, in
   });
 
   await saveTrackingData();
-  console.log(`[Injury Tracking] User ${userId} subscribed to ${awayTeam} @ ${homeTeam}`);
+  console.log(`[Injury Tracking] User ${userId} subscribed to ${awayTeam} @ ${homeTeam} (Home injuries: ${homeInjuryCount}, Away injuries: ${awayInjuryCount})`);
   
   return { success: true, message: 'You will be notified of any injury changes for this matchup!' };
 }
@@ -268,6 +284,23 @@ async function checkInjuryUpdates(client) {
       // Compare with last snapshot
       const homeChanges = compareInjuries(sub.lastSnapshot.home, currentSnapshot.home);
       const awayChanges = compareInjuries(sub.lastSnapshot.away, currentSnapshot.away);
+
+      // SAFEGUARD: If too many players are "removed" at once (5+), it's likely bad data
+      // This can happen if ESPN API returns wrong game/team data
+      const suspiciousHomeRemovals = homeChanges.removed.length >= 5;
+      const suspiciousAwayRemovals = awayChanges.removed.length >= 5;
+      
+      if (suspiciousHomeRemovals || suspiciousAwayRemovals) {
+        console.warn(`[Injury Tracking] ⚠️ SUSPICIOUS: ${homeChanges.removed.length} home + ${awayChanges.removed.length} away players "removed" for ${sub.awayTeam} @ ${sub.homeTeam}`);
+        console.warn(`[Injury Tracking] This likely indicates ESPN returned wrong data. Skipping notification.`);
+        console.warn(`[Injury Tracking] Old snapshot: Home=${sub.lastSnapshot.home.length} players, Away=${sub.lastSnapshot.away.length} players`);
+        console.warn(`[Injury Tracking] New snapshot: Home=${currentSnapshot.home.length} players, Away=${currentSnapshot.away.length} players`);
+        
+        // Still update the snapshot to prevent repeated warnings, but don't notify
+        sub.lastSnapshot = currentSnapshot;
+        updatedSubscriptions.push(sub);
+        continue;
+      }
 
       const hasHomeChanges = homeChanges.added.length > 0 || homeChanges.removed.length > 0 || homeChanges.statusChanged.length > 0 || homeChanges.commentChanged.length > 0;
       const hasAwayChanges = awayChanges.added.length > 0 || awayChanges.removed.length > 0 || awayChanges.statusChanged.length > 0 || awayChanges.commentChanged.length > 0;
