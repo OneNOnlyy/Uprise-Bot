@@ -1118,10 +1118,10 @@ export async function getTeamInfo(teamName) {
     const wins = record?.stats?.find(s => s.name === 'wins')?.value || 0;
     const losses = record?.stats?.find(s => s.name === 'losses')?.value || 0;
     
-    // NEW INJURY PRIORITY ORDER:
-    // 1. ESPN Game Summary (fastest, most reliable)
-    // 2. ESPN Scoreboard (fast, reliable)
-    // 3. ESPN Page Scraping (decent fallback)
+    // NEW PRIORITY ORDER (Updated Dec 2025):
+    // 1. ESPN Injuries Page (matches what users see on website)
+    // 2. ESPN Game Summary (has game-day decisions but can have stale data)
+    // 3. ESPN Scoreboard (fast, reliable)
     // 4. CBS Sports (comprehensive but slower)
     // 5. RotoWire (last resort)
     
@@ -1129,26 +1129,26 @@ export async function getTeamInfo(teamName) {
     
     console.log(`[ESPN] Fetching injuries with priority order...`);
     
-    // Priority 1: ESPN Game Summary (FASTEST & MOST RELIABLE!)
-    console.log(`[ESPN] Priority 1: Trying ESPN Game Summary API...`);
-    injuries = await fetchInjuriesFromGameSummary(normalizedName, team.abbreviation);
+    // Priority 1: ESPN Injuries Page (matches website - most accurate!)
+    console.log(`[ESPN] Priority 1: Trying ESPN Injuries Page...`);
+    injuries = await scrapeInjuriesFromESPNInjuriesPage(team.abbreviation, normalizedName);
     
     if (injuries.length > 0) {
-      console.log(`[ESPN] ✓ Found ${injuries.length} injuries from Game Summary (primary source)`);
+      console.log(`[ESPN] ✓ Found ${injuries.length} injuries from ESPN Injuries Page (primary source)`);
     } else {
-      // Priority 2: ESPN Scoreboard
-      console.log(`[ESPN] Priority 2: Trying ESPN Scoreboard API...`);
-      injuries = await getInjuriesFromScoreboard(team.abbreviation);
+      // Priority 2: ESPN Game Summary
+      console.log(`[ESPN] Priority 2: Trying ESPN Game Summary API...`);
+      injuries = await fetchInjuriesFromGameSummary(normalizedName, team.abbreviation);
       
       if (injuries.length > 0) {
-        console.log(`[ESPN] ✓ Found ${injuries.length} injuries from Scoreboard (secondary source)`);
+        console.log(`[ESPN] ✓ Found ${injuries.length} injuries from Game Summary (secondary source)`);
       } else {
-        // Priority 3: ESPN Page Scraping
-        console.log(`[ESPN] Priority 3: Trying ESPN page scraping...`);
-        injuries = await scrapeInjuriesFromESPN(team.abbreviation, normalizedName);
+        // Priority 3: ESPN Scoreboard
+        console.log(`[ESPN] Priority 3: Trying ESPN Scoreboard API...`);
+        injuries = await getInjuriesFromScoreboard(team.abbreviation);
         
         if (injuries.length > 0) {
-          console.log(`[ESPN] ✓ Found ${injuries.length} injuries from ESPN scraping (tertiary source)`);
+          console.log(`[ESPN] ✓ Found ${injuries.length} injuries from Scoreboard (tertiary source)`);
         } else {
           // Priority 4: CBS Sports (from cache)
           console.log(`[ESPN] Priority 4: Trying cached CBS Sports data...`);
@@ -1200,7 +1200,8 @@ export async function getTeamInfo(teamName) {
           // Create map of existing injuries
           const existingMap = new Map(injuries.map(inj => [inj.player.toLowerCase(), inj]));
           
-          // Update existing injuries and add new ones from page
+          // Only UPDATE existing injuries from page, don't add new ones
+          // (new injuries should come from the primary source only)
           for (const pageInjury of pageInjuries) {
             const existingInjury = existingMap.get(pageInjury.player.toLowerCase());
             
@@ -1218,11 +1219,8 @@ export async function getTeamInfo(teamName) {
                 existingInjury.updated = pageInjury.updated;
                 console.log(`[ESPN] Added Est. Return for ${existingInjury.player}: ${pageInjury.updated}`);
               }
-            } else {
-              // Add new injury from page that wasn't in original list
-              console.log(`[ESPN] Adding new injury from page: ${pageInjury.player} - ${pageInjury.status}`);
-              injuries.push(pageInjury);
             }
+            // DON'T add new injuries from supplemental sources - only update existing ones
           }
         }
       }
