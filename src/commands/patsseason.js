@@ -13,9 +13,12 @@ import {
   isUserInCurrentSeason,
   getSeasonHistory,
   getSessionsInSeason,
-  getSeasonById
+  getSeasonById,
+  runAutoSchedulerCheck
 } from '../utils/patsSeasons.js';
 import { getAllPlayers } from '../utils/patsData.js';
+import { getESPNGamesForDate } from '../utils/oddsApi.js';
+import { scheduleSessionJobs } from '../utils/sessionScheduler.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -68,6 +71,34 @@ async function saveSeasonConfigs() {
 
 // Load configs on module initialization
 loadSeasonConfigs();
+
+/**
+ * Create notification handlers for the scheduler
+ * @param {Client} client - Discord client
+ * @returns {object} Handlers object
+ */
+function createSchedulerHandlers(client) {
+  return {
+    sendAnnouncement: async (session) => {
+      const { sendSessionAnnouncement, startScheduledSession } = await import('../utils/sessionScheduler.js');
+      await sendSessionAnnouncement(client, session);
+      // Start the PATS session when announcement is sent
+      await startScheduledSession(client, session);
+    },
+    sendReminders: async (session) => {
+      const { sendSessionReminder } = await import('../utils/sessionScheduler.js');
+      await sendSessionReminder(client, session);
+    },
+    sendWarnings: async (session) => {
+      // Session warnings disabled - we use individual game warnings instead
+      console.log(`[Scheduler] Session warning skipped for ${session.id} (using game warnings instead)`);
+    },
+    startSession: async (session) => {
+      // Session already started at announcement time - no action needed
+      console.log(`[Scheduler] First game time reached for session ${session.id} (already started at announcement)`);
+    }
+  };
+}
 
 /**
  * Get or create season config for user
@@ -553,7 +584,7 @@ export async function showManageParticipants(interaction) {
   } else {
     participantList = standings.slice(0, 15).map(p => {
       const totalPicks = p.wins + p.losses + p.pushes;
-      return `<@${p.oddsUserId}> • ${totalPicks} picks`;
+      return `<@${p.userId}> • ${totalPicks} picks`;
     }).join('\n');
     
     if (standings.length > 15) {
@@ -630,8 +661,8 @@ export async function showRemoveParticipantSelect(interaction) {
     .setColor('#ED4245');
   
   const options = standings.slice(0, 25).map(p => ({
-    label: p.username || `User ${p.oddsUserId}`,
-    value: p.oddsUserId,
+    label: p.username || `User ${p.userId}`,
+    value: p.userId,
     description: `${p.wins + p.losses + p.pushes} picks this season`
   }));
   
@@ -678,7 +709,7 @@ export async function showEndSeasonConfirmation(interaction) {
       `• Calculate and award season awards\n` +
       `• Move the season to history\n` +
       `• Allow creating a new season\n\n` +
-      (champion ? `🏆 Current Leader: <@${champion.oddsUserId}> (${champion.winPercentage.toFixed(1)}%)` : '')
+      (champion ? `🏆 Current Leader: <@${champion.userId}> (${(champion.winRate * 100).toFixed(1)}%)` : '')
     )
     .setColor('#ED4245')
     .setFooter({ text: 'This action cannot be undone' });
@@ -1102,10 +1133,27 @@ export async function handleButton(interaction) {
         
         clearSeasonConfig(interaction.user.id);
         
+        // If auto-scheduling is enabled, run the auto-scheduler immediately
+        if (season.schedule?.enabled) {
+          console.log('[SEASONS] Auto-scheduling enabled - triggering immediate scheduler check');
+          try {
+            await runAutoSchedulerCheck(
+              interaction.client,
+              getESPNGamesForDate,
+              addScheduledSession,
+              scheduleSessionJobs,
+              createSchedulerHandlers(interaction.client)
+            );
+            console.log('[SEASONS] Auto-scheduler check completed after season creation');
+          } catch (schedError) {
+            console.error('[SEASONS] Error running auto-scheduler after season creation:', schedError);
+          }
+        }
+        
         // Show success message
         const embed = new EmbedBuilder()
           .setTitle('✅ Season Created')
-          .setDescription(`**${season.name}** has been created successfully!`)
+          .setDescription(`**${season.name}** has been created successfully!${season.schedule?.enabled ? '\n\n⏱️ Checking for games to auto-schedule...' : ''}`)
           .setColor('#57F287')
           .addFields(
             { name: '🗓️ Duration', value: `${season.startDate} to ${season.endDate}`, inline: true },
