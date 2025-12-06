@@ -6,6 +6,25 @@ const ESPN_API_BASE = 'https://site.api.espn.com/apis/site/v2/sports/basketball/
 const BALLDONTLIE_API = 'https://api.balldontlie.io/v1';
 
 /**
+ * Get current Pacific Time date as YYYYMMDD string
+ */
+function getPacificTimeDate(offsetDays = 0) {
+  const now = new Date();
+  // Convert to Pacific Time (UTC-8 or UTC-7 for PDT)
+  const pacificTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+  
+  if (offsetDays !== 0) {
+    pacificTime.setDate(pacificTime.getDate() + offsetDays);
+  }
+  
+  const year = pacificTime.getFullYear();
+  const month = String(pacificTime.getMonth() + 1).padStart(2, '0');
+  const day = String(pacificTime.getDate()).padStart(2, '0');
+  
+  return `${year}${month}${day}`;
+}
+
+/**
  * Fix common player name issues from ESPN API
  */
 function fixPlayerName(name) {
@@ -663,21 +682,16 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
     const normalizedAbbr = ABBR_ALIASES[teamAbbr] || teamAbbr;
     console.log(`[Scraper] Team abbreviation: "${teamAbbr}" → normalized: "${normalizedAbbr}"`);
     
-    // First get today's scoreboard to find game IDs - check yesterday, today and tomorrow (NBA games use ET)
-    // Use PT/ET timezone aware dates since NBA games are in US timezones
-    const now = new Date();
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    // Get Pacific Time dates (NBA games are scheduled in local US timezones)
+    const yesterdayStr = getPacificTimeDate(-1);
+    const todayStr = getPacificTimeDate(0);
+    const tomorrowStr = getPacificTimeDate(1);
     
-    const yesterdayStr = yesterday.toISOString().split('T')[0].replace(/-/g, '');
-    const todayStr = now.toISOString().split('T')[0].replace(/-/g, '');
-    const tomorrowStr = tomorrow.toISOString().split('T')[0].replace(/-/g, '');
+    console.log(`[Scraper] Pacific Time dates: Yesterday=${yesterdayStr}, Today=${todayStr}, Tomorrow=${tomorrowStr}`);
     
-    // Try YESTERDAY first (most games finish "yesterday" in UTC when played in US timezones)
-    let url = `${ESPN_API_BASE}/scoreboard?dates=${yesterdayStr}`;
-    console.log(`[Scraper] Fetching scoreboard for ${teamName} - checking ${yesterdayStr}...`);
+    // Try TODAY first (most likely), then TOMORROW, then YESTERDAY
+    let url = `${ESPN_API_BASE}/scoreboard?dates=${todayStr}`;
+    console.log(`[Scraper] Fetching scoreboard for ${teamName} - checking ${todayStr}...`);
     
     let response = await fetch(url);
     if (!response.ok) {
@@ -688,37 +702,37 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
     let data = await response.json();
     let gameId = null;
     
-    console.log(`[Scraper] Found ${data.events?.length || 0} games on ${yesterdayStr}`);
+    console.log(`[Scraper] Found ${data.events?.length || 0} games on ${todayStr}`);
     
     // Find the game with this team
-      if (data.events) {
-        for (const event of data.events) {
-          const competition = event.competitions?.[0];
-          if (!competition) continue;
+    if (data.events) {
+      for (const event of data.events) {
+        const competition = event.competitions?.[0];
+        if (!competition) continue;
+        
+        console.log(`[Scraper] Event ${event.id}: ${competition.competitors?.map(c => `${c.team.displayName} (${c.team.abbreviation})`).join(' vs ')}`);
+        
+        for (const competitor of competition.competitors) {
+          const compAbbr = competitor.team.abbreviation;
+          const compName = competitor.team.displayName;
           
-          console.log(`[Scraper] Event ${event.id}: ${competition.competitors?.map(c => `${c.team.displayName} (${c.team.abbreviation})`).join(' vs ')}`);
+          console.log(`[Scraper]   Comparing: "${compAbbr}" === "${normalizedAbbr}" || "${compName}" === "${teamName}"`);
           
-          for (const competitor of competition.competitors) {
-            const compAbbr = competitor.team.abbreviation;
-            const compName = competitor.team.displayName;
-            
-            console.log(`[Scraper]   Comparing: "${compAbbr}" === "${normalizedAbbr}" || "${compName}" === "${teamName}"`);
-            
-            if (compAbbr === normalizedAbbr || compName === teamName) {
-              gameId = event.id;
-              console.log(`[Scraper] ✓ Found game ID ${gameId} for ${teamName} on ${yesterdayStr}`);
-              break;
-            }
+          if (compAbbr === normalizedAbbr || compName === teamName) {
+            gameId = event.id;
+            console.log(`[Scraper] ✓ Found game ID ${gameId} for ${teamName} on ${todayStr}`);
+            break;
           }
-          
-          if (gameId) break;
         }
+        
+        if (gameId) break;
       }
-    
-    // If not found, try today
+    }
+  
+    // If not found, try tomorrow
     if (!gameId) {
-      console.log(`[Scraper] Game not found on ${yesterdayStr}, trying ${todayStr}...`);
-      url = `${ESPN_API_BASE}/scoreboard?dates=${todayStr}`;
+      console.log(`[Scraper] Game not found on ${todayStr}, trying ${tomorrowStr}...`);
+      url = `${ESPN_API_BASE}/scoreboard?dates=${tomorrowStr}`;
       response = await fetch(url);
       
       if (!response.ok) {
@@ -754,19 +768,19 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
       }
     }
     
-    // If not found, try tomorrow
+    // If not found, try yesterday
     if (!gameId) {
-      console.log(`[Scraper] Game not found on ${yesterdayStr} or ${todayStr}, trying ${tomorrowStr}...`);
-      url = `${ESPN_API_BASE}/scoreboard?dates=${tomorrowStr}`;
+      console.log(`[Scraper] Game not found on ${todayStr} or ${tomorrowStr}, trying ${yesterdayStr}...`);
+      url = `${ESPN_API_BASE}/scoreboard?dates=${yesterdayStr}`;
       response = await fetch(url);
       
       if (!response.ok) {
-        console.warn(`[Scraper] Tomorrow scoreboard fetch failed: ${response.status}`);
+        console.warn(`[Scraper] Yesterday scoreboard fetch failed: ${response.status}`);
         return [];
       }
       
       data = await response.json();
-      console.log(`[Scraper] Found ${data.events?.length || 0} games on ${tomorrowStr}`);
+      console.log(`[Scraper] Found ${data.events?.length || 0} games on ${yesterdayStr}`);
       
       if (data.events) {
         for (const event of data.events) {
@@ -783,7 +797,7 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
             
             if (compAbbr === normalizedAbbr || compName === teamName) {
               gameId = event.id;
-              console.log(`[Scraper] ✓ Found game ID ${gameId} for ${teamName} on ${tomorrowStr}`);
+              console.log(`[Scraper] ✓ Found game ID ${gameId} for ${teamName} on ${yesterdayStr}`);
               break;
             }
           }
@@ -900,11 +914,10 @@ async function fetchInjuriesFromGameSummary(teamName, teamAbbr) {
 async function fetchInjuriesFromBallDontLie(teamName) {
   try {
     // BallDontLie doesn't have injuries endpoint, try ESPN scoreboard instead
-    const today = new Date();
-    const dateStr = today.toISOString().split('T')[0].replace(/-/g, '');
+    const dateStr = getPacificTimeDate(0);
     
     const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateStr}`;
-    console.log(`[Scraper] Fetching ESPN scoreboard for injuries: ${url}`);
+    console.log(`[Scraper] Fetching ESPN scoreboard for injuries (Pacific Time): ${url}`);
     
     const response = await fetch(url);
     if (!response.ok) {

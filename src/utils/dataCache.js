@@ -9,6 +9,21 @@
 import { getMatchupInfo, getTeamInfo } from './espnApi.js';
 import * as cron from 'node-cron';
 
+/**
+ * Get current Pacific Time date as YYYY-MM-DD string
+ */
+function getPacificTimeDate() {
+  const now = new Date();
+  // Convert to Pacific Time
+  const pacificTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+  
+  const year = pacificTime.getFullYear();
+  const month = String(pacificTime.getMonth() + 1).padStart(2, '0');
+  const day = String(pacificTime.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+}
+
 // Cache storage (only for games/spreads from Odds API)
 const cache = {
   games: null,
@@ -131,8 +146,8 @@ export async function fetchGamesForSession(date = null) {
 
   try {
     cache.isFetchingGames = true;
-    const dateStr = date || new Date().toISOString().split('T')[0];
-    console.log(`[Cache] 📊 Fetching games with spreads from Odds API for ${dateStr}...`);
+    const dateStr = date || getPacificTimeDate();
+    console.log(`[Cache] 📊 Fetching games with spreads from Odds API for ${dateStr} (Pacific Time)...`);
     
     // Use getFormattedGamesForDate to get properly formatted games with spreads
     const { getFormattedGamesForDate } = await import('./oddsApi.js');
