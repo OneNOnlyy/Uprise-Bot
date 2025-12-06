@@ -1022,14 +1022,14 @@ export async function handleButton(interaction) {
       const config = getSeasonConfig(interaction.user.id);
       
       try {
-        const season = createSeason({
-          name: config.name,
-          type: config.type,
-          startDate: config.startDate,
-          endDate: config.endDate,
-          participants: config.participants,
-          schedule: config.schedule
-        });
+        const season = createSeason(
+          config.name,
+          config.type,
+          config.startDate,
+          config.endDate,
+          config.participants,
+          config.schedule
+        );
         
         clearSeasonConfig(interaction.user.id);
         
@@ -1300,6 +1300,8 @@ export async function handleSelectMenu(interaction) {
             startDate.setDate(now.getDate() + 1);
             endDate = new Date(startDate);
             endDate.setDate(endDate.getDate() + 30);
+            config.startDate = startDate.toISOString().split('T')[0];
+            config.endDate = endDate.toISOString().split('T')[0];
           }
           break;
       }
