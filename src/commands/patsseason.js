@@ -921,6 +921,56 @@ export async function handleButton(interaction) {
       return await interaction.showModal(modal);
     }
     
+    // Handle Edit Timing Modal - DON'T defer, show modal immediately
+    if (customId === 'pats_season_create_edit_timing') {
+      const config = getSeasonConfig(interaction.user.id);
+      const schedule = config.schedule;
+      
+      const modal = new ModalBuilder()
+        .setCustomId('pats_season_modal_timing')
+        .setTitle('Edit Session Timing');
+      
+      const sessionStartInput = new TextInputBuilder()
+        .setCustomId('session_start')
+        .setLabel('Session Start (minutes before first game)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(schedule.sessionStartMinutes.toString())
+        .setRequired(true)
+        .setPlaceholder('60');
+      
+      const announcementInput = new TextInputBuilder()
+        .setCustomId('announcement')
+        .setLabel('Announcement (minutes before session start)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(schedule.announcementMinutes.toString())
+        .setRequired(true)
+        .setPlaceholder('120');
+      
+      const remindersInput = new TextInputBuilder()
+        .setCustomId('reminders')
+        .setLabel('Reminders (comma-separated minutes)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(schedule.reminders.minutes.join(', '))
+        .setRequired(false)
+        .setPlaceholder('60, 30, 15');
+      
+      const warningsInput = new TextInputBuilder()
+        .setCustomId('warnings')
+        .setLabel('Warnings (comma-separated minutes)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(schedule.warnings.minutes.join(', '))
+        .setRequired(false)
+        .setPlaceholder('5, 2');
+      
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(sessionStartInput),
+        new ActionRowBuilder().addComponents(announcementInput),
+        new ActionRowBuilder().addComponents(remindersInput),
+        new ActionRowBuilder().addComponents(warningsInput)
+      );
+      return await interaction.showModal(modal);
+    }
+    
     // For all other buttons, defer the update
     await interaction.deferUpdate();
     
@@ -1384,6 +1434,81 @@ export async function handleModal(interaction) {
       config.startDate = startDate;
       config.endDate = endDate;
       return await showCreateSeasonStep1(interaction);
+    }
+    
+    if (customId === 'pats_season_modal_timing') {
+      const config = getSeasonConfig(interaction.user.id);
+      const schedule = config.schedule;
+      
+      // Get values from modal
+      const sessionStartStr = interaction.fields.getTextInputValue('session_start');
+      const announcementStr = interaction.fields.getTextInputValue('announcement');
+      const remindersStr = interaction.fields.getTextInputValue('reminders');
+      const warningsStr = interaction.fields.getTextInputValue('warnings');
+      
+      // Parse and validate session start
+      const sessionStart = parseInt(sessionStartStr);
+      if (isNaN(sessionStart) || sessionStart < 0 || sessionStart > 1440) {
+        await interaction.followUp({
+          content: '❌ Session start must be a number between 0 and 1440 minutes.',
+          ephemeral: true
+        });
+        return await showCreateSeasonStep3(interaction);
+      }
+      
+      // Parse and validate announcement
+      const announcement = parseInt(announcementStr);
+      if (isNaN(announcement) || announcement < 0 || announcement > 1440) {
+        await interaction.followUp({
+          content: '❌ Announcement time must be a number between 0 and 1440 minutes.',
+          ephemeral: true
+        });
+        return await showCreateSeasonStep3(interaction);
+      }
+      
+      // Parse reminders (comma-separated)
+      let reminders = [];
+      if (remindersStr.trim()) {
+        reminders = remindersStr.split(',')
+          .map(s => parseInt(s.trim()))
+          .filter(n => !isNaN(n) && n > 0 && n <= 1440);
+        
+        if (reminders.length === 0) {
+          await interaction.followUp({
+            content: '❌ Invalid reminders format. Use comma-separated numbers (e.g., 60, 30, 15)',
+            ephemeral: true
+          });
+          return await showCreateSeasonStep3(interaction);
+        }
+      }
+      
+      // Parse warnings (comma-separated)
+      let warnings = [];
+      if (warningsStr.trim()) {
+        warnings = warningsStr.split(',')
+          .map(s => parseInt(s.trim()))
+          .filter(n => !isNaN(n) && n > 0 && n <= 1440);
+        
+        if (warnings.length === 0) {
+          await interaction.followUp({
+            content: '❌ Invalid warnings format. Use comma-separated numbers (e.g., 5, 2)',
+            ephemeral: true
+          });
+          return await showCreateSeasonStep3(interaction);
+        }
+      }
+      
+      // Update config
+      schedule.sessionStartMinutes = sessionStart;
+      schedule.announcementMinutes = announcement;
+      if (reminders.length > 0) {
+        schedule.reminders.minutes = reminders.sort((a, b) => b - a); // Sort descending
+      }
+      if (warnings.length > 0) {
+        schedule.warnings.minutes = warnings.sort((a, b) => b - a); // Sort descending
+      }
+      
+      return await showCreateSeasonStep3(interaction);
     }
     
   } catch (error) {
