@@ -1271,7 +1271,7 @@ export async function runAutoSchedulerCheck(client, getGamesForDate, addSchedule
       
       if (session && scheduleSessionJobs && handlers) {
         // Schedule cron jobs for the new session
-        scheduleSessionJobs(session, handlers);
+        scheduleSessionJobs(session, handlers, true); // isNewSession = true for auto-scheduled sessions
       }
     }
   }

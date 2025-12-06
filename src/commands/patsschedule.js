@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, UserSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { getAllScheduledSessions, getScheduledSession, deleteScheduledSession, getAllTemplates, getTemplate, deleteTemplate, addScheduledSession, saveTemplate, updateScheduledSession } from '../utils/sessionScheduler.js';
+import { getAllScheduledSessions, getScheduledSession, deleteScheduledSession, getAllTemplates, getTemplate, deleteTemplate, addScheduledSession, saveTemplate, updateScheduledSession, scheduleSessionJobs } from '../utils/sessionScheduler.js';
 import { getESPNGamesForDate } from '../utils/oddsApi.js';
 
 // Store in-progress session configurations (userId -> config)
@@ -2142,6 +2142,26 @@ export async function createScheduledSession(interaction) {
     
     // Save the session
     const session = addScheduledSession(sessionConfig);
+    
+    // Schedule the cron jobs for this new session
+    const handlers = {
+      sendAnnouncement: async (session) => {
+        const { sendSessionAnnouncement, startScheduledSession } = await import('../utils/sessionScheduler.js');
+        await sendSessionAnnouncement(interaction.client, session);
+        await startScheduledSession(interaction.client, session);
+      },
+      sendReminders: async (session) => {
+        const { sendSessionReminder } = await import('../utils/sessionScheduler.js');
+        await sendSessionReminder(interaction.client, session);
+      },
+      sendWarnings: async (session) => {
+        console.log(`[Scheduler] Session warning skipped for ${session.id} (using game warnings instead)`);
+      },
+      startSession: async (session) => {
+        console.log(`[Scheduler] First game time reached for session ${session.id} (already started at announcement)`);
+      }
+    };
+    scheduleSessionJobs(session, handlers, true); // isNewSession = true
     
     // Clear the config
     clearSessionConfig(interaction.user.id);

@@ -53,6 +53,27 @@ function generateSessionId() {
 }
 
 /**
+ * Mark a notification as sent
+ */
+function markNotificationSent(sessionId, notificationType) {
+  const data = loadScheduledSessions();
+  const session = data.sessions.find(s => s.id === sessionId);
+  
+  if (session) {
+    if (!session.sentNotifications) {
+      session.sentNotifications = {
+        announcement: false,
+        reminder: false,
+        warning: false
+      };
+    }
+    session.sentNotifications[notificationType] = true;
+    saveScheduledSessions(data);
+    console.log(`[Scheduler] Marked ${notificationType} as sent for ${sessionId}`);
+  }
+}
+
+/**
  * Add a new scheduled session
  * @param {object} sessionConfig - Session configuration
  * @returns {object} Created session
@@ -84,6 +105,11 @@ export function addScheduledSession(sessionConfig) {
         enabled: sessionConfig.notifications.warning.enabled,
         minutesBefore: sessionConfig.notifications.warning.minutesBefore
       }
+    },
+    sentNotifications: {
+      announcement: false,
+      reminder: false,
+      warning: false
     },
     createdBy: sessionConfig.createdBy,
     createdByUsername: sessionConfig.createdByUsername,
@@ -251,19 +277,39 @@ export function deleteTemplate(name) {
 /**
  * Schedule cron jobs for a session
  * This will be called when the session is created or when the bot restarts
+ * @param {boolean} isNewSession - Whether this is a newly created session (vs bot restart)
  */
-export function scheduleSessionJobs(session, handlers) {
+export function scheduleSessionJobs(session, handlers, isNewSession = false) {
   const now = new Date();
   const timezone = getCronTimezone();
   
+  // Initialize sentNotifications if not present (for old sessions)
+  if (!session.sentNotifications) {
+    session.sentNotifications = {
+      announcement: false,
+      reminder: false,
+      warning: false
+    };
+  }
+  
   // Announcement job
-  if (session.notifications.announcement.enabled) {
+  if (session.notifications.announcement.enabled && !session.sentNotifications.announcement) {
     const announcementTime = new Date(session.notifications.announcement.time);
+    const timeDiff = announcementTime - now;
     
-    if (announcementTime > now) {
+    // For NEW sessions within 2 minutes, trigger immediately
+    if (isNewSession && timeDiff < 2 * 60 * 1000 && timeDiff > -60 * 1000) {
+      console.log(`[Scheduler] New session ${session.id} announcement is imminent (${Math.round(timeDiff / 1000)}s away) - triggering immediately`);
+      setTimeout(() => {
+        console.log(`[Scheduler] Immediate announcement triggered for ${session.id}`);
+        markNotificationSent(session.id, 'announcement');
+        handlers.sendAnnouncement(session);
+      }, Math.max(0, timeDiff));
+    } else if (announcementTime > now) {
       const cronTime = getCronExpression(announcementTime);
       const job = cron.schedule(cronTime, () => {
         console.log(`[Scheduler] Announcement job triggered for ${session.id}`);
+        markNotificationSent(session.id, 'announcement');
         handlers.sendAnnouncement(session);
         scheduledJobs.delete(`${session.id}_announcement`);
       }, { timezone });
@@ -276,14 +322,24 @@ export function scheduleSessionJobs(session, handlers) {
   }
   
   // Reminder job
-  if (session.notifications.reminder.enabled) {
+  if (session.notifications.reminder.enabled && !session.sentNotifications.reminder) {
     const firstGameTime = new Date(session.firstGameTime);
     const reminderTime = new Date(firstGameTime.getTime() - (session.notifications.reminder.minutesBefore * 60 * 1000));
+    const timeDiff = reminderTime - now;
     
-    if (reminderTime > now) {
+    // For NEW sessions within 2 minutes, trigger immediately
+    if (isNewSession && timeDiff < 2 * 60 * 1000 && timeDiff > -60 * 1000) {
+      console.log(`[Scheduler] New session ${session.id} reminder is imminent (${Math.round(timeDiff / 1000)}s away) - triggering immediately`);
+      setTimeout(() => {
+        console.log(`[Scheduler] Immediate reminder triggered for ${session.id}`);
+        markNotificationSent(session.id, 'reminder');
+        handlers.sendReminders(session);
+      }, Math.max(0, timeDiff));
+    } else if (reminderTime > now) {
       const cronTime = getCronExpression(reminderTime);
       const job = cron.schedule(cronTime, () => {
         console.log(`[Scheduler] Reminder job triggered for ${session.id}`);
+        markNotificationSent(session.id, 'reminder');
         handlers.sendReminders(session);
         scheduledJobs.delete(`${session.id}_reminder`);
       }, { timezone });
@@ -294,14 +350,24 @@ export function scheduleSessionJobs(session, handlers) {
   }
   
   // Warning job
-  if (session.notifications.warning.enabled) {
+  if (session.notifications.warning.enabled && !session.sentNotifications.warning) {
     const firstGameTime = new Date(session.firstGameTime);
     const warningTime = new Date(firstGameTime.getTime() - (session.notifications.warning.minutesBefore * 60 * 1000));
+    const timeDiff = warningTime - now;
     
-    if (warningTime > now) {
+    // For NEW sessions within 2 minutes, trigger immediately
+    if (isNewSession && timeDiff < 2 * 60 * 1000 && timeDiff > -60 * 1000) {
+      console.log(`[Scheduler] New session ${session.id} warning is imminent (${Math.round(timeDiff / 1000)}s away) - triggering immediately`);
+      setTimeout(() => {
+        console.log(`[Scheduler] Immediate warning triggered for ${session.id}`);
+        markNotificationSent(session.id, 'warning');
+        handlers.sendWarnings(session);
+      }, Math.max(0, timeDiff));
+    } else if (warningTime > now) {
       const cronTime = getCronExpression(warningTime);
       const job = cron.schedule(cronTime, () => {
         console.log(`[Scheduler] Warning job triggered for ${session.id}`);
+        markNotificationSent(session.id, 'warning');
         handlers.sendWarnings(session);
         scheduledJobs.delete(`${session.id}_warning`);
       }, { timezone });
