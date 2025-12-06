@@ -259,8 +259,17 @@ export function scheduleSessionJobs(session, handlers) {
   // Announcement job
   if (session.notifications.announcement.enabled) {
     const announcementTime = new Date(session.notifications.announcement.time);
+    const timeDiff = announcementTime - now;
     
-    if (announcementTime > now) {
+    // If announcement time is in the past or within the next 2 minutes, trigger immediately
+    if (timeDiff < 2 * 60 * 1000) {
+      console.log(`[Scheduler] Announcement time for ${session.id} is imminent or passed (${Math.round(timeDiff / 1000)}s away) - triggering immediately`);
+      // Trigger immediately in the background
+      setTimeout(() => {
+        console.log(`[Scheduler] Immediate announcement triggered for ${session.id}`);
+        handlers.sendAnnouncement(session);
+      }, Math.max(0, timeDiff));
+    } else {
       const cronTime = getCronExpression(announcementTime);
       const job = cron.schedule(cronTime, () => {
         console.log(`[Scheduler] Announcement job triggered for ${session.id}`);
@@ -270,8 +279,6 @@ export function scheduleSessionJobs(session, handlers) {
       
       scheduledJobs.set(`${session.id}_announcement`, job);
       console.log(`[Scheduler] Scheduled announcement for ${session.id} at ${announcementTime.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT (cron: ${cronTime})`);
-    } else {
-      console.log(`[Scheduler] Announcement time ${announcementTime.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT has already passed for ${session.id}`);
     }
   }
   
@@ -279,8 +286,16 @@ export function scheduleSessionJobs(session, handlers) {
   if (session.notifications.reminder.enabled) {
     const firstGameTime = new Date(session.firstGameTime);
     const reminderTime = new Date(firstGameTime.getTime() - (session.notifications.reminder.minutesBefore * 60 * 1000));
+    const timeDiff = reminderTime - now;
     
-    if (reminderTime > now) {
+    // If reminder time is in the past or within the next 2 minutes, trigger immediately
+    if (timeDiff < 2 * 60 * 1000) {
+      console.log(`[Scheduler] Reminder time for ${session.id} is imminent or passed (${Math.round(timeDiff / 1000)}s away) - triggering immediately`);
+      setTimeout(() => {
+        console.log(`[Scheduler] Immediate reminder triggered for ${session.id}`);
+        handlers.sendReminders(session);
+      }, Math.max(0, timeDiff));
+    } else {
       const cronTime = getCronExpression(reminderTime);
       const job = cron.schedule(cronTime, () => {
         console.log(`[Scheduler] Reminder job triggered for ${session.id}`);
@@ -297,8 +312,16 @@ export function scheduleSessionJobs(session, handlers) {
   if (session.notifications.warning.enabled) {
     const firstGameTime = new Date(session.firstGameTime);
     const warningTime = new Date(firstGameTime.getTime() - (session.notifications.warning.minutesBefore * 60 * 1000));
+    const timeDiff = warningTime - now;
     
-    if (warningTime > now) {
+    // If warning time is in the past or within the next 2 minutes, trigger immediately
+    if (timeDiff < 2 * 60 * 1000) {
+      console.log(`[Scheduler] Warning time for ${session.id} is imminent or passed (${Math.round(timeDiff / 1000)}s away) - triggering immediately`);
+      setTimeout(() => {
+        console.log(`[Scheduler] Immediate warning triggered for ${session.id}`);
+        handlers.sendWarnings(session);
+      }, Math.max(0, timeDiff));
+    } else {
       const cronTime = getCronExpression(warningTime);
       const job = cron.schedule(cronTime, () => {
         console.log(`[Scheduler] Warning job triggered for ${session.id}`);
