@@ -171,7 +171,7 @@ export async function showSeasonAdminMenu(interaction) {
     const endDate = new Date(currentSeason.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     embed.addFields({ name: '🗓️ Duration', value: `${startDate} - ${endDate}`, inline: true });
     
-    if (schedule.sessions.length > 0) {
+    if (schedule?.sessions?.length > 0) {
       embed.addFields({ name: '📅 Scheduled Sessions', value: `${schedule.sessions.length} upcoming`, inline: true });
     }
   } else {
