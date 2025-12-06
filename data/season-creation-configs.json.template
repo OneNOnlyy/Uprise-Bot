@@ -1,0 +1,5 @@
+{
+  "_comment": "This file stores in-progress season creation configurations",
+  "_comment2": "It allows users to resume season creation if the bot restarts or an error occurs",
+  "_comment3": "The actual file (season-creation-configs.json) is auto-generated and should not be edited manually"
+}

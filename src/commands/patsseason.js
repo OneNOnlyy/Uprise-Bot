@@ -16,12 +16,58 @@ import {
   getSeasonById
 } from '../utils/patsSeasons.js';
 import { getAllPlayers } from '../utils/patsData.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const SEASON_CONFIG_FILE = path.join(__dirname, '../../data/season-creation-configs.json');
 
 // PATS Role ID for auto-adding members
 const PATS_ROLE_ID = '1445979227525746798';
 
 // Store in-progress season configurations (userId -> config)
 const seasonConfigs = new Map();
+
+/**
+ * Load saved season configs from file
+ */
+async function loadSeasonConfigs() {
+  try {
+    const data = await fs.readFile(SEASON_CONFIG_FILE, 'utf-8');
+    const configs = JSON.parse(data);
+    
+    // Restore configs to Map
+    for (const [userId, config] of Object.entries(configs)) {
+      seasonConfigs.set(userId, config);
+    }
+    
+    console.log(`[Season Creation] Loaded ${seasonConfigs.size} saved season configs`);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      console.log('[Season Creation] No saved configs found, starting fresh');
+    } else {
+      console.error('[Season Creation] Error loading configs:', error);
+    }
+  }
+}
+
+/**
+ * Save season configs to file
+ */
+async function saveSeasonConfigs() {
+  try {
+    const configs = Object.fromEntries(seasonConfigs);
+    await fs.writeFile(SEASON_CONFIG_FILE, JSON.stringify(configs, null, 2));
+    console.log(`[Season Creation] Saved ${seasonConfigs.size} season configs to file`);
+  } catch (error) {
+    console.error('[Season Creation] Error saving configs:', error);
+  }
+}
+
+// Load configs on module initialization
+loadSeasonConfigs();
 
 /**
  * Get or create season config for user
@@ -52,6 +98,8 @@ function getSeasonConfig(userId) {
         }
       }
     });
+    // Auto-save when creating new config
+    saveSeasonConfigs();
   }
   return seasonConfigs.get(userId);
 }
@@ -59,8 +107,19 @@ function getSeasonConfig(userId) {
 /**
  * Clear season config for user
  */
-function clearSeasonConfig(userId) {
+async function clearSeasonConfig(userId) {
   seasonConfigs.delete(userId);
+  await saveSeasonConfigs();
+}
+
+/**
+ * Update config and auto-save to file
+ */
+async function updateSeasonConfig(userId, updates) {
+  const config = getSeasonConfig(userId);
+  Object.assign(config, updates);
+  await saveSeasonConfigs();
+  return config;
 }
 
 export const data = new SlashCommandBuilder()
@@ -89,6 +148,9 @@ export async function execute(interaction) {
 export async function showSeasonAdminMenu(interaction) {
   const currentSeason = getCurrentSeason();
   
+  // Check if user has a saved in-progress season creation
+  const hasSavedConfig = seasonConfigs.has(interaction.user.id);
+  
   const embed = new EmbedBuilder()
     .setTitle('⚙️ PATS Season Admin')
     .setColor('#5865F2');
@@ -115,7 +177,8 @@ export async function showSeasonAdminMenu(interaction) {
   } else {
     embed.setDescription(
       '📅 **No Active Season**\n\n' +
-      'Create a new season to start tracking standings, awards, and auto-scheduling sessions.'
+      'Create a new season to start tracking standings, awards, and auto-scheduling sessions.' +
+      (hasSavedConfig ? '\n\n💾 **You have a saved season in progress!** Click "Create Season" to continue.' : '')
     );
   }
   
@@ -211,6 +274,9 @@ export async function showCreateSeasonStep1(interaction) {
     config.endDate = endOfMonth.toISOString().split('T')[0];
   }
   
+  // Auto-save progress
+  await saveSeasonConfigs();
+  
   const embed = new EmbedBuilder()
     .setTitle('➕ Create New Season (1/4)')
     .setDescription('📝 **Basic Information**')
@@ -220,7 +286,7 @@ export async function showCreateSeasonStep1(interaction) {
       { name: '📆 Type', value: `\`${config.type}\``, inline: true },
       { name: '🗓️ Dates', value: `\`${config.startDate}\` to \`${config.endDate}\``, inline: false }
     )
-    .setFooter({ text: 'Step 1 of 4 • Use buttons below to configure' });
+    .setFooter({ text: 'Step 1 of 4 • Progress auto-saved 💾' });
   
   const typeSelect = new ActionRowBuilder()
     .addComponents(
@@ -275,6 +341,7 @@ export async function showCreateSeasonStep1(interaction) {
 export async function showCreateSeasonStep2(interaction) {
   const config = getSeasonConfig(interaction.user.id);
   config.step = 2;
+  await saveSeasonConfigs();
   
   const allPlayers = getAllPlayers();
   const participantList = config.participants.length > 0 
@@ -288,7 +355,7 @@ export async function showCreateSeasonStep2(interaction) {
     .addFields(
       { name: `Selected (${config.participants.length})`, value: participantList }
     )
-    .setFooter({ text: 'Step 2 of 4 • Select users to participate in this season' });
+    .setFooter({ text: 'Step 2 of 4 • Progress auto-saved 💾' });
   
   const userSelect = new ActionRowBuilder()
     .addComponents(
@@ -340,6 +407,7 @@ export async function showCreateSeasonStep2(interaction) {
 export async function showCreateSeasonStep3(interaction) {
   const config = getSeasonConfig(interaction.user.id);
   config.step = 3;
+  await saveSeasonConfigs();
   
   const schedule = config.schedule;
   
@@ -355,7 +423,7 @@ export async function showCreateSeasonStep3(interaction) {
       { name: '🔔 Reminders', value: schedule.reminders.enabled ? `__${schedule.reminders.minutes.join(' min, ')} min__${schedule.reminders.dm ? ' (DM)' : ''}` : '❌ Disabled', inline: true },
       { name: '⚠️ Warnings', value: schedule.warnings.enabled ? `__${schedule.warnings.minutes.join(' min, ')} min__${schedule.warnings.dm ? ' (DM)' : ''}` : '❌ Disabled', inline: true }
     )
-    .setFooter({ text: 'Step 3 of 4 • Configure auto-scheduling for this season' });
+    .setFooter({ text: 'Step 3 of 4 • Progress auto-saved 💾' });
   
   const toggleRow = new ActionRowBuilder()
     .addComponents(
@@ -419,6 +487,7 @@ export async function showCreateSeasonStep3(interaction) {
 export async function showCreateSeasonStep4(interaction) {
   const config = getSeasonConfig(interaction.user.id);
   config.step = 4;
+  await saveSeasonConfigs();
   
   const schedule = config.schedule;
   
@@ -445,7 +514,7 @@ export async function showCreateSeasonStep4(interaction) {
         inline: false
       }
     )
-    .setFooter({ text: 'Step 4 of 4 • Review and create your season' });
+    .setFooter({ text: 'Step 4 of 4 • Progress auto-saved 💾' });
   
   const navButtons = new ActionRowBuilder()
     .addComponents(
@@ -1067,6 +1136,7 @@ export async function handleButton(interaction) {
     if (customId === 'pats_season_create_toggle_auto') {
       const config = getSeasonConfig(interaction.user.id);
       config.schedule.enabled = !config.schedule.enabled;
+      await saveSeasonConfigs();
       return await showCreateSeasonStep3(interaction);
     }
     
@@ -1074,6 +1144,7 @@ export async function handleButton(interaction) {
     if (customId === 'pats_season_create_toggle_reminders') {
       const config = getSeasonConfig(interaction.user.id);
       config.schedule.reminders.enabled = !config.schedule.reminders.enabled;
+      await saveSeasonConfigs();
       return await showCreateSeasonStep3(interaction);
     }
     
@@ -1081,6 +1152,7 @@ export async function handleButton(interaction) {
     if (customId === 'pats_season_create_toggle_warnings') {
       const config = getSeasonConfig(interaction.user.id);
       config.schedule.warnings.enabled = !config.schedule.warnings.enabled;
+      await saveSeasonConfigs();
       return await showCreateSeasonStep3(interaction);
     }
     
@@ -1110,6 +1182,7 @@ export async function handleButton(interaction) {
     if (customId === 'pats_season_create_clear_participants') {
       const config = getSeasonConfig(interaction.user.id);
       config.participants = [];
+      await saveSeasonConfigs();
       return await showCreateSeasonStep2(interaction);
     }
     
@@ -1320,6 +1393,7 @@ export async function handleSelectMenu(interaction) {
         }
       }
       
+      await saveSeasonConfigs();
       return await showCreateSeasonStep1(interaction);
     }
     
@@ -1335,6 +1409,7 @@ export async function handleSelectMenu(interaction) {
         }
       }
       
+      await saveSeasonConfigs();
       return await showCreateSeasonStep2(interaction);
     }
     
@@ -1342,6 +1417,7 @@ export async function handleSelectMenu(interaction) {
     if (customId === 'pats_season_create_select_channel') {
       const config = getSeasonConfig(interaction.user.id);
       config.schedule.channelId = interaction.values[0];
+      await saveSeasonConfigs();
       return await showCreateSeasonStep3(interaction);
     }
     
@@ -1395,6 +1471,7 @@ export async function handleModal(interaction) {
     if (customId === 'pats_season_modal_name') {
       const config = getSeasonConfig(interaction.user.id);
       config.name = interaction.fields.getTextInputValue('season_name');
+      await saveSeasonConfigs();
       return await showCreateSeasonStep1(interaction);
     }
     
@@ -1435,6 +1512,7 @@ export async function handleModal(interaction) {
       
       config.startDate = startDate;
       config.endDate = endDate;
+      await saveSeasonConfigs();
       return await showCreateSeasonStep1(interaction);
     }
     
@@ -1510,6 +1588,7 @@ export async function handleModal(interaction) {
         schedule.warnings.minutes = warnings.sort((a, b) => b - a); // Sort descending
       }
       
+      await saveSeasonConfigs();
       return await showCreateSeasonStep3(interaction);
     }
     
