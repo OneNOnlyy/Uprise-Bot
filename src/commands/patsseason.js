@@ -2139,8 +2139,43 @@ export async function handleButton(interaction) {
       return await showAllScheduledSessions(interaction);
     }
     
-    // Refresh Schedule View
+    // Refresh Schedule View - rerun auto-scheduler
     if (customId === 'pats_season_schedule_refresh') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      // Run the auto-scheduler
+      try {
+        await interaction.editReply({
+          content: '🔄 Running auto-scheduler...',
+          embeds: [],
+          components: []
+        });
+        
+        await runAutoSchedulerCheck();
+        
+        // Small delay to let the scheduler complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        await interaction.editReply({
+          content: '✅ Auto-scheduler completed! Refreshing schedule...',
+          embeds: [],
+          components: []
+        });
+        
+        // Small delay before showing the updated schedule
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error('[Season Schedule] Error running auto-scheduler:', error);
+        await interaction.editReply({
+          content: '⚠️ Auto-scheduler completed with some issues. Showing current schedule...',
+          embeds: [],
+          components: []
+        });
+      }
+      
       return await showManageSchedule(interaction);
     }
     
