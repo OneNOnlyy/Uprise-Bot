@@ -484,12 +484,19 @@ export function updateGameResult(sessionId, gameId, result) {
       }
     }
     
-    // Update season standings if a season is active
+    // Update season standings if a season is active AND this is a season session
     (async () => {
       try {
         const seasons = await getSeasonsModule();
         const currentSeason = seasons.getCurrentSeason();
-        if (currentSeason && currentSeason.participants.includes(userId)) {
+        
+        // Only update season standings if:
+        // 1. There's an active season
+        // 2. This session belongs to that season (has matching seasonId)
+        // 3. The user is a participant in the season
+        if (currentSeason && 
+            session.seasonId === currentSeason.id && 
+            currentSeason.participants.includes(userId)) {
           // Determine result for season standings
           let isWin = false;
           let isPush = false;

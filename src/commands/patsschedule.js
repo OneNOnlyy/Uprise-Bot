@@ -137,7 +137,8 @@ export async function showMainMenu(interaction) {
  * Show view scheduled sessions
  */
 export async function showScheduledSessions(interaction) {
-  const sessions = getAllScheduledSessions();
+  const sessions = getAllScheduledSessions()
+    .filter(s => !s.seasonId); // Exclude season sessions - they're managed via /patsseason
   const now = new Date();
   
   // Separate active and upcoming sessions
@@ -290,6 +291,16 @@ export async function showSessionManager(interaction, sessionId) {
     return;
   }
   
+  // Safety check: Don't allow management of season sessions
+  if (session.seasonId) {
+    await interaction.editReply({
+      content: '❌ Season sessions are managed automatically. Use `/patsseason` to view season sessions.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
   const date = new Date(session.scheduledDate);
   const firstGameTime = new Date(session.firstGameTime);
   const now = new Date();
@@ -422,6 +433,16 @@ export async function showSessionEditor(interaction, sessionId) {
   if (!session) {
     await interaction.editReply({
       content: '❌ Session not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  // Safety check: Don't allow editing of season sessions
+  if (session.seasonId) {
+    await interaction.editReply({
+      content: '❌ Season sessions are managed automatically. Use `/patsseason` to manage season settings.',
       embeds: [],
       components: []
     });
@@ -613,6 +634,16 @@ export async function startSessionNow(interaction, sessionId) {
   if (!session) {
     await interaction.editReply({
       content: '❌ Session not found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  // Safety check: Don't allow manual start of season sessions
+  if (session.seasonId) {
+    await interaction.editReply({
+      content: '❌ Season sessions are managed automatically. Use `/patsseason` to manage season sessions.',
       embeds: [],
       components: []
     });

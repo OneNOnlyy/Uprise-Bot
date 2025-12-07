@@ -1420,7 +1420,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (interaction.customId.startsWith('schedule_delete_')) {
         const sessionId = interaction.customId.replace('schedule_delete_', '');
         await interaction.deferUpdate();
-        const { deleteScheduledSession } = await import('./utils/sessionScheduler.js');
+        const { getScheduledSession, deleteScheduledSession } = await import('./utils/sessionScheduler.js');
+        const session = getScheduledSession(sessionId);
+        
+        // Safety check: Don't allow deletion of season sessions from /patsschedule
+        if (session && session.seasonId) {
+          await interaction.editReply({
+            content: '❌ Season sessions are managed automatically. Use `/patsseason` to manage season sessions.',
+            embeds: [],
+            components: []
+          });
+          return;
+        }
+        
         deleteScheduledSession(sessionId);
         await interaction.editReply({
           content: '✅ Session deleted successfully!',
