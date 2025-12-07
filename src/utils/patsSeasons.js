@@ -1252,8 +1252,26 @@ export async function autoScheduleSessionForDate(client, date, getGamesForDate, 
     seasonName: currentSeason.name
   };
   
-  // Add the scheduled session
-  const session = addScheduledSession(sessionConfig);
+  // Add the scheduled session via sessionScheduler
+  const { addScheduledSession: addSessionToScheduler } = await import('./sessionScheduler.js');
+  const session = addSessionToScheduler(sessionConfig);
+  
+  // Also track it in the season's scheduledSessions list
+  const data = readPATSData();
+  const scheduledSession = {
+    date,
+    scheduledStart: sessionStartTime.toISOString(),
+    announcementTime: announcementTime.toISOString(),
+    estimatedGames: games.length,
+    status: 'scheduled',
+    sessionId: session.id,
+    skippedReason: null
+  };
+  data.seasons.current.scheduledSessions.push(scheduledSession);
+  data.seasons.current.scheduledSessions.sort((a, b) => 
+    new Date(a.date) - new Date(b.date)
+  );
+  writePATSData(data);
   
   console.log(`[SEASONS] ✅ Auto-scheduled session ${session.id} for ${date} with ${games.length} games`);
   console.log(`[SEASONS]    Announcement: ${announcementTime.toLocaleString()}`);

@@ -115,7 +115,10 @@ export function addScheduledSession(sessionConfig) {
     createdByUsername: sessionConfig.createdByUsername,
     createdAt: new Date().toISOString(),
     templateName: sessionConfig.templateName || null,
-    recurring: sessionConfig.recurring || { enabled: false }
+    recurring: sessionConfig.recurring || { enabled: false },
+    sessionType: sessionConfig.sessionType || 'casual', // 'casual', 'season', or 'both'
+    seasonId: sessionConfig.seasonId || null, // null for non-season sessions
+    seasonName: sessionConfig.seasonName || null
   };
   
   data.sessions.push(session);
