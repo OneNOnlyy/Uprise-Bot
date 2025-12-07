@@ -1309,6 +1309,10 @@ export async function runAutoSchedulerCheck(client, getGamesForDate, addSchedule
   
   const daysAhead = currentSeason.schedule?.daysAhead || currentSeason.schedule?.scheduleDaysAhead || 7;
   console.log(`[SEASONS] 📅 Checking next ${daysAhead + 1} days (today + ${daysAhead} ahead)`);
+  console.log(`[SEASONS] 📊 Season runs from ${currentSeason.startDate} to ${currentSeason.endDate}`);
+  
+  let sessionsCreated = 0;
+  let sessionsSkipped = 0;
   
   // Check today and future days
   for (let i = 0; i <= daysAhead; i++) {
@@ -1316,10 +1320,19 @@ export async function runAutoSchedulerCheck(client, getGamesForDate, addSchedule
     checkDate.setDate(checkDate.getDate() + i);
     const dateStr = checkDate.toISOString().split('T')[0];
     
+    console.log(`[SEASONS] 🔎 Checking day ${i}/${daysAhead}: ${dateStr}`);
+    
     // Check if within season bounds
+    const seasonStart = new Date(currentSeason.startDate);
     const seasonEnd = new Date(currentSeason.endDate);
+    
+    if (checkDate < seasonStart) {
+      console.log(`[SEASONS] ⏭️  Date ${dateStr} is before season start (${currentSeason.startDate}) - skipping`);
+      continue;
+    }
+    
     if (checkDate > seasonEnd) {
-      console.log(`[SEASONS] ⏭️  Date ${dateStr} is past season end - stopping check`);
+      console.log(`[SEASONS] ⏭️  Date ${dateStr} is past season end (${currentSeason.endDate}) - stopping check`);
       break;
     }
     
@@ -1333,16 +1346,20 @@ export async function runAutoSchedulerCheck(client, getGamesForDate, addSchedule
         addScheduledSession
       );
       
-      if (session && scheduleSessionJobs && handlers) {
-        // Schedule cron jobs for the new session
-        scheduleSessionJobs(session, handlers, true); // isNewSession = true for auto-scheduled sessions
+      if (session) {
+        sessionsCreated++;
+        if (scheduleSessionJobs && handlers) {
+          // Schedule cron jobs for the new session
+          scheduleSessionJobs(session, handlers, true); // isNewSession = true for auto-scheduled sessions
+        }
       }
     } else {
       console.log(`[SEASONS] ✓ Session already scheduled for ${dateStr} - skipping`);
+      sessionsSkipped++;
     }
   }
   
-  console.log('[SEASONS] ✅ Auto-scheduler check complete');
+  console.log(`[SEASONS] ✅ Auto-scheduler check complete: ${sessionsCreated} created, ${sessionsSkipped} skipped`);
 }
 
 /**
