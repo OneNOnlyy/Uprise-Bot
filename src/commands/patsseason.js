@@ -2154,7 +2154,13 @@ export async function handleButton(interaction) {
           components: []
         });
         
-        await runAutoSchedulerCheck();
+        await runAutoSchedulerCheck(
+          interaction.client,
+          getESPNGamesForDate,
+          addScheduledSession,
+          scheduleSessionJobs,
+          createSchedulerHandlers(interaction.client)
+        );
         
         // Small delay to let the scheduler complete
         await new Promise(resolve => setTimeout(resolve, 1000));
