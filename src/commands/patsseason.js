@@ -922,6 +922,11 @@ export async function showScheduleSettings(interaction) {
         inline: true 
       },
       { 
+        name: '🔢 Min Games', 
+        value: `${schedule.minGames || 3} games required`, 
+        inline: true 
+      },
+      { 
         name: '🔔 Reminders', 
         value: schedule.reminders?.enabled 
           ? `✅ ${(schedule.reminders?.minutes || [60, 30]).join(', ')} min`
@@ -1006,7 +1011,25 @@ export async function showScheduleSettings(interaction) {
         ])
     );
   
-  // Row 5: Notification config buttons and back button
+  // Row 5: Min Games selector
+  const minGamesRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('pats_season_select_min_games')
+        .setPlaceholder('🔢 Min games: ' + (schedule.minGames || 3) + ' games')
+        .addOptions([
+          { label: '1 game minimum', value: '1', emoji: '🏀', default: (schedule.minGames || 3) === 1 },
+          { label: '2 games minimum', value: '2', emoji: '🏀', default: (schedule.minGames || 3) === 2 },
+          { label: '3 games minimum', value: '3', emoji: '🏀', default: (schedule.minGames || 3) === 3 },
+          { label: '4 games minimum', value: '4', emoji: '🏀', default: (schedule.minGames || 3) === 4 },
+          { label: '5 games minimum', value: '5', emoji: '🏀', default: (schedule.minGames || 3) === 5 },
+          { label: '6 games minimum', value: '6', emoji: '🏀', default: (schedule.minGames || 3) === 6 },
+          { label: '7 games minimum', value: '7', emoji: '🏀', default: (schedule.minGames || 3) === 7 },
+          { label: '8 games minimum', value: '8', emoji: '🏀', default: (schedule.minGames || 3) === 8 }
+        ])
+    );
+  
+  // Row 6: Notification config buttons and back button
   const notificationRow = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
@@ -1028,7 +1051,7 @@ export async function showScheduleSettings(interaction) {
   
   await interaction.editReply({
     embeds: [embed],
-    components: [editInfoRow, channelRow, sessionTypeRow, announcementRow, notificationRow]
+    components: [editInfoRow, channelRow, sessionTypeRow, announcementRow, minGamesRow, notificationRow]
   });
 }
 
@@ -2520,6 +2543,22 @@ export async function handleSelectMenu(interaction) {
       
       // Update all upcoming scheduled sessions for this season
       await updateUpcomingSessionSettings(currentSeason.id, { sessionType });
+      
+      return await showScheduleSettings(interaction);
+    }
+    
+    // Min Games Select (Schedule Settings)
+    if (customId === 'pats_season_select_min_games') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const minGames = parseInt(interaction.values[0]);
+      const { updateSeasonScheduleSettings } = await import('../utils/patsSeasons.js');
+      updateSeasonScheduleSettings(currentSeason.id, { minGames });
+      
+      console.log(`[SEASONS] Updated minimum games to ${minGames} for ${currentSeason.name}`);
       
       return await showScheduleSettings(interaction);
     }
