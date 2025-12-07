@@ -1180,7 +1180,8 @@ export async function autoScheduleSessionForDate(client, date, getGamesForDate, 
   const channelId = config.channelId;
   
   if (!channelId) {
-    console.log('[SEASONS] No announcement channel configured for season');
+    console.log('[SEASONS] ❌ No announcement channel configured for season - cannot auto-schedule');
+    console.log('[SEASONS] 💡 Use /patsseason → Schedule Settings → Set Channel to configure');
     return null;
   }
   
