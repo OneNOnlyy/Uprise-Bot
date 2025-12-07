@@ -228,9 +228,9 @@ export async function showSeasonAdminMenu(interaction) {
         .setStyle(ButtonStyle.Primary)
         .setDisabled(!!currentSeason), // Disable if season exists
       new ButtonBuilder()
-        .setCustomId('pats_season_edit')
-        .setLabel('Edit Season')
-        .setEmoji('✏️')
+        .setCustomId('pats_season_settings')
+        .setLabel('Season Settings')
+        .setEmoji('⚙️')
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(!currentSeason)
     );
@@ -248,12 +248,6 @@ export async function showSeasonAdminMenu(interaction) {
         .setCustomId('pats_season_schedule')
         .setLabel('Manage Schedule')
         .setEmoji('📅')
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(!currentSeason),
-      new ButtonBuilder()
-        .setCustomId('pats_season_settings')
-        .setLabel('Schedule Settings')
-        .setEmoji('⚙️')
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(!currentSeason)
     );
@@ -757,7 +751,7 @@ export async function showSeasonHistory(interaction) {
       const standings = getSeasonStandings(currentSeason.id);
       const leader = standings.length > 0 ? standings[0] : null;
       description += `**Current Season:** ${currentSeason.name}\n`;
-      description += leader ? `└ Leader: <@${leader.oddsUserId}> (${leader.winPercentage.toFixed(1)}%)\n` : '';
+      description += leader ? `└ Leader: <@${leader.oddsUserId}> (${(leader.winPercentage || 0).toFixed(1)}%)\n` : '';
       description += `└ ${currentSeason.sessionCount || 0} sessions\n\n`;
     }
     
@@ -811,13 +805,21 @@ export async function showScheduleSettings(interaction) {
   const currentSessionType = schedule.sessionType || 'season';
   
   const embed = new EmbedBuilder()
-    .setTitle('⚙️ Season Schedule Settings')
-    .setDescription(`Configure auto-scheduling for **${currentSeason.name}**`)
+    .setTitle('⚙️ Season Settings')
+    .setDescription(`Configure **${currentSeason.name}**`)
     .setColor('#5865F2')
     .addFields(
+      {
+        name: '📅 Season Information',
+        value: 
+          `**Name:** ${currentSeason.name}\n` +
+          `**Dates:** ${new Date(currentSeason.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(currentSeason.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}\n` +
+          `**Participants:** ${currentSeason.participants?.length || 0} user${currentSeason.participants?.length !== 1 ? 's' : ''}`,
+        inline: false
+      },
       { 
         name: '🤖 Auto-Schedule', 
-        value: schedule.enabled ? '✅ Enabled - Sessions created automatically' : '❌ Disabled', 
+        value: schedule.enabled ? '✅ Enabled' : '❌ Disabled', 
         inline: true 
       },
       { 
@@ -826,146 +828,33 @@ export async function showScheduleSettings(interaction) {
         inline: true
       },
       { 
-        name: '📢 Announcement Channel', 
+        name: '📢 Channel', 
         value: schedule.channelId ? `<#${schedule.channelId}>` : '_Not set_', 
         inline: true 
       },
       { 
-        name: '📣 Session Start / Announcement', 
+        name: '📣 Announcement', 
         value: `${schedule.announcementMinutes || 60} min before first game`, 
         inline: true 
       },
       { 
         name: '🔔 Reminders', 
         value: schedule.reminders?.enabled 
-          ? `✅ ${(schedule.reminders?.minutes || [60, 30]).join(', ')} min before`
+          ? `✅ ${(schedule.reminders?.minutes || [60, 30]).join(', ')} min`
           : '❌ Disabled', 
         inline: true 
       },
       { 
         name: '⚠️ Warnings', 
         value: schedule.warnings?.enabled 
-          ? `✅ ${(schedule.warnings?.minutes || [30, 15]).join(', ')} min before`
+          ? `✅ ${(schedule.warnings?.minutes || [30, 15]).join(', ')} min`
           : '❌ Disabled', 
         inline: true 
       }
     );
   
-  if (schedule.enabled) {
-    embed.addFields({
-      name: '📅 How it works',
-      value: 'The bot checks hourly for NBA games. When games are found, a session is automatically scheduled with the configured settings.',
-      inline: false
-    });
-  }
-  
-  const toggleButton = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('pats_season_toggle_auto_schedule')
-        .setLabel(schedule.enabled ? 'Disable Auto-Schedule' : 'Enable Auto-Schedule')
-        .setEmoji(schedule.enabled ? '❌' : '✅')
-        .setStyle(schedule.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
-    );
-  
-  const settingsSelects = new ActionRowBuilder()
-    .addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId('pats_season_select_announcement')
-        .setPlaceholder('📣 Announcement time: ' + (schedule.announcementMinutes || 60) + ' min before')
-        .addOptions([
-          { label: '15 minutes before', value: '15', description: 'Session starts 15 min before first game', emoji: '⏱️' },
-          { label: '30 minutes before', value: '30', description: 'Session starts 30 min before first game', emoji: '⏱️' },
-          { label: '60 minutes before (1 hour)', value: '60', description: 'Session starts 1 hour before first game', emoji: '⏰', default: (schedule.announcementMinutes || 60) === 60 },
-          { label: '90 minutes before (1.5 hours)', value: '90', description: 'Session starts 1.5 hours before first game', emoji: '⏰' },
-          { label: '120 minutes before (2 hours)', value: '120', description: 'Session starts 2 hours before first game', emoji: '⏰' },
-          { label: '180 minutes before (3 hours)', value: '180', description: 'Session starts 3 hours before first game', emoji: '⏰' }
-        ])
-    );
-  
-  const channelAndTypeRow = new ActionRowBuilder()
-    .addComponents(
-      new ChannelSelectMenuBuilder()
-        .setCustomId('pats_season_select_channel')
-        .setPlaceholder('📢 Select announcement channel...')
-        .setChannelTypes(ChannelType.GuildText)
-    );
-  
-  const sessionTypeRow = new ActionRowBuilder()
-    .addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId('pats_season_select_session_type')
-        .setPlaceholder('👥 Session type: ' + (currentSessionType === 'both' ? 'Open to All' : 'Season Only'))
-        .addOptions([
-          { 
-            label: 'Season Only', 
-            value: 'season', 
-            description: 'Only season participants can play',
-            emoji: '🏆',
-            default: currentSessionType === 'season'
-          },
-          { 
-            label: 'Open to All', 
-            value: 'both', 
-            description: 'Season participants + casual players',
-            emoji: '🌐',
-            default: currentSessionType === 'both'
-          }
-        ])
-    );
-  
-  const notificationButtons = new ActionRowBuilder()
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId('pats_season_toggle_reminders')
-        .setLabel(schedule.reminders?.enabled ? 'Disable Reminders' : 'Enable Reminders')
-        .setEmoji('🔔')
-        .setStyle(schedule.reminders?.enabled ? ButtonStyle.Secondary : ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId('pats_season_toggle_warnings')
-        .setLabel(schedule.warnings?.enabled ? 'Disable Warnings' : 'Enable Warnings')
-        .setEmoji('⚠️')
-        .setStyle(schedule.warnings?.enabled ? ButtonStyle.Secondary : ButtonStyle.Success),
-      new ButtonBuilder()
-        .setCustomId('pats_season_settings_back')
-        .setLabel('Back')
-        .setEmoji('🔙')
-        .setStyle(ButtonStyle.Secondary)
-    );
-  
-  await interaction.editReply({
-    embeds: [embed],
-    components: [toggleButton, channelAndTypeRow, sessionTypeRow, settingsSelects, notificationButtons]
-  });
-}
-
-/**
- * Show Edit Season menu
- */
-export async function showEditSeason(interaction) {
-  const currentSeason = getCurrentSeason();
-  if (!currentSeason) {
-    return await showSeasonAdminMenu(interaction);
-  }
-  
-  const embed = new EmbedBuilder()
-    .setTitle('✏️ Edit Season')
-    .setDescription(`Editing **${currentSeason.name}**`)
-    .setColor('#5865F2')
-    .addFields(
-      {
-        name: '📅 Season Dates',
-        value: `Start: ${new Date(currentSeason.startDate).toLocaleDateString()}\nEnd: ${new Date(currentSeason.endDate).toLocaleDateString()}`,
-        inline: true
-      },
-      {
-        name: '👥 Participants',
-        value: `${currentSeason.participants?.length || 0} user${currentSeason.participants?.length !== 1 ? 's' : ''}`,
-        inline: true
-      }
-    );
-  
-  const editButtons = new ActionRowBuilder()
+  // Row 1: Edit Season Info and Auto-Schedule toggle
+  const editInfoRow = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
         .setCustomId('pats_season_edit_name')
@@ -976,11 +865,76 @@ export async function showEditSeason(interaction) {
         .setCustomId('pats_season_edit_end_date')
         .setLabel('Edit End Date')
         .setEmoji('📅')
-        .setStyle(ButtonStyle.Primary)
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('pats_season_toggle_auto_schedule')
+        .setLabel(schedule.enabled ? 'Disable Auto' : 'Enable Auto')
+        .setEmoji('🤖')
+        .setStyle(schedule.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
     );
   
-  const backButton = new ActionRowBuilder()
+  // Row 2: Channel selector
+  const channelRow = new ActionRowBuilder()
     .addComponents(
+      new ChannelSelectMenuBuilder()
+        .setCustomId('pats_season_select_channel')
+        .setPlaceholder('📢 Select announcement channel...')
+        .setChannelTypes(ChannelType.GuildText)
+    );
+  
+  // Row 3: Session Type selector
+  const sessionTypeRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('pats_season_select_session_type')
+        .setPlaceholder('👥 Session type: ' + sessionTypeLabels[currentSessionType])
+        .addOptions([
+          { 
+            label: 'Season Only', 
+            value: 'season', 
+            description: 'Only season participants',
+            emoji: '🏆',
+            default: currentSessionType === 'season'
+          },
+          { 
+            label: 'Open to All', 
+            value: 'both', 
+            description: 'Season + casual players',
+            emoji: '🌐',
+            default: currentSessionType === 'both'
+          }
+        ])
+    );
+  
+  // Row 4: Announcement time selector
+  const announcementRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('pats_season_select_announcement')
+        .setPlaceholder('📣 Announcement: ' + (schedule.announcementMinutes || 60) + ' min before')
+        .addOptions([
+          { label: '15 minutes', value: '15', emoji: '⏱️' },
+          { label: '30 minutes', value: '30', emoji: '⏱️' },
+          { label: '60 minutes (1 hour)', value: '60', emoji: '⏰', default: (schedule.announcementMinutes || 60) === 60 },
+          { label: '90 minutes (1.5 hours)', value: '90', emoji: '⏰' },
+          { label: '120 minutes (2 hours)', value: '120', emoji: '⏰' },
+          { label: '180 minutes (3 hours)', value: '180', emoji: '⏰' }
+        ])
+    );
+  
+  // Row 5: Notification toggles and back button
+  const notificationRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_toggle_reminders')
+        .setLabel(schedule.reminders?.enabled ? 'Reminders: ON' : 'Reminders: OFF')
+        .setEmoji('🔔')
+        .setStyle(schedule.reminders?.enabled ? ButtonStyle.Success : ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('pats_season_toggle_warnings')
+        .setLabel(schedule.warnings?.enabled ? 'Warnings: ON' : 'Warnings: OFF')
+        .setEmoji('⚠️')
+        .setStyle(schedule.warnings?.enabled ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('pats_season_admin_back')
         .setLabel('Back')
@@ -990,8 +944,18 @@ export async function showEditSeason(interaction) {
   
   await interaction.editReply({
     embeds: [embed],
-    components: [editButtons, backButton]
+    components: [editInfoRow, channelRow, sessionTypeRow, announcementRow, notificationRow]
   });
+}
+
+/**
+ * Show Edit Season menu
+ */
+/**
+ * @deprecated - Now consolidated into showScheduleSettings
+ */
+export async function showEditSeason(interaction) {
+  return await showScheduleSettings(interaction);
 }
 
 /**
@@ -1124,7 +1088,7 @@ export async function showAllScheduledSessions(interaction) {
     const date = new Date(s.scheduledDate);
     const gameCount = Array.isArray(s.gameDetails) ? s.gameDetails.length : s.games;
     const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    const timeStr = new Date(s.firstGameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const timeStr = new Date(s.firstGameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' });
     const typeEmoji = s.sessionType === 'both' ? '🌐' : '🏆';
     const typeText = s.sessionType === 'both' ? ' (Open)' : '';
     
@@ -1213,12 +1177,12 @@ export async function showSessionDetails(interaction, sessionId) {
       },
       {
         name: '⏰ First Game',
-        value: firstGame.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }),
+        value: firstGame.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' }),
         inline: true
       },
       {
         name: '📣 Announcement',
-        value: announcement.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        value: announcement.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' }),
         inline: true
       },
       {
@@ -1242,7 +1206,7 @@ export async function showSessionDetails(interaction, sessionId) {
   if (session.gameDetails && session.gameDetails.length > 0) {
     const gamesList = session.gameDetails.slice(0, 5).map(g => {
       const gameTime = new Date(g.startTime);
-      const timeStr = gameTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      const timeStr = gameTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' });
       return `• ${g.awayAbbr} @ ${g.homeAbbr} - ${timeStr}`;
     }).join('\n');
     
@@ -1400,11 +1364,16 @@ export async function handleButton(interaction) {
     // For all other buttons, defer the update
     await interaction.deferUpdate();
     
-    // Main menu navigation
-    if (customId === 'pats_season_back' || customId === 'pats_season_admin_back') {
+    // Main menu navigation - only pats_season_back goes to PATS Dashboard
+    if (customId === 'pats_season_back') {
       // Go back to main PATS dashboard
       const patsCommand = await import('./pats.js');
       return await patsCommand.showDashboard(interaction);
+    }
+    
+    // pats_season_admin_back returns to Season Admin menu
+    if (customId === 'pats_season_admin_back') {
+      return await showSeasonAdminMenu(interaction);
     }
     
     // Back buttons for sub-menus
