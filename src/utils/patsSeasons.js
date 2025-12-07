@@ -1270,18 +1270,22 @@ export async function autoScheduleSessionForDate(client, date, getGamesForDate, 
 export async function runAutoSchedulerCheck(client, getGamesForDate, addScheduledSession, scheduleSessionJobs, handlers) {
   const currentSeason = getCurrentSeason();
   if (!currentSeason) {
-    console.log('[SEASONS] No active season - skipping auto-schedule check');
+    console.log('[SEASONS] ⏭️  No active season - skipping auto-schedule check');
     return;
   }
+  
+  console.log(`[SEASONS] 📋 Found active season: ${currentSeason.name} (${currentSeason.id})`);
   
   if (!currentSeason.schedule?.enabled) {
-    console.log('[SEASONS] Auto-scheduling disabled for current season');
+    console.log('[SEASONS] ⏭️  Auto-scheduling disabled for current season');
     return;
   }
   
-  console.log('[SEASONS] Running auto-scheduler check...');
+  console.log('[SEASONS] ✅ Auto-scheduling is enabled');
+  console.log('[SEASONS] 🔍 Running auto-scheduler check...');
   
   const daysAhead = currentSeason.schedule?.scheduleDaysAhead || 2;
+  console.log(`[SEASONS] 📅 Checking next ${daysAhead + 1} days (today + ${daysAhead} ahead)`);
   
   // Check today and future days
   for (let i = 0; i <= daysAhead; i++) {
@@ -1292,12 +1296,12 @@ export async function runAutoSchedulerCheck(client, getGamesForDate, addSchedule
     // Check if within season bounds
     const seasonEnd = new Date(currentSeason.endDate);
     if (checkDate > seasonEnd) {
-      console.log(`[SEASONS] Date ${dateStr} is past season end - stopping check`);
+      console.log(`[SEASONS] ⏭️  Date ${dateStr} is past season end - stopping check`);
       break;
     }
     
     if (!isSessionScheduledForDate(dateStr)) {
-      console.log(`[SEASONS] No session scheduled for ${dateStr} - attempting to auto-schedule`);
+      console.log(`[SEASONS] 📅 No session scheduled for ${dateStr} - attempting to auto-schedule`);
       
       const session = await autoScheduleSessionForDate(
         client, 
@@ -1310,10 +1314,12 @@ export async function runAutoSchedulerCheck(client, getGamesForDate, addSchedule
         // Schedule cron jobs for the new session
         scheduleSessionJobs(session, handlers, true); // isNewSession = true for auto-scheduled sessions
       }
+    } else {
+      console.log(`[SEASONS] ✓ Session already scheduled for ${dateStr} - skipping`);
     }
   }
   
-  console.log('[SEASONS] Auto-scheduler check complete');
+  console.log('[SEASONS] ✅ Auto-scheduler check complete');
 }
 
 /**
@@ -1337,18 +1343,24 @@ export function initializeSeasonAutoScheduler(client, getGamesForDate, addSchedu
   
   // Run immediately on startup
   setTimeout(async () => {
-    await runAutoSchedulerCheck(client, getGamesForDate, addScheduledSession, scheduleSessionJobs, handlers);
+    console.log('[SEASONS] 🚀 Running startup auto-scheduler check...');
+    try {
+      await runAutoSchedulerCheck(client, getGamesForDate, addScheduledSession, scheduleSessionJobs, handlers);
+      console.log('[SEASONS] ✅ Startup auto-scheduler check complete');
+    } catch (error) {
+      console.error('[SEASONS] ❌ Error during startup auto-scheduler check:', error);
+    }
   }, 5000); // Wait 5 seconds after startup
   
   // Schedule to run every hour at minute 0
   // This gives us good coverage for scheduling sessions in advance
   const job = cron.schedule('0 * * * *', async () => {
-    console.log('[SEASONS] Hourly auto-scheduler check triggered');
+    console.log('[SEASONS] ⏰ Hourly auto-scheduler check triggered');
     await runAutoSchedulerCheck(client, getGamesForDate, addScheduledSession, scheduleSessionJobs, handlers);
   }, { timezone: 'America/Los_Angeles' });
   
   seasonCronJobs.set('auto_scheduler', job);
-  console.log('[SEASONS] ✅ Season auto-scheduler initialized (runs hourly)');
+  console.log('[SEASONS] ✅ Season auto-scheduler initialized (runs hourly at :00)');
 }
 
 /**
