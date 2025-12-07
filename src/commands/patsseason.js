@@ -153,6 +153,88 @@ async function updateSeasonConfig(userId, updates) {
   return config;
 }
 
+/**
+ * Update all upcoming scheduled sessions for a season with new settings
+ * @param {string} seasonId - Season ID
+ * @param {object} settings - Settings to update (announcementMinutes, sessionType, channelId, notifications)
+ */
+async function updateUpcomingSessionSettings(seasonId, settings) {
+  try {
+    const { getAllScheduledSessions, updateScheduledSession } = await import('../utils/sessionScheduler.js');
+    const allSessions = getAllScheduledSessions();
+    
+    // Filter to only this season's upcoming sessions
+    const now = new Date();
+    const upcomingSessions = allSessions.filter(s => 
+      s.seasonId === seasonId && 
+      new Date(s.firstGameTime) > now &&
+      !s.sentNotifications?.announcement // Don't update if announcement already sent
+    );
+    
+    for (const session of upcomingSessions) {
+      const updates = {};
+      
+      // Update session type
+      if (settings.sessionType !== undefined) {
+        updates.sessionType = settings.sessionType;
+      }
+      
+      // Update channel
+      if (settings.channelId !== undefined) {
+        updates.channelId = settings.channelId;
+      }
+      
+      // Update announcement time
+      if (settings.announcementMinutes !== undefined) {
+        const firstGameTime = new Date(session.firstGameTime);
+        const newAnnouncementTime = new Date(firstGameTime.getTime() - (settings.announcementMinutes * 60 * 1000));
+        
+        updates.notifications = {
+          ...session.notifications,
+          announcement: {
+            ...session.notifications.announcement,
+            time: newAnnouncementTime.toISOString()
+          }
+        };
+      }
+      
+      // Update notification settings (merge with existing)
+      if (settings.notifications) {
+        updates.notifications = {
+          ...(updates.notifications || session.notifications),
+          ...settings.notifications
+        };
+        
+        // Deep merge for nested notification properties
+        if (settings.notifications.reminder) {
+          updates.notifications.reminder = {
+            ...session.notifications.reminder,
+            ...settings.notifications.reminder
+          };
+        }
+        if (settings.notifications.warning) {
+          updates.notifications.warning = {
+            ...session.notifications.warning,
+            ...settings.notifications.warning
+          };
+        }
+      }
+      
+      // Only update if there are changes
+      if (Object.keys(updates).length > 0) {
+        updateScheduledSession(session.id, updates);
+        console.log(`[Season Settings] Updated session ${session.id} with new settings`);
+      }
+    }
+    
+    if (upcomingSessions.length > 0) {
+      console.log(`[Season Settings] Updated ${upcomingSessions.length} upcoming session(s) for season ${seasonId}`);
+    }
+  } catch (error) {
+    console.error('[Season Settings] Error updating upcoming sessions:', error);
+  }
+}
+
 export const data = new SlashCommandBuilder()
   .setName('patsseason')
   .setDescription('Manage PATS Seasons (Admin only)')
@@ -1695,10 +1777,21 @@ export async function handleButton(interaction) {
       const { updateSeasonScheduleSettings } = await import('../utils/patsSeasons.js');
       const currentEnabled = currentSeason.schedule?.reminders?.enabled || false;
       
-      updateSeasonScheduleSettings(currentSeason.id, {
+      const newSettings = {
         reminders: {
           enabled: !currentEnabled,
           minutes: currentSeason.schedule?.reminders?.minutes || [60, 30]
+        }
+      };
+      updateSeasonScheduleSettings(currentSeason.id, newSettings);
+      
+      // Update all upcoming scheduled sessions for this season
+      await updateUpcomingSessionSettings(currentSeason.id, {
+        notifications: {
+          reminder: {
+            enabled: newSettings.reminders.enabled,
+            minutesBefore: newSettings.reminders.minutes[0]
+          }
         }
       });
       
@@ -1715,10 +1808,21 @@ export async function handleButton(interaction) {
       const { updateSeasonScheduleSettings } = await import('../utils/patsSeasons.js');
       const currentEnabled = currentSeason.schedule?.warnings?.enabled || false;
       
-      updateSeasonScheduleSettings(currentSeason.id, {
+      const newSettings = {
         warnings: {
           enabled: !currentEnabled,
           minutes: currentSeason.schedule?.warnings?.minutes || [30, 15]
+        }
+      };
+      updateSeasonScheduleSettings(currentSeason.id, newSettings);
+      
+      // Update all upcoming scheduled sessions for this season
+      await updateUpcomingSessionSettings(currentSeason.id, {
+        notifications: {
+          warning: {
+            enabled: newSettings.warnings.enabled,
+            minutesBefore: newSettings.warnings.minutes[0]
+          }
         }
       });
       
@@ -1997,6 +2101,9 @@ export async function handleSelectMenu(interaction) {
       const { updateSeasonScheduleSettings } = await import('../utils/patsSeasons.js');
       updateSeasonScheduleSettings(currentSeason.id, { channelId });
       
+      // Update all upcoming scheduled sessions for this season
+      await updateUpcomingSessionSettings(currentSeason.id, { channelId });
+      
       return await showScheduleSettings(interaction);
     }
     
@@ -2011,6 +2118,9 @@ export async function handleSelectMenu(interaction) {
       const { updateSeasonScheduleSettings } = await import('../utils/patsSeasons.js');
       updateSeasonScheduleSettings(currentSeason.id, { announcementMinutes });
       
+      // Update all upcoming scheduled sessions for this season
+      await updateUpcomingSessionSettings(currentSeason.id, { announcementMinutes });
+      
       return await showScheduleSettings(interaction);
     }
     
@@ -2024,6 +2134,9 @@ export async function handleSelectMenu(interaction) {
       const sessionType = interaction.values[0];
       const { updateSeasonScheduleSettings } = await import('../utils/patsSeasons.js');
       updateSeasonScheduleSettings(currentSeason.id, { sessionType });
+      
+      // Update all upcoming scheduled sessions for this season
+      await updateUpcomingSessionSettings(currentSeason.id, { sessionType });
       
       return await showScheduleSettings(interaction);
     }
