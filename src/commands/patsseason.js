@@ -942,8 +942,8 @@ export async function showScheduleSettings(interaction) {
       }
     );
   
-  // Row 1: Buttons for configuration
-  const buttonRow = new ActionRowBuilder()
+  // Row 1: Primary action buttons (3 buttons)
+  const buttonRow1 = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
         .setCustomId('pats_season_edit_info')
@@ -959,16 +959,6 @@ export async function showScheduleSettings(interaction) {
         .setCustomId('pats_season_toggle_session_type')
         .setLabel(sessionTypeLabels[currentSessionType])
         .setEmoji('👥')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('pats_season_config_notifications')
-        .setLabel('Notifications')
-        .setEmoji('🔔')
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId('pats_season_admin_back')
-        .setLabel('Back')
-        .setEmoji('⬅️')
         .setStyle(ButtonStyle.Secondary)
     );
   
@@ -981,9 +971,24 @@ export async function showScheduleSettings(interaction) {
         .setChannelTypes(ChannelType.GuildText)
     );
   
+  // Row 3: Notifications and Back buttons (2 buttons)
+  const buttonRow2 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_config_notifications')
+        .setLabel('Notifications')
+        .setEmoji('🔔')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('pats_season_admin_back')
+        .setLabel('Back')
+        .setEmoji('⬅️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
   await interaction.editReply({
     embeds: [embed],
-    components: [buttonRow, channelRow]
+    components: [buttonRow1, channelRow, buttonRow2]
   });
 }
 
