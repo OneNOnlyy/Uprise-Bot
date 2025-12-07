@@ -116,7 +116,7 @@ function getSeasonConfig(userId) {
         enabled: false,
         channelId: null,
         sessionStartMinutes: 60,
-        announcementMinutes: 60,
+        announcementMinutes: 120,
         sessionType: 'season',
         daysAhead: 7, // Default to 1 week ahead
         reminders: {
@@ -918,7 +918,7 @@ export async function showScheduleSettings(interaction) {
       },
       { 
         name: '📣 Announcement', 
-        value: `${schedule.announcementMinutes || 60} min before first game`, 
+        value: `${(schedule.announcementMinutes || 120) / 60} hours before first game`, 
         inline: true 
       },
       { 
@@ -1140,7 +1140,7 @@ export async function showNotificationConfig(interaction) {
     .addFields(
       {
         name: '📣 Announcements',
-        value: `${schedule.announcementMinutes || 60} minutes before first game`,
+        value: `${(schedule.announcementMinutes || 120) / 60} hours before first game`,
         inline: true
       },
       {
@@ -1187,14 +1187,16 @@ export async function showNotificationConfig(interaction) {
     .addComponents(
       new StringSelectMenuBuilder()
         .setCustomId('pats_season_select_announcement')
-        .setPlaceholder('📣 Announcement: ' + (schedule.announcementMinutes || 60) + ' min before')
+        .setPlaceholder('📣 Announcement: ' + ((schedule.announcementMinutes || 120) / 60) + ' hours before')
         .addOptions([
-          { label: '15 minutes', value: '15', emoji: '⏱️' },
-          { label: '30 minutes', value: '30', emoji: '⏱️' },
-          { label: '60 minutes (1 hour)', value: '60', emoji: '⏰' },
-          { label: '90 minutes (1.5 hours)', value: '90', emoji: '⏰' },
-          { label: '120 minutes (2 hours)', value: '120', emoji: '⏰' },
-          { label: '180 minutes (3 hours)', value: '180', emoji: '⏰' }
+          { label: '1 hour before', value: '60', emoji: '⏰' },
+          { label: '2 hours before', value: '120', emoji: '⏰' },
+          { label: '3 hours before', value: '180', emoji: '⏰' },
+          { label: '4 hours before', value: '240', emoji: '⏰' },
+          { label: '6 hours before', value: '360', emoji: '⏰' },
+          { label: '9 hours before', value: '540', emoji: '⏰' },
+          { label: '12 hours before', value: '720', emoji: '⏰' },
+          { label: '24 hours before', value: '1440', emoji: '⏰' }
         ])
     );
 
