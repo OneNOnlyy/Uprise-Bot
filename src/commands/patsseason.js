@@ -1189,6 +1189,109 @@ export async function showWarningConfig(interaction) {
 }
 
 /**
+ * Show end date picker with calendar-style options
+ */
+export async function showEndDatePicker(interaction, season) {
+  const currentEndDate = new Date(season.endDate);
+  const today = new Date();
+  
+  // Generate date options: current end date, then dates 1 week, 2 weeks, 1 month, 2 months, 3 months from today
+  const dateOptions = [];
+  
+  // Add current end date
+  dateOptions.push({
+    label: `Current: ${currentEndDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+    value: season.endDate,
+    description: 'Keep current end date',
+    emoji: '📅',
+    default: true
+  });
+  
+  // Generate future date options
+  const intervals = [
+    { days: 7, label: '1 Week from now' },
+    { days: 14, label: '2 Weeks from now' },
+    { days: 21, label: '3 Weeks from now' },
+    { days: 30, label: '1 Month from now' },
+    { days: 60, label: '2 Months from now' },
+    { days: 90, label: '3 Months from now' },
+    { days: 180, label: '6 Months from now' },
+  ];
+  
+  for (const interval of intervals) {
+    const futureDate = new Date(today);
+    futureDate.setDate(today.getDate() + interval.days);
+    const dateStr = futureDate.toISOString().split('T')[0];
+    
+    // Skip if same as current end date
+    if (dateStr === season.endDate) continue;
+    
+    dateOptions.push({
+      label: futureDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      value: dateStr,
+      description: interval.label,
+      emoji: '📅'
+    });
+  }
+  
+  // Add "End of Year" option
+  const endOfYear = new Date(today.getFullYear(), 11, 31); // Dec 31
+  const endOfYearStr = endOfYear.toISOString().split('T')[0];
+  if (endOfYearStr !== season.endDate && !dateOptions.find(opt => opt.value === endOfYearStr)) {
+    dateOptions.push({
+      label: `End of ${today.getFullYear()}`,
+      value: endOfYearStr,
+      description: endOfYear.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      emoji: '🎆'
+    });
+  }
+  
+  // Add more specific future options
+  const futureYear = new Date(today);
+  futureYear.setFullYear(today.getFullYear() + 1);
+  if (!dateOptions.find(opt => opt.value === futureYear.toISOString().split('T')[0].replace(/-\d{2}$/, '-01'))) {
+    dateOptions.push({
+      label: `End of ${today.getFullYear() + 1}`,
+      value: new Date(today.getFullYear() + 1, 11, 31).toISOString().split('T')[0],
+      description: 'December 31, ' + (today.getFullYear() + 1),
+      emoji: '🎆'
+    });
+  }
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📅 Edit Season End Date')
+    .setDescription(`**${season.name}**\n\nSelect a new end date for this season:`)
+    .setColor('#5865F2')
+    .addFields({
+      name: '📊 Current End Date',
+      value: currentEndDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
+      inline: false
+    });
+  
+  const selectRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('pats_season_end_date_select')
+        .setPlaceholder('Choose a new end date...')
+        .addOptions(dateOptions.slice(0, 25)) // Discord limit
+    );
+  
+  const backButton = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_settings')
+        .setLabel('Back')
+        .setEmoji('🔙')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.update({
+    embeds: [embed],
+    components: [selectRow, backButton]
+  });
+}
+
+/**
  * Show Edit Season menu
  */
 /**
@@ -1715,20 +1818,8 @@ export async function handleButton(interaction) {
         return;
       }
       
-      const modal = new ModalBuilder()
-        .setCustomId('pats_season_modal_edit_end_date')
-        .setTitle('Edit Season End Date');
-      
-      const endDateInput = new TextInputBuilder()
-        .setCustomId('end_date')
-        .setLabel('End Date (YYYY-MM-DD)')
-        .setStyle(TextInputStyle.Short)
-        .setValue(currentSeason.endDate)
-        .setRequired(true)
-        .setPlaceholder('2025-04-30');
-      
-      modal.addComponents(new ActionRowBuilder().addComponents(endDateInput));
-      return await interaction.showModal(modal);
+      // Instead of modal, show a select menu with date options
+      return await showEndDatePicker(interaction, currentSeason);
     }
     
     // For all other buttons, defer the update
@@ -2432,6 +2523,37 @@ export async function handleSelectMenu(interaction) {
       await updateUpcomingSessionSettings(currentSeason.id, { sessionType });
       
       return await showScheduleSettings(interaction);
+    }
+    
+    // End Date Select
+    if (customId === 'pats_season_end_date_select') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const selectedValue = interaction.values[0];
+      
+      // Update with selected date
+      const data = readPATSData();
+      if (data.seasons?.current?.id === currentSeason.id) {
+        data.seasons.current.endDate = selectedValue;
+        writePATSData(data);
+        
+        const embed = new EmbedBuilder()
+          .setTitle('✅ End Date Updated')
+          .setDescription(`**${currentSeason.name}**\n\nEnd date has been updated to:\n**${new Date(selectedValue).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}**`)
+          .setColor('#57F287');
+        
+        await interaction.editReply({ embeds: [embed], components: [] });
+        
+        // Return to settings after 2 seconds
+        setTimeout(async () => {
+          await showScheduleSettings(interaction);
+        }, 2000);
+      }
+      
+      return;
     }
     
     // Select Session from Schedule List
