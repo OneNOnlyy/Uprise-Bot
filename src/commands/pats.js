@@ -13,7 +13,7 @@ import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats, g
 import { getTeamAbbreviation, fetchCBSSportsScores } from '../utils/oddsApi.js';
 import { getUserSessionSnapshots, loadSessionSnapshot, loadInjuryData, loadRosterData } from '../utils/sessionSnapshot.js';
 import { getUpcomingScheduledSessions } from '../utils/sessionScheduler.js';
-import { getCurrentSeason, getSeasonStandings, isUserInCurrentSeason } from '../utils/patsSeasons.js';
+import { getCurrentSeason, getSeasonStandings, isUserInCurrentSeason, getSeasonHistory, getSessionsInSeason } from '../utils/patsSeasons.js';
 
 /**
  * FAIL-SAFE: Fix spreads where one is 0 but the other isn't (they should be inverse)
@@ -523,10 +523,29 @@ export async function handleDashboardButton(interaction) {
       await interaction.deferUpdate();
       await showDashboard(interaction);
     } else if (interaction.customId === 'pats_season_detail_standings') {
-      // Show full leaderboard (redirect to leaderboard command with season filter)
+      // Show full leaderboard with season filter and back navigation
       await interaction.deferUpdate();
-      const leaderboardCommand = await import('./patsleaderboard.js');
-      await leaderboardCommand.execute(interaction, true); // true = season filter enabled
+      await showSeasonLeaderboardView(interaction);
+    } else if (interaction.customId === 'pats_season_leaderboard_back') {
+      // Return to Season detail view from leaderboard
+      await interaction.deferUpdate();
+      await showSeasonDetailView(interaction);
+    } else if (interaction.customId === 'pats_season_detail_schedule') {
+      // Show season schedule
+      await interaction.deferUpdate();
+      await showSeasonScheduleView(interaction);
+    } else if (interaction.customId === 'pats_season_detail_awards') {
+      // Show season awards
+      await interaction.deferUpdate();
+      await showSeasonAwardsView(interaction);
+    } else if (interaction.customId === 'pats_season_detail_past') {
+      // Show past seasons browser
+      await interaction.deferUpdate();
+      await showPastSeasonsBrowser(interaction);
+    } else if (interaction.customId === 'pats_season_schedule_back' || interaction.customId === 'pats_season_awards_back' || interaction.customId === 'pats_past_seasons_back') {
+      // Return to Season detail view from submenus
+      await interaction.deferUpdate();
+      await showSeasonDetailView(interaction);
     } else if (interaction.customId === 'pats_help_legend') {
       // Show emoji legend
       await interaction.deferUpdate();
@@ -972,7 +991,7 @@ export async function showDashboard(interaction) {
       .setEmoji('📊')
   );
 
-  // Build second row with conditional Season button
+  // Build second row buttons
   const secondRowButtons = [
     new ButtonBuilder()
       .setCustomId('pats_dashboard_view_everyone_picks')
@@ -983,28 +1002,13 @@ export async function showDashboard(interaction) {
       .setCustomId('pats_dashboard_refresh')
       .setLabel('Refresh')
       .setEmoji('🔄')
-      .setStyle(ButtonStyle.Secondary)
-  ];
-
-  // Add Season button if user is in current season
-  if (isUserInCurrentSeason(interaction.user.id)) {
-    secondRowButtons.push(
-      new ButtonBuilder()
-        .setCustomId('pats_dashboard_season')
-        .setLabel('Season')
-        .setEmoji('📅')
-        .setStyle(ButtonStyle.Primary)
-    );
-  }
-
-  // Always add Help & Settings button
-  secondRowButtons.push(
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('pats_dashboard_help_settings')
       .setLabel('Help & Settings')
       .setEmoji('❓')
       .setStyle(ButtonStyle.Secondary)
-  );
+  ];
 
   const secondRow = new ActionRowBuilder().addComponents(...secondRowButtons);
 
@@ -1945,71 +1949,365 @@ async function showSeasonDetailView(interaction) {
   
   // Calculate days remaining
   const endDate = new Date(currentSeason.endDate);
+  const startDate = new Date(currentSeason.startDate);
   const now = new Date();
   const daysRemaining = Math.max(0, Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)));
+  const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+  const daysPassed = totalDays - daysRemaining;
+  const progressPct = ((daysPassed / totalDays) * 100).toFixed(0);
   
   // Format user's record
   const totalGames = userStanding ? userStanding.wins + userStanding.losses + userStanding.pushes : 0;
-  const winPct = totalGames > 0 ? ((userStanding.wins / (userStanding.wins + userStanding.losses)) * 100).toFixed(1) : '0.0';
+  const winPct = userStanding && (userStanding.wins + userStanding.losses) > 0 
+    ? ((userStanding.wins / (userStanding.wins + userStanding.losses)) * 100).toFixed(1) 
+    : '0.0';
+  
+  // Get current leader
+  const leader = standings.length > 0 ? standings[0] : null;
+  const isLeader = leader && leader.userId === interaction.user.id;
   
   const embed = new EmbedBuilder()
     .setTitle(`📅 ${currentSeason.name}`)
-    .setDescription(`Season ends ${endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' })}`)
-    .setColor('#5865F2')
+    .setDescription(
+      `**${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' })}**\n` +
+      `⏳ ${daysRemaining} days remaining (${progressPct}% complete)`
+    )
+    .setColor(isLeader ? '#FFD700' : '#5865F2')
     .addFields(
       {
-        name: '📊 Your Season Stats',
+        name: '📊 Your Season Performance',
         value: [
-          `**Rank:** #${userStanding ? userStanding.rank : 'N/A'} of ${currentSeason.participants.length}`,
-          `**Record:** ${userStanding ? userStanding.wins : 0}-${userStanding ? userStanding.losses : 0}-${userStanding ? userStanding.pushes : 0}`,
-          `**Win %:** ${winPct}%`,
-          `**Sessions Played:** ${userStanding ? userStanding.sessionsPlayed : 0}`
+          `**Rank:** ${isLeader ? '🏆 ' : ''}#${userStanding?.rank || 'Unranked'} of ${currentSeason.participants.length}`,
+          `**Record:** ${userStanding ? userStanding.wins : 0}-${userStanding ? userStanding.losses : 0}-${userStanding ? userStanding.pushes : 0} (${winPct}%)`,
+          `**Sessions:** ${userStanding?.sessionsPlayed || 0} played`
         ].join('\n'),
         inline: false
-      },
-      {
-        name: '⏳ Season Progress',
-        value: `**${daysRemaining}** days remaining`,
-        inline: true
-      },
-      {
-        name: '👥 Participants',
-        value: `**${currentSeason.participants.length}** players`,
-        inline: true
       }
     );
 
-  // Add schedule info if available
-  if (currentSeason.schedule?.enabled) {
-    const scheduleInfo = [];
-    if (currentSeason.schedule.daysAhead) {
-      scheduleInfo.push(`📆 Auto-scheduling ${currentSeason.schedule.daysAhead} days ahead`);
-    }
-    if (currentSeason.schedule.reminders?.enabled) {
-      scheduleInfo.push(`🔔 Reminders: ${(currentSeason.schedule.reminders.minutes || [60, 30]).join(', ')} min`);
-    }
-    if (currentSeason.schedule.warnings?.enabled) {
-      scheduleInfo.push(`⚠️ Warnings: ${(currentSeason.schedule.warnings.minutes || [30, 15]).join(', ')} min`);
-    }
-    
-    if (scheduleInfo.length > 0) {
-      embed.addFields({
-        name: '📅 Schedule Settings',
-        value: scheduleInfo.join('\n'),
-        inline: false
-      });
-    }
+  // Add current leader info if user is not the leader
+  if (leader && !isLeader) {
+    const leaderWinPct = ((leader.wins / (leader.wins + leader.losses)) * 100).toFixed(1);
+    embed.addFields({
+      name: '👑 Current Leader',
+      value: `<@${leader.userId}> - ${leader.wins}-${leader.losses}-${leader.pushes} (${leaderWinPct}%)`,
+      inline: false
+    });
   }
 
-  const buttons = new ActionRowBuilder().addComponents(
+  // Button rows
+  const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId('pats_season_detail_standings')
       .setLabel('Full Standings')
       .setStyle(ButtonStyle.Primary)
       .setEmoji('🏆'),
     new ButtonBuilder()
+      .setCustomId('pats_season_detail_schedule')
+      .setLabel('View Schedule')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('📅'),
+    new ButtonBuilder()
+      .setCustomId('pats_season_detail_awards')
+      .setLabel('Awards')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🏅')
+  );
+
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_season_detail_past')
+      .setLabel('Past Seasons')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('📜'),
+    new ButtonBuilder()
       .setCustomId('pats_season_detail_back')
       .setLabel('Back to Dashboard')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🔙')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row1, row2]
+  });
+}
+
+/**
+ * Show Season leaderboard view with back navigation
+ */
+async function showSeasonLeaderboardView(interaction) {
+  const leaderboardCommand = await import('./patsleaderboard.js');
+  const { embed, components } = await leaderboardCommand.buildLeaderboardEmbed(interaction, 'season', false);
+  
+  // Add back button to return to Season detail view
+  const backButton = new ButtonBuilder()
+    .setCustomId('pats_season_leaderboard_back')
+    .setLabel('Back to Season')
+    .setStyle(ButtonStyle.Secondary)
+    .setEmoji('🔙');
+  
+  // Add back button to first row or create new row
+  const rows = [...components];
+  if (rows.length > 0 && rows[0].components.length < 5) {
+    rows[0].components.push(backButton);
+  } else {
+    rows.push(new ActionRowBuilder().addComponents(backButton));
+  }
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: rows
+  });
+}
+
+/**
+ * Show Season Schedule view
+ */
+async function showSeasonScheduleView(interaction) {
+  const currentSeason = getCurrentSeason();
+  if (!currentSeason) {
+    await interaction.editReply({
+      content: '❌ No active season found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+
+  const sessions = getSessionsInSeason(currentSeason.id);
+  const snapshots = getUserSessionSnapshots(interaction.user.id);
+  
+  // Filter to sessions that have snapshots (completed sessions)
+  const completedSessions = sessions.filter(sessionId => 
+    snapshots.some(s => s.sessionId === sessionId)
+  );
+
+  const embed = new EmbedBuilder()
+    .setTitle(`📅 ${currentSeason.name} - Schedule`)
+    .setDescription(
+      sessions.length === 0
+        ? 'No sessions scheduled yet for this season.'
+        : `**${completedSessions.length}** of **${sessions.length}** sessions completed`
+    )
+    .setColor('#5865F2');
+
+  // Show recent completed sessions
+  if (completedSessions.length > 0) {
+    const recentSessions = completedSessions.slice(-10).reverse(); // Last 10, newest first
+    const sessionList = [];
+    
+    for (const sessionId of recentSessions) {
+      const snapshot = snapshots.find(s => s.sessionId === sessionId);
+      if (snapshot) {
+        const date = new Date(snapshot.timestamp).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          timeZone: 'America/Los_Angeles'
+        });
+        const userPick = snapshot.picks?.find(p => p.userId === interaction.user.id);
+        const record = userPick ? `${userPick.wins}-${userPick.losses}-${userPick.pushes}` : 'Did not play';
+        sessionList.push(`• ${date} - ${record}`);
+      }
+    }
+    
+    if (sessionList.length > 0) {
+      embed.addFields({
+        name: '📊 Recent Sessions',
+        value: sessionList.join('\n'),
+        inline: false
+      });
+    }
+  }
+
+  // Show upcoming scheduled sessions
+  const upcomingSessions = getUpcomingScheduledSessions();
+  if (upcomingSessions.length > 0) {
+    const upcomingList = upcomingSessions.slice(0, 5).map(session => {
+      const sessionDate = new Date(session.startTime);
+      const dateStr = sessionDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        timeZone: 'America/Los_Angeles'
+      });
+      return `• ${dateStr} - ${session.gameDetails.length} games`;
+    });
+    
+    embed.addFields({
+      name: '📆 Upcoming Sessions',
+      value: upcomingList.join('\n'),
+      inline: false
+    });
+  }
+
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_season_schedule_back')
+      .setLabel('Back to Season')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🔙')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [buttons]
+  });
+}
+
+/**
+ * Show Season Awards view
+ */
+async function showSeasonAwardsView(interaction) {
+  const currentSeason = getCurrentSeason();
+  if (!currentSeason) {
+    await interaction.editReply({
+      content: '❌ No active season found.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+
+  const standings = getSeasonStandings(currentSeason.id);
+  
+  const embed = new EmbedBuilder()
+    .setTitle(`🏅 ${currentSeason.name} - Awards`)
+    .setDescription(
+      currentSeason.status === 'completed' && currentSeason.awards
+        ? '**Final Season Awards**'
+        : '**Current Award Standings** (updated live)'
+    )
+    .setColor('#FFD700');
+
+  // Show final awards if season is completed
+  if (currentSeason.status === 'completed' && currentSeason.awards) {
+    const awards = currentSeason.awards;
+    
+    if (awards.champion) {
+      embed.addFields({
+        name: '🏆 Season Champion',
+        value: `<@${awards.champion.userId}> - ${awards.champion.wins}-${awards.champion.losses}-${awards.champion.pushes} (${awards.champion.winPercentage?.toFixed(1)}%)`,
+        inline: false
+      });
+    }
+    
+    if (awards.sharpshooter) {
+      embed.addFields({
+        name: '🎯 Sharpshooter (Best Double Down)',
+        value: `<@${awards.sharpshooter.userId}> - ${awards.sharpshooter.doubleDownRecord || 'N/A'}`,
+        inline: false
+      });
+    }
+    
+    if (awards.volumeKing) {
+      embed.addFields({
+        name: '📈 Volume King (Most Picks)',
+        value: `<@${awards.volumeKing.userId}> - ${awards.volumeKing.totalPicks} picks`,
+        inline: false
+      });
+    }
+  } else {
+    // Show current leaders for each award category
+    
+    // Champion (best win %)
+    const championLeader = standings.find(s => (s.wins + s.losses) >= 30);
+    if (championLeader) {
+      const winPct = ((championLeader.wins / (championLeader.wins + championLeader.losses)) * 100).toFixed(1);
+      embed.addFields({
+        name: '🏆 Champion Leader',
+        value: `<@${championLeader.userId}> - ${championLeader.wins}-${championLeader.losses}-${championLeader.pushes} (${winPct}%)\n*Minimum 30 picks required*`,
+        inline: false
+      });
+    } else {
+      embed.addFields({
+        name: '🏆 Champion',
+        value: 'No one has reached 30 picks yet',
+        inline: false
+      });
+    }
+    
+    // Volume King (most picks)
+    const volumeLeader = standings.length > 0 ? standings.reduce((max, s) => 
+      (s.wins + s.losses + s.pushes) > (max.wins + max.losses + max.pushes) ? s : max
+    ) : null;
+    
+    if (volumeLeader) {
+      const totalPicks = volumeLeader.wins + volumeLeader.losses + volumeLeader.pushes;
+      embed.addFields({
+        name: '📈 Volume King Leader',
+        value: `<@${volumeLeader.userId}> - ${totalPicks} picks`,
+        inline: false
+      });
+    }
+  }
+
+  embed.setFooter({ 
+    text: currentSeason.status === 'completed' 
+      ? 'Season completed - Awards finalized' 
+      : 'Awards will be finalized when season ends'
+  });
+
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_season_awards_back')
+      .setLabel('Back to Season')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🔙')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [buttons]
+  });
+}
+
+/**
+ * Show Past Seasons browser
+ */
+async function showPastSeasonsBrowser(interaction) {
+  const history = getSeasonHistory();
+  const currentSeason = getCurrentSeason();
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📜 Past Seasons')
+    .setColor('#5865F2');
+
+  if (history.length === 0) {
+    embed.setDescription('No past seasons available yet.\n\nCompleted seasons will appear here.');
+  } else {
+    let description = '**Completed Seasons:**\n\n';
+    
+    for (const season of history.slice(0, 10)) {
+      const champion = season.awards?.champion;
+      const startDate = new Date(season.startDate).toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'America/Los_Angeles'
+      });
+      
+      description += `**${season.name}** (${startDate})\n`;
+      
+      if (champion) {
+        const winPct = champion.winPercentage?.toFixed(1) || '0.0';
+        description += `└ 🏆 <@${champion.userId}> - ${champion.wins}-${champion.losses}-${champion.pushes} (${winPct}%)\n`;
+      } else {
+        description += `└ No champion (minimum picks not reached)\n`;
+      }
+      
+      description += `└ ${season.sessionCount || 0} sessions, ${season.participants?.length || 0} participants\n\n`;
+    }
+    
+    embed.setDescription(description);
+  }
+
+  if (currentSeason) {
+    embed.setFooter({ text: `Current Season: ${currentSeason.name}` });
+  }
+
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_past_seasons_back')
+      .setLabel('Back to Season')
       .setStyle(ButtonStyle.Secondary)
       .setEmoji('🔙')
   );
