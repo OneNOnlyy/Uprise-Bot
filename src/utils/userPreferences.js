@@ -173,7 +173,8 @@ export async function showSettingsMenu(interaction) {
                 .setStyle(prefs.dmNotifications.gameLocks ? ButtonStyle.Success : ButtonStyle.Secondary),
             new ButtonBuilder()
                 .setCustomId('pats_settings_back')
-                .setLabel('Back to Dashboard')
+                .setLabel('Back')
+                .setEmoji('🔙')
                 .setStyle(ButtonStyle.Secondary)
         );
     

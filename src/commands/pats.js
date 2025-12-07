@@ -497,6 +497,36 @@ export async function handleDashboardButton(interaction) {
       // Show help menu
       await interaction.deferUpdate();
       await showHelpMenu(interaction);
+    } else if (interaction.customId === 'pats_dashboard_help_settings') {
+      // Show combined Help & Settings submenu
+      await interaction.deferUpdate();
+      await showHelpSettingsMenu(interaction);
+    } else if (interaction.customId === 'pats_help_settings_help') {
+      // Navigate to help from submenu
+      await interaction.deferUpdate();
+      await showHelpMenu(interaction);
+    } else if (interaction.customId === 'pats_help_settings_settings') {
+      // Navigate to settings from submenu
+      await interaction.deferUpdate();
+      const { showSettingsMenu } = await import('../utils/userPreferences.js');
+      await showSettingsMenu(interaction);
+    } else if (interaction.customId === 'pats_help_settings_back') {
+      // Return to dashboard from Help & Settings submenu
+      await interaction.deferUpdate();
+      await showDashboard(interaction);
+    } else if (interaction.customId === 'pats_dashboard_season') {
+      // Show Season detail view for participants
+      await interaction.deferUpdate();
+      await showSeasonDetailView(interaction);
+    } else if (interaction.customId === 'pats_season_detail_back') {
+      // Return to dashboard from Season detail view
+      await interaction.deferUpdate();
+      await showDashboard(interaction);
+    } else if (interaction.customId === 'pats_season_detail_standings') {
+      // Show full leaderboard (redirect to leaderboard command with season filter)
+      await interaction.deferUpdate();
+      const leaderboardCommand = await import('./patsleaderboard.js');
+      await leaderboardCommand.execute(interaction, true); // true = season filter enabled
     } else if (interaction.customId === 'pats_help_legend') {
       // Show emoji legend
       await interaction.deferUpdate();
@@ -506,9 +536,9 @@ export async function handleDashboardButton(interaction) {
       await interaction.deferUpdate();
       await showTutorial(interaction);
     } else if (interaction.customId === 'pats_help_back') {
-      // Return to dashboard from help
+      // Return to Help & Settings submenu from help
       await interaction.deferUpdate();
-      await showDashboard(interaction);
+      await showHelpSettingsMenu(interaction);
     } else if (interaction.customId === 'pats_stats_back') {
       // Return to stats menu from individual stats
       await interaction.deferUpdate();
@@ -942,7 +972,8 @@ export async function showDashboard(interaction) {
       .setEmoji('📊')
   );
 
-  const secondRow = new ActionRowBuilder().addComponents(
+  // Build second row with conditional Season button
+  const secondRowButtons = [
     new ButtonBuilder()
       .setCustomId('pats_dashboard_view_everyone_picks')
       .setLabel('Everyone\'s Picks')
@@ -952,18 +983,30 @@ export async function showDashboard(interaction) {
       .setCustomId('pats_dashboard_refresh')
       .setLabel('Refresh')
       .setEmoji('🔄')
-      .setStyle(ButtonStyle.Secondary),
+      .setStyle(ButtonStyle.Secondary)
+  ];
+
+  // Add Season button if user is in current season
+  if (isUserInCurrentSeason(interaction.user.id)) {
+    secondRowButtons.push(
+      new ButtonBuilder()
+        .setCustomId('pats_dashboard_season')
+        .setLabel('Season')
+        .setEmoji('📅')
+        .setStyle(ButtonStyle.Primary)
+    );
+  }
+
+  // Always add Help & Settings button
+  secondRowButtons.push(
     new ButtonBuilder()
-      .setCustomId('pats_dashboard_help')
-      .setLabel('Help')
+      .setCustomId('pats_dashboard_help_settings')
+      .setLabel('Help & Settings')
       .setEmoji('❓')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('pats_dashboard_settings')
-      .setLabel('Settings')
-      .setEmoji('⚙️')
       .setStyle(ButtonStyle.Secondary)
   );
+
+  const secondRow = new ActionRowBuilder().addComponents(...secondRowButtons);
 
   await interaction.editReply({
     embeds: [embed],
@@ -1653,6 +1696,51 @@ export async function showUserStatsFromSelect(interaction, userId) {
 }
 
 /**
+ * Show combined Help & Settings menu
+ */
+export async function showHelpSettingsMenu(interaction) {
+  const embed = new EmbedBuilder()
+    .setTitle('❓ Help & Settings')
+    .setDescription('Choose what you\'d like to do:')
+    .setColor(0x5865F2)
+    .addFields(
+      {
+        name: '❓ Help',
+        value: 'Learn how to play PATS, view emoji legend, and access tutorials',
+        inline: false
+      },
+      {
+        name: '⚙️ Your Settings',
+        value: 'Customize your notification preferences and DM settings',
+        inline: false
+      }
+    );
+
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_help_settings_help')
+      .setLabel('Help')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('❓'),
+    new ButtonBuilder()
+      .setCustomId('pats_help_settings_settings')
+      .setLabel('Your Settings')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('⚙️'),
+    new ButtonBuilder()
+      .setCustomId('pats_help_settings_back')
+      .setLabel('Back to Dashboard')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🏠')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [buttons]
+  });
+}
+
+/**
  * Show help menu
  */
 async function showHelpMenu(interaction) {
@@ -1687,9 +1775,9 @@ async function showHelpMenu(interaction) {
       .setEmoji('📚'),
     new ButtonBuilder()
       .setCustomId('pats_help_back')
-      .setLabel('Back to Dashboard')
+      .setLabel('Back')
       .setStyle(ButtonStyle.Secondary)
-      .setEmoji('🏠')
+      .setEmoji('🔙')
   );
 
   await interaction.editReply({
@@ -1827,6 +1915,103 @@ async function showTutorial(interaction) {
       .setLabel('Back to Dashboard')
       .setStyle(ButtonStyle.Secondary)
       .setEmoji('🏠')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [buttons]
+  });
+}
+
+/**
+ * Show Season detail view for participants
+ */
+async function showSeasonDetailView(interaction) {
+  const currentSeason = getCurrentSeason();
+  
+  // Safety check
+  if (!currentSeason || !isUserInCurrentSeason(interaction.user.id)) {
+    await interaction.editReply({
+      content: '❌ You are not currently participating in a season.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+
+  // Get user's rank and stats in the season
+  const standings = getSeasonStandings(currentSeason.id);
+  const userStanding = standings.find(s => s.userId === interaction.user.id);
+  
+  // Calculate days remaining
+  const endDate = new Date(currentSeason.endDate);
+  const now = new Date();
+  const daysRemaining = Math.max(0, Math.ceil((endDate - now) / (1000 * 60 * 60 * 24)));
+  
+  // Format user's record
+  const totalGames = userStanding ? userStanding.wins + userStanding.losses + userStanding.pushes : 0;
+  const winPct = totalGames > 0 ? ((userStanding.wins / (userStanding.wins + userStanding.losses)) * 100).toFixed(1) : '0.0';
+  
+  const embed = new EmbedBuilder()
+    .setTitle(`📅 ${currentSeason.name}`)
+    .setDescription(`Season ends ${endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' })}`)
+    .setColor('#5865F2')
+    .addFields(
+      {
+        name: '📊 Your Season Stats',
+        value: [
+          `**Rank:** #${userStanding ? userStanding.rank : 'N/A'} of ${currentSeason.participants.length}`,
+          `**Record:** ${userStanding ? userStanding.wins : 0}-${userStanding ? userStanding.losses : 0}-${userStanding ? userStanding.pushes : 0}`,
+          `**Win %:** ${winPct}%`,
+          `**Sessions Played:** ${userStanding ? userStanding.sessionsPlayed : 0}`
+        ].join('\n'),
+        inline: false
+      },
+      {
+        name: '⏳ Season Progress',
+        value: `**${daysRemaining}** days remaining`,
+        inline: true
+      },
+      {
+        name: '👥 Participants',
+        value: `**${currentSeason.participants.length}** players`,
+        inline: true
+      }
+    );
+
+  // Add schedule info if available
+  if (currentSeason.schedule?.enabled) {
+    const scheduleInfo = [];
+    if (currentSeason.schedule.daysAhead) {
+      scheduleInfo.push(`📆 Auto-scheduling ${currentSeason.schedule.daysAhead} days ahead`);
+    }
+    if (currentSeason.schedule.reminders?.enabled) {
+      scheduleInfo.push(`🔔 Reminders: ${(currentSeason.schedule.reminders.minutes || [60, 30]).join(', ')} min`);
+    }
+    if (currentSeason.schedule.warnings?.enabled) {
+      scheduleInfo.push(`⚠️ Warnings: ${(currentSeason.schedule.warnings.minutes || [30, 15]).join(', ')} min`);
+    }
+    
+    if (scheduleInfo.length > 0) {
+      embed.addFields({
+        name: '📅 Schedule Settings',
+        value: scheduleInfo.join('\n'),
+        inline: false
+      });
+    }
+  }
+
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_season_detail_standings')
+      .setLabel('Full Standings')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🏆'),
+    new ButtonBuilder()
+      .setCustomId('pats_season_detail_back')
+      .setLabel('Back to Dashboard')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🔙')
   );
 
   await interaction.editReply({
