@@ -952,8 +952,8 @@ export async function showScheduleSettings(interaction) {
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId('pats_season_auto_settings')
-        .setLabel('Auto-Schedule')
-        .setEmoji('🤖')
+        .setLabel('Scheduling')
+        .setEmoji('📅')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId('pats_season_toggle_session_type')
@@ -962,16 +962,7 @@ export async function showScheduleSettings(interaction) {
         .setStyle(ButtonStyle.Secondary)
     );
   
-  // Row 2: Channel selector
-  const channelRow = new ActionRowBuilder()
-    .addComponents(
-      new ChannelSelectMenuBuilder()
-        .setCustomId('pats_season_select_channel')
-        .setPlaceholder('📢 Select announcement channel...')
-        .setChannelTypes(ChannelType.GuildText)
-    );
-  
-  // Row 3: Notifications and Back buttons (2 buttons)
+  // Row 2: Notifications and Back buttons (2 buttons)
   const buttonRow2 = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
@@ -988,7 +979,7 @@ export async function showScheduleSettings(interaction) {
   
   await interaction.editReply({
     embeds: [embed],
-    components: [buttonRow1, channelRow, buttonRow2]
+    components: [buttonRow1, buttonRow2]
   });
 }
 
@@ -1062,12 +1053,17 @@ export async function showAutoScheduleSettings(interaction) {
   const schedule = currentSeason.schedule || {};
   
   const embed = new EmbedBuilder()
-    .setTitle('🤖 Auto-Schedule Settings')
-    .setDescription(`Configure auto-scheduling for **${currentSeason.name}**`)
+    .setTitle('📅 Scheduling Settings')
+    .setDescription(`Configure scheduling for **${currentSeason.name}**`)
     .setColor('#5865F2')
     .addFields(
       {
-        name: 'Status',
+        name: '📢 Announcement Channel',
+        value: schedule.channelId ? `<#${schedule.channelId}>` : '_Not set_',
+        inline: true
+      },
+      {
+        name: '🤖 Auto-Schedule',
         value: schedule.enabled ? '✅ Enabled' : '❌ Disabled',
         inline: true
       },
@@ -1097,6 +1093,14 @@ export async function showAutoScheduleSettings(interaction) {
         .setStyle(ButtonStyle.Secondary)
     );
 
+  const channelRow = new ActionRowBuilder()
+    .addComponents(
+      new ChannelSelectMenuBuilder()
+        .setCustomId('pats_season_select_channel')
+        .setPlaceholder('📢 Select announcement channel...')
+        .setChannelTypes(ChannelType.GuildText)
+    );
+
   const minGamesRow = new ActionRowBuilder()
     .addComponents(
       new StringSelectMenuBuilder()
@@ -1116,7 +1120,7 @@ export async function showAutoScheduleSettings(interaction) {
 
   await interaction.editReply({
     embeds: [embed],
-    components: [buttonRow, minGamesRow]
+    components: [buttonRow, channelRow, minGamesRow]
   });
 }
 
