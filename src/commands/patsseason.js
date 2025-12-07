@@ -16,7 +16,7 @@ import {
   getSeasonById,
   runAutoSchedulerCheck
 } from '../utils/patsSeasons.js';
-import { getAllPlayers } from '../utils/patsData.js';
+import { getAllPlayers, readPATSData, writePATSData } from '../utils/patsData.js';
 import { getESPNGamesForDate } from '../utils/oddsApi.js';
 import { scheduleSessionJobs } from '../utils/sessionScheduler.js';
 import fs from 'fs/promises';
@@ -940,6 +940,61 @@ export async function showScheduleSettings(interaction) {
 }
 
 /**
+ * Show Edit Season menu
+ */
+export async function showEditSeason(interaction) {
+  const currentSeason = getCurrentSeason();
+  if (!currentSeason) {
+    return await showSeasonAdminMenu(interaction);
+  }
+  
+  const embed = new EmbedBuilder()
+    .setTitle('✏️ Edit Season')
+    .setDescription(`Editing **${currentSeason.name}**`)
+    .setColor('#5865F2')
+    .addFields(
+      {
+        name: '📅 Season Dates',
+        value: `Start: ${new Date(currentSeason.startDate).toLocaleDateString()}\nEnd: ${new Date(currentSeason.endDate).toLocaleDateString()}`,
+        inline: true
+      },
+      {
+        name: '👥 Participants',
+        value: `${currentSeason.participants?.length || 0} user${currentSeason.participants?.length !== 1 ? 's' : ''}`,
+        inline: true
+      }
+    );
+  
+  const editButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_edit_name')
+        .setLabel('Edit Name')
+        .setEmoji('✏️')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('pats_season_edit_end_date')
+        .setLabel('Edit End Date')
+        .setEmoji('📅')
+        .setStyle(ButtonStyle.Primary)
+    );
+  
+  const backButton = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_admin_back')
+        .setLabel('Back')
+        .setEmoji('🔙')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [editButtons, backButton]
+  });
+}
+
+/**
  * Show Manage Schedule - view upcoming scheduled sessions for the season
  */
 export async function showManageSchedule(interaction) {
@@ -1004,6 +1059,22 @@ export async function showManageSchedule(interaction) {
     inline: true
   });
   
+  // Add buttons for managing schedule
+  const actionButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_schedule_view_all')
+        .setLabel('View All Sessions')
+        .setEmoji('📋')
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(upcomingSessions.length === 0),
+      new ButtonBuilder()
+        .setCustomId('pats_season_schedule_refresh')
+        .setLabel('Refresh')
+        .setEmoji('🔄')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
   const backButton = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
@@ -1015,10 +1086,200 @@ export async function showManageSchedule(interaction) {
   
   await interaction.editReply({
     embeds: [embed],
-    components: [backButton]
+    components: upcomingSessions.length > 0 ? [actionButtons, backButton] : [backButton]
   });
 }
 
+/**
+ * Show all scheduled sessions for the season
+ */
+export async function showAllScheduledSessions(interaction) {
+  const currentSeason = getCurrentSeason();
+  if (!currentSeason) {
+    return await showSeasonAdminMenu(interaction);
+  }
+  
+  // Get scheduled sessions from the scheduler
+  const { getAllScheduledSessions } = await import('../utils/sessionScheduler.js');
+  const allSessions = getAllScheduledSessions();
+  
+  // Filter to only this season's sessions
+  const seasonSessions = allSessions.filter(s => s.seasonId === currentSeason.id);
+  
+  // Separate into upcoming and past
+  const now = new Date();
+  const upcomingSessions = seasonSessions.filter(s => new Date(s.firstGameTime) > now);
+  
+  if (upcomingSessions.length === 0) {
+    return await showManageSchedule(interaction);
+  }
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📋 All Scheduled Sessions')
+    .setDescription(`Viewing all upcoming sessions for **${currentSeason.name}**`)
+    .setColor('#5865F2');
+  
+  // Build session list with detailed info
+  const sessionList = upcomingSessions.slice(0, 10).map((s, idx) => {
+    const date = new Date(s.scheduledDate);
+    const gameCount = Array.isArray(s.gameDetails) ? s.gameDetails.length : s.games;
+    const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const timeStr = new Date(s.firstGameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const typeEmoji = s.sessionType === 'both' ? '🌐' : '🏆';
+    const typeText = s.sessionType === 'both' ? ' (Open)' : '';
+    
+    return `**${idx + 1}.** ${typeEmoji} ${dateStr} at ${timeStr}\n   └ ${gameCount} games${typeText} • Session ID: \`${s.id}\``;
+  }).join('\n\n');
+  
+  embed.setDescription(
+    `Viewing upcoming sessions for **${currentSeason.name}**\n\n${sessionList}`
+  );
+  
+  if (upcomingSessions.length > 10) {
+    embed.setFooter({ text: `Showing 10 of ${upcomingSessions.length} sessions` });
+  }
+  
+  // Create session select menu
+  const selectMenu = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('pats_season_schedule_select')
+        .setPlaceholder('Select a session to manage...')
+        .addOptions(
+          upcomingSessions.slice(0, 25).map((s, idx) => {
+            const date = new Date(s.scheduledDate);
+            const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const gameCount = Array.isArray(s.gameDetails) ? s.gameDetails.length : s.games;
+            const typeEmoji = s.sessionType === 'both' ? '🌐' : '🏆';
+            
+            return {
+              label: `${dateStr} - ${gameCount} games`,
+              value: s.id,
+              description: `Session ID: ${s.id}`,
+              emoji: typeEmoji
+            };
+          })
+        )
+    );
+  
+  const backButton = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_schedule_back')
+        .setLabel('Back')
+        .setEmoji('🔙')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [selectMenu, backButton]
+  });
+}
+
+/**
+ * Show detailed view of a specific scheduled session
+ */
+export async function showSessionDetails(interaction, sessionId) {
+  const currentSeason = getCurrentSeason();
+  if (!currentSeason) {
+    return await showSeasonAdminMenu(interaction);
+  }
+  
+  const { getScheduledSession, deleteScheduledSession } = await import('../utils/sessionScheduler.js');
+  const session = getScheduledSession(sessionId);
+  
+  if (!session || session.seasonId !== currentSeason.id) {
+    await interaction.editReply({
+      content: '❌ Session not found or does not belong to this season.',
+      embeds: [],
+      components: []
+    });
+    return;
+  }
+  
+  const date = new Date(session.scheduledDate);
+  const firstGame = new Date(session.firstGameTime);
+  const announcement = new Date(session.notifications.announcement.time);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📋 Session Details')
+    .setColor('#5865F2')
+    .addFields(
+      {
+        name: '📅 Date',
+        value: date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
+        inline: false
+      },
+      {
+        name: '⏰ First Game',
+        value: firstGame.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }),
+        inline: true
+      },
+      {
+        name: '📣 Announcement',
+        value: announcement.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        inline: true
+      },
+      {
+        name: '🏀 Games',
+        value: `${session.games} game${session.games !== 1 ? 's' : ''}`,
+        inline: true
+      },
+      {
+        name: '👥 Session Type',
+        value: session.sessionType === 'both' ? '🌐 Open to All' : '🏆 Season Only',
+        inline: true
+      },
+      {
+        name: '🆔 Session ID',
+        value: `\`${session.id}\``,
+        inline: false
+      }
+    );
+  
+  // Show game details if available
+  if (session.gameDetails && session.gameDetails.length > 0) {
+    const gamesList = session.gameDetails.slice(0, 5).map(g => {
+      const gameTime = new Date(g.startTime);
+      const timeStr = gameTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      return `• ${g.awayAbbr} @ ${g.homeAbbr} - ${timeStr}`;
+    }).join('\n');
+    
+    embed.addFields({
+      name: '🏀 Matchups',
+      value: gamesList + (session.gameDetails.length > 5 ? `\n_...and ${session.gameDetails.length - 5} more_` : ''),
+      inline: false
+    });
+  }
+  
+  const actionButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`pats_season_schedule_delete_${sessionId}`)
+        .setLabel('Delete Session')
+        .setEmoji('🗑️')
+        .setStyle(ButtonStyle.Danger)
+    );
+  
+  const backButton = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_schedule_view_all')
+        .setLabel('Back to List')
+        .setEmoji('🔙')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [actionButtons, backButton]
+  });
+}
+
+/**
+ * Show Manage Schedule - view upcoming scheduled sessions for the season
+ */
 /**
  * Handle button interactions
  */
@@ -1500,6 +1761,124 @@ export async function handleButton(interaction) {
       return await showManageSchedule(interaction);
     }
     
+    // Edit Season
+    if (customId === 'pats_season_edit') {
+      return await showEditSeason(interaction);
+    }
+    
+    // Edit Season Name
+    if (customId === 'pats_season_edit_name') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const modal = new ModalBuilder()
+        .setCustomId('pats_season_modal_edit_name')
+        .setTitle('Edit Season Name');
+      
+      const nameInput = new TextInputBuilder()
+        .setCustomId('season_name')
+        .setLabel('Season Name')
+        .setStyle(TextInputStyle.Short)
+        .setValue(currentSeason.name)
+        .setRequired(true)
+        .setMaxLength(50);
+      
+      modal.addComponents(new ActionRowBuilder().addComponents(nameInput));
+      return await interaction.showModal(modal);
+    }
+    
+    // Edit Season End Date
+    if (customId === 'pats_season_edit_end_date') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const modal = new ModalBuilder()
+        .setCustomId('pats_season_modal_edit_end_date')
+        .setTitle('Edit Season End Date');
+      
+      const endDateInput = new TextInputBuilder()
+        .setCustomId('end_date')
+        .setLabel('End Date (YYYY-MM-DD)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(currentSeason.endDate)
+        .setRequired(true)
+        .setPlaceholder('2025-04-30');
+      
+      modal.addComponents(new ActionRowBuilder().addComponents(endDateInput));
+      return await interaction.showModal(modal);
+    }
+    
+    // View All Scheduled Sessions
+    if (customId === 'pats_season_schedule_view_all') {
+      return await showAllScheduledSessions(interaction);
+    }
+    
+    // Refresh Schedule View
+    if (customId === 'pats_season_schedule_refresh') {
+      return await showManageSchedule(interaction);
+    }
+    
+    // Delete Session (pattern: pats_season_schedule_delete_<sessionId>)
+    if (customId.startsWith('pats_season_schedule_delete_')) {
+      const sessionId = customId.replace('pats_season_schedule_delete_', '');
+      const currentSeason = getCurrentSeason();
+      
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      try {
+        const { getScheduledSession, deleteScheduledSession } = await import('../utils/sessionScheduler.js');
+        const session = getScheduledSession(sessionId);
+        
+        if (!session || session.seasonId !== currentSeason.id) {
+          await interaction.editReply({
+            content: '❌ Session not found or does not belong to this season.',
+            embeds: [],
+            components: []
+          });
+          return;
+        }
+        
+        // Delete the session
+        deleteScheduledSession(sessionId);
+        
+        // Also remove from season's scheduledSessions list
+        const { updateScheduledSession } = await import('../utils/patsSeasons.js');
+        const data = readPATSData();
+        if (data.seasons?.current?.scheduledSessions) {
+          data.seasons.current.scheduledSessions = data.seasons.current.scheduledSessions.filter(
+            s => s.sessionId !== sessionId
+          );
+          writePATSData(data);
+        }
+        
+        await interaction.editReply({
+          content: `✅ Session deleted successfully.`,
+          embeds: [],
+          components: []
+        });
+        
+        // Return to schedule view after a moment
+        setTimeout(async () => {
+          await showAllScheduledSessions(interaction);
+        }, 1500);
+        
+      } catch (error) {
+        console.error('Error deleting session:', error);
+        await interaction.editReply({
+          content: '❌ Failed to delete session. Please try again.',
+          embeds: [],
+          components: []
+        });
+      }
+      return;
+    }
+    
     // Default - show admin menu
     return await showSeasonAdminMenu(interaction);
     
@@ -1680,6 +2059,12 @@ export async function handleSelectMenu(interaction) {
       return await showScheduleSettings(interaction);
     }
     
+    // Select Session from Schedule List
+    if (customId === 'pats_season_schedule_select') {
+      const sessionId = interaction.values[0];
+      return await showSessionDetails(interaction, sessionId);
+    }
+    
   } catch (error) {
     console.error('Error handling season select menu:', error);
     await interaction.editReply({
@@ -1821,6 +2206,84 @@ export async function handleModal(interaction) {
       
       await saveSeasonConfigs();
       return await showCreateSeasonStep3(interaction);
+    }
+    
+    // Edit existing season name
+    if (customId === 'pats_season_modal_edit_name') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const newName = interaction.fields.getTextInputValue('season_name');
+      
+      if (!newName || newName.trim().length === 0) {
+        await interaction.followUp({
+          content: '❌ Season name cannot be empty.',
+          ephemeral: true
+        });
+        return await showEditSeason(interaction);
+      }
+      
+      const { updateSeason } = await import('../utils/patsSeasons.js');
+      updateSeason(currentSeason.id, { name: newName.trim() });
+      
+      await interaction.followUp({
+        content: `✅ Season name updated to **${newName.trim()}**`,
+        ephemeral: true
+      });
+      
+      return await showEditSeason(interaction);
+    }
+    
+    // Edit existing season end date
+    if (customId === 'pats_season_modal_edit_end_date') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const endDate = interaction.fields.getTextInputValue('end_date');
+      
+      // Validate date format
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(endDate)) {
+        await interaction.followUp({
+          content: '❌ Invalid date format. Please use YYYY-MM-DD format (e.g., 2025-04-30)',
+          ephemeral: true
+        });
+        return await showEditSeason(interaction);
+      }
+      
+      // Validate date is valid
+      const end = new Date(endDate);
+      const start = new Date(currentSeason.startDate);
+      
+      if (isNaN(end.getTime())) {
+        await interaction.followUp({
+          content: '❌ Invalid date. Please check your date and try again.',
+          ephemeral: true
+        });
+        return await showEditSeason(interaction);
+      }
+      
+      if (end <= start) {
+        await interaction.followUp({
+          content: '❌ End date must be after the season start date.',
+          ephemeral: true
+        });
+        return await showEditSeason(interaction);
+      }
+      
+      const { updateSeason } = await import('../utils/patsSeasons.js');
+      updateSeason(currentSeason.id, { endDate });
+      
+      await interaction.followUp({
+        content: `✅ Season end date updated to ${end.toLocaleDateString()}`,
+        ephemeral: true
+      });
+      
+      return await showEditSeason(interaction);
     }
     
   } catch (error) {
