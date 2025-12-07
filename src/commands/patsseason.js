@@ -1677,6 +1677,60 @@ export async function handleButton(interaction) {
       return await interaction.showModal(modal);
     }
     
+    // Handle Edit Season Name Modal - DON'T defer, show modal immediately
+    if (customId === 'pats_season_edit_name') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        await interaction.reply({
+          content: '❌ No active season found.',
+          ephemeral: true
+        });
+        return;
+      }
+      
+      const modal = new ModalBuilder()
+        .setCustomId('pats_season_modal_edit_name')
+        .setTitle('Edit Season Name');
+      
+      const nameInput = new TextInputBuilder()
+        .setCustomId('season_name')
+        .setLabel('Season Name')
+        .setStyle(TextInputStyle.Short)
+        .setValue(currentSeason.name)
+        .setRequired(true)
+        .setMaxLength(50);
+      
+      modal.addComponents(new ActionRowBuilder().addComponents(nameInput));
+      return await interaction.showModal(modal);
+    }
+    
+    // Handle Edit Season End Date Modal - DON'T defer, show modal immediately
+    if (customId === 'pats_season_edit_end_date') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        await interaction.reply({
+          content: '❌ No active season found.',
+          ephemeral: true
+        });
+        return;
+      }
+      
+      const modal = new ModalBuilder()
+        .setCustomId('pats_season_modal_edit_end_date')
+        .setTitle('Edit Season End Date');
+      
+      const endDateInput = new TextInputBuilder()
+        .setCustomId('end_date')
+        .setLabel('End Date (YYYY-MM-DD)')
+        .setStyle(TextInputStyle.Short)
+        .setValue(currentSeason.endDate)
+        .setRequired(true)
+        .setPlaceholder('2025-04-30');
+      
+      modal.addComponents(new ActionRowBuilder().addComponents(endDateInput));
+      return await interaction.showModal(modal);
+    }
+    
     // For all other buttons, defer the update
     await interaction.deferUpdate();
     
@@ -2081,57 +2135,6 @@ export async function handleButton(interaction) {
     // Manage Schedule (view upcoming scheduled sessions)
     if (customId === 'pats_season_schedule') {
       return await showManageSchedule(interaction);
-    }
-    
-    // Edit Season
-    if (customId === 'pats_season_edit') {
-      return await showEditSeason(interaction);
-    }
-    
-    // Edit Season Name
-    if (customId === 'pats_season_edit_name') {
-      const currentSeason = getCurrentSeason();
-      if (!currentSeason) {
-        return await showSeasonAdminMenu(interaction);
-      }
-      
-      const modal = new ModalBuilder()
-        .setCustomId('pats_season_modal_edit_name')
-        .setTitle('Edit Season Name');
-      
-      const nameInput = new TextInputBuilder()
-        .setCustomId('season_name')
-        .setLabel('Season Name')
-        .setStyle(TextInputStyle.Short)
-        .setValue(currentSeason.name)
-        .setRequired(true)
-        .setMaxLength(50);
-      
-      modal.addComponents(new ActionRowBuilder().addComponents(nameInput));
-      return await interaction.showModal(modal);
-    }
-    
-    // Edit Season End Date
-    if (customId === 'pats_season_edit_end_date') {
-      const currentSeason = getCurrentSeason();
-      if (!currentSeason) {
-        return await showSeasonAdminMenu(interaction);
-      }
-      
-      const modal = new ModalBuilder()
-        .setCustomId('pats_season_modal_edit_end_date')
-        .setTitle('Edit Season End Date');
-      
-      const endDateInput = new TextInputBuilder()
-        .setCustomId('end_date')
-        .setLabel('End Date (YYYY-MM-DD)')
-        .setStyle(TextInputStyle.Short)
-        .setValue(currentSeason.endDate)
-        .setRequired(true)
-        .setPlaceholder('2025-04-30');
-      
-      modal.addComponents(new ActionRowBuilder().addComponents(endDateInput));
-      return await interaction.showModal(modal);
     }
     
     // View All Scheduled Sessions
