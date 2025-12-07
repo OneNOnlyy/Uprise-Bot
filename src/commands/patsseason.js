@@ -868,7 +868,22 @@ export async function showScheduleSettings(interaction) {
         .setStyle(schedule.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
     );
   
-  const channelSelect = new ActionRowBuilder()
+  const settingsSelects = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('pats_season_select_announcement')
+        .setPlaceholder('📣 Announcement time: ' + (schedule.announcementMinutes || 60) + ' min before')
+        .addOptions([
+          { label: '15 minutes before', value: '15', description: 'Session starts 15 min before first game', emoji: '⏱️' },
+          { label: '30 minutes before', value: '30', description: 'Session starts 30 min before first game', emoji: '⏱️' },
+          { label: '60 minutes before (1 hour)', value: '60', description: 'Session starts 1 hour before first game', emoji: '⏰', default: (schedule.announcementMinutes || 60) === 60 },
+          { label: '90 minutes before (1.5 hours)', value: '90', description: 'Session starts 1.5 hours before first game', emoji: '⏰' },
+          { label: '120 minutes before (2 hours)', value: '120', description: 'Session starts 2 hours before first game', emoji: '⏰' },
+          { label: '180 minutes before (3 hours)', value: '180', description: 'Session starts 3 hours before first game', emoji: '⏰' }
+        ])
+    );
+  
+  const channelAndTypeRow = new ActionRowBuilder()
     .addComponents(
       new ChannelSelectMenuBuilder()
         .setCustomId('pats_season_select_channel')
@@ -876,11 +891,11 @@ export async function showScheduleSettings(interaction) {
         .setChannelTypes(ChannelType.GuildText)
     );
   
-  const sessionTypeSelect = new ActionRowBuilder()
+  const sessionTypeRow = new ActionRowBuilder()
     .addComponents(
       new StringSelectMenuBuilder()
         .setCustomId('pats_season_select_session_type')
-        .setPlaceholder('👥 Select session type...')
+        .setPlaceholder('👥 Session type: ' + (currentSessionType === 'both' ? 'Open to All' : 'Season Only'))
         .addOptions([
           { 
             label: 'Season Only', 
@@ -899,21 +914,6 @@ export async function showScheduleSettings(interaction) {
         ])
     );
   
-  const announcementSelect = new ActionRowBuilder()
-    .addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId('pats_season_select_announcement')
-        .setPlaceholder('📣 Select announcement time...')
-        .addOptions([
-          { label: '15 minutes before', value: '15', description: 'Session starts 15 min before first game', emoji: '⏱️' },
-          { label: '30 minutes before', value: '30', description: 'Session starts 30 min before first game', emoji: '⏱️' },
-          { label: '60 minutes before (1 hour)', value: '60', description: 'Session starts 1 hour before first game', emoji: '⏰', default: (schedule.announcementMinutes || 60) === 60 },
-          { label: '90 minutes before (1.5 hours)', value: '90', description: 'Session starts 1.5 hours before first game', emoji: '⏰' },
-          { label: '120 minutes before (2 hours)', value: '120', description: 'Session starts 2 hours before first game', emoji: '⏰' },
-          { label: '180 minutes before (3 hours)', value: '180', description: 'Session starts 3 hours before first game', emoji: '⏰' }
-        ])
-    );
-  
   const notificationButtons = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
@@ -925,11 +925,7 @@ export async function showScheduleSettings(interaction) {
         .setCustomId('pats_season_toggle_warnings')
         .setLabel(schedule.warnings?.enabled ? 'Disable Warnings' : 'Enable Warnings')
         .setEmoji('⚠️')
-        .setStyle(schedule.warnings?.enabled ? ButtonStyle.Secondary : ButtonStyle.Success)
-    );
-  
-  const backButton = new ActionRowBuilder()
-    .addComponents(
+        .setStyle(schedule.warnings?.enabled ? ButtonStyle.Secondary : ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId('pats_season_settings_back')
         .setLabel('Back')
@@ -939,7 +935,7 @@ export async function showScheduleSettings(interaction) {
   
   await interaction.editReply({
     embeds: [embed],
-    components: [toggleButton, channelSelect, sessionTypeSelect, announcementSelect, notificationButtons, backButton]
+    components: [toggleButton, channelAndTypeRow, sessionTypeRow, settingsSelects, notificationButtons]
   });
 }
 

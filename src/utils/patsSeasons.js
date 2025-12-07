@@ -110,7 +110,7 @@ export function createSeason(name, type, startDate, endDate, participants = [], 
     participants: participants,
     sessions: [],
     standings: {},
-    scheduleConfig: scheduleConfig || getDefaultSeasonScheduleConfig(),
+    schedule: scheduleConfig || getDefaultSeasonScheduleConfig(),
     scheduledSessions: [],
     skippedDates: []
   };
