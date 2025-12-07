@@ -1307,7 +1307,7 @@ export async function runAutoSchedulerCheck(client, getGamesForDate, addSchedule
   console.log('[SEASONS] ✅ Auto-scheduling is enabled');
   console.log('[SEASONS] 🔍 Running auto-scheduler check...');
   
-  const daysAhead = currentSeason.schedule?.scheduleDaysAhead || 2;
+  const daysAhead = currentSeason.schedule?.daysAhead || currentSeason.schedule?.scheduleDaysAhead || 7;
   console.log(`[SEASONS] 📅 Checking next ${daysAhead + 1} days (today + ${daysAhead} ahead)`);
   
   // Check today and future days
