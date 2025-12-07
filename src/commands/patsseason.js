@@ -1215,7 +1215,6 @@ export async function showEndDatePicker(interaction, season) {
     { days: 30, label: '1 Month from now' },
     { days: 60, label: '2 Months from now' },
     { days: 90, label: '3 Months from now' },
-    { days: 180, label: '6 Months from now' },
   ];
   
   for (const interval of intervals) {
@@ -1234,29 +1233,29 @@ export async function showEndDatePicker(interaction, season) {
     });
   }
   
-  // Add "End of Year" option
-  const endOfYear = new Date(today.getFullYear(), 11, 31); // Dec 31
-  const endOfYearStr = endOfYear.toISOString().split('T')[0];
-  if (endOfYearStr !== season.endDate && !dateOptions.find(opt => opt.value === endOfYearStr)) {
+  // Add "End of NBA Season" option (typically mid-April)
+  const nbaSeasonEnd = new Date(today.getFullYear(), 3, 15); // April 15
+  // If we're past April, use next year
+  if (today.getMonth() > 3) {
+    nbaSeasonEnd.setFullYear(today.getFullYear() + 1);
+  }
+  const nbaSeasonEndStr = nbaSeasonEnd.toISOString().split('T')[0];
+  if (nbaSeasonEndStr !== season.endDate && !dateOptions.find(opt => opt.value === nbaSeasonEndStr)) {
     dateOptions.push({
-      label: `End of ${today.getFullYear()}`,
-      value: endOfYearStr,
-      description: endOfYear.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      emoji: '🎆'
+      label: 'End of NBA Season',
+      value: nbaSeasonEndStr,
+      description: nbaSeasonEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      emoji: '🏀'
     });
   }
   
-  // Add more specific future options
-  const futureYear = new Date(today);
-  futureYear.setFullYear(today.getFullYear() + 1);
-  if (!dateOptions.find(opt => opt.value === futureYear.toISOString().split('T')[0].replace(/-\d{2}$/, '-01'))) {
-    dateOptions.push({
-      label: `End of ${today.getFullYear() + 1}`,
-      value: new Date(today.getFullYear() + 1, 11, 31).toISOString().split('T')[0],
-      description: 'December 31, ' + (today.getFullYear() + 1),
-      emoji: '🎆'
-    });
-  }
+  // Add custom date option
+  dateOptions.push({
+    label: 'Custom Date...',
+    value: 'custom',
+    description: 'Enter a specific date',
+    emoji: '✏️'
+  });
   
   const embed = new EmbedBuilder()
     .setTitle('📅 Edit Season End Date')
@@ -2533,6 +2532,24 @@ export async function handleSelectMenu(interaction) {
       }
       
       const selectedValue = interaction.values[0];
+      
+      // If "custom" is selected, show the modal
+      if (selectedValue === 'custom') {
+        const modal = new ModalBuilder()
+          .setCustomId('pats_season_modal_edit_end_date')
+          .setTitle('Custom End Date');
+        
+        const endDateInput = new TextInputBuilder()
+          .setCustomId('end_date')
+          .setLabel('End Date (YYYY-MM-DD)')
+          .setStyle(TextInputStyle.Short)
+          .setValue(currentSeason.endDate)
+          .setRequired(true)
+          .setPlaceholder('2025-12-31');
+        
+        modal.addComponents(new ActionRowBuilder().addComponents(endDateInput));
+        return await interaction.showModal(modal);
+      }
       
       // Update with selected date
       const data = readPATSData();
