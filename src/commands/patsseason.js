@@ -117,6 +117,8 @@ function getSeasonConfig(userId) {
         channelId: null,
         sessionStartMinutes: 60,
         announcementMinutes: 60,
+        sessionType: 'season',
+        daysAhead: 7, // Default to 1 week ahead
         reminders: {
           enabled: true,
           minutes: [60, 30],
@@ -1004,19 +1006,19 @@ export async function showScheduleSettings(interaction) {
         ])
     );
   
-  // Row 5: Notification toggles and back button
+  // Row 5: Notification config buttons and back button
   const notificationRow = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
-        .setCustomId('pats_season_toggle_reminders')
-        .setLabel(schedule.reminders?.enabled ? 'Reminders: ON' : 'Reminders: OFF')
+        .setCustomId('pats_season_config_reminders')
+        .setLabel('Configure Reminders')
         .setEmoji('🔔')
-        .setStyle(schedule.reminders?.enabled ? ButtonStyle.Success : ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
-        .setCustomId('pats_season_toggle_warnings')
-        .setLabel(schedule.warnings?.enabled ? 'Warnings: ON' : 'Warnings: OFF')
+        .setCustomId('pats_season_config_warnings')
+        .setLabel('Configure Warnings')
         .setEmoji('⚠️')
-        .setStyle(schedule.warnings?.enabled ? ButtonStyle.Success : ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId('pats_season_admin_back')
         .setLabel('Back')
@@ -1027,6 +1029,162 @@ export async function showScheduleSettings(interaction) {
   await interaction.editReply({
     embeds: [embed],
     components: [editInfoRow, channelRow, sessionTypeRow, announcementRow, notificationRow]
+  });
+}
+
+/**
+ * Show Reminder Configuration submenu
+ */
+export async function showReminderConfig(interaction) {
+  const currentSeason = getCurrentSeason();
+  if (!currentSeason) {
+    return await showSeasonAdminMenu(interaction);
+  }
+  
+  const schedule = currentSeason.schedule || {};
+  const reminders = schedule.reminders || { enabled: true, minutes: [60, 30] };
+  
+  const embed = new EmbedBuilder()
+    .setTitle('🔔 Reminder Configuration')
+    .setDescription(`Configure session reminders for **${currentSeason.name}**`)
+    .setColor('#5865F2')
+    .addFields(
+      {
+        name: 'Status',
+        value: reminders.enabled ? '✅ Enabled' : '❌ Disabled',
+        inline: true
+      },
+      {
+        name: 'Reminder Times',
+        value: reminders.enabled && reminders.minutes?.length > 0 
+          ? reminders.minutes.map(m => `${m} minutes before`).join('\n')
+          : '_No reminders set_',
+        inline: true
+      },
+      {
+        name: 'ℹ️ How it works',
+        value: 'Reminders are sent before the session starts. You can have multiple reminders at different times.',
+        inline: false
+      }
+    );
+  
+  const toggleRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_toggle_reminders')
+        .setLabel(reminders.enabled ? 'Disable Reminders' : 'Enable Reminders')
+        .setEmoji(reminders.enabled ? '❌' : '✅')
+        .setStyle(reminders.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
+    );
+  
+  const timesRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('pats_season_reminder_times')
+        .setPlaceholder('⏰ Select reminder times...')
+        .setMinValues(1)
+        .setMaxValues(5)
+        .addOptions([
+          { label: '5 minutes before', value: '5', emoji: '⏱️', default: reminders.minutes?.includes(5) },
+          { label: '10 minutes before', value: '10', emoji: '⏱️', default: reminders.minutes?.includes(10) },
+          { label: '15 minutes before', value: '15', emoji: '⏱️', default: reminders.minutes?.includes(15) },
+          { label: '30 minutes before', value: '30', emoji: '⏰', default: reminders.minutes?.includes(30) },
+          { label: '60 minutes before (1 hour)', value: '60', emoji: '⏰', default: reminders.minutes?.includes(60) },
+          { label: '90 minutes before (1.5 hours)', value: '90', emoji: '⏰', default: reminders.minutes?.includes(90) },
+          { label: '120 minutes before (2 hours)', value: '120', emoji: '⏰', default: reminders.minutes?.includes(120) }
+        ])
+    );
+  
+  const backRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_settings')
+        .setLabel('Back to Settings')
+        .setEmoji('🔙')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [toggleRow, timesRow, backRow]
+  });
+}
+
+/**
+ * Show Warning Configuration submenu
+ */
+export async function showWarningConfig(interaction) {
+  const currentSeason = getCurrentSeason();
+  if (!currentSeason) {
+    return await showSeasonAdminMenu(interaction);
+  }
+  
+  const schedule = currentSeason.schedule || {};
+  const warnings = schedule.warnings || { enabled: true, minutes: [30, 15] };
+  
+  const embed = new EmbedBuilder()
+    .setTitle('⚠️ Warning Configuration')
+    .setDescription(`Configure session warnings for **${currentSeason.name}**`)
+    .setColor('#5865F2')
+    .addFields(
+      {
+        name: 'Status',
+        value: warnings.enabled ? '✅ Enabled' : '❌ Disabled',
+        inline: true
+      },
+      {
+        name: 'Warning Times',
+        value: warnings.enabled && warnings.minutes?.length > 0 
+          ? warnings.minutes.map(m => `${m} minutes before`).join('\n')
+          : '_No warnings set_',
+        inline: true
+      },
+      {
+        name: 'ℹ️ How it works',
+        value: 'Warnings are sent shortly before the session starts to alert participants. These are typically sent closer to game time than reminders.',
+        inline: false
+      }
+    );
+  
+  const toggleRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_toggle_warnings')
+        .setLabel(warnings.enabled ? 'Disable Warnings' : 'Enable Warnings')
+        .setEmoji(warnings.enabled ? '❌' : '✅')
+        .setStyle(warnings.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
+    );
+  
+  const timesRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('pats_season_warning_times')
+        .setPlaceholder('⏰ Select warning times...')
+        .setMinValues(1)
+        .setMaxValues(5)
+        .addOptions([
+          { label: '1 minute before', value: '1', emoji: '⏱️', default: warnings.minutes?.includes(1) },
+          { label: '2 minutes before', value: '2', emoji: '⏱️', default: warnings.minutes?.includes(2) },
+          { label: '5 minutes before', value: '5', emoji: '⏱️', default: warnings.minutes?.includes(5) },
+          { label: '10 minutes before', value: '10', emoji: '⏱️', default: warnings.minutes?.includes(10) },
+          { label: '15 minutes before', value: '15', emoji: '⏰', default: warnings.minutes?.includes(15) },
+          { label: '30 minutes before', value: '30', emoji: '⏰', default: warnings.minutes?.includes(30) },
+          { label: '45 minutes before', value: '45', emoji: '⏰', default: warnings.minutes?.includes(45) }
+        ])
+    );
+  
+  const backRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_settings')
+        .setLabel('Back to Settings')
+        .setEmoji('🔙')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [toggleRow, timesRow, backRow]
   });
 }
 
@@ -1097,13 +1255,21 @@ export async function showManageSchedule(interaction) {
     });
   }
   
-  // Show auto-schedule status
+  // Show auto-schedule status and days ahead setting
   const schedule = currentSeason.schedule || {};
-  embed.addFields({
-    name: '🤖 Auto-Schedule',
-    value: schedule.enabled ? '✅ Enabled' : '❌ Disabled',
-    inline: true
-  });
+  const daysAhead = schedule.daysAhead || 7;
+  embed.addFields(
+    {
+      name: '🤖 Auto-Schedule',
+      value: schedule.enabled ? '✅ Enabled' : '❌ Disabled',
+      inline: true
+    },
+    {
+      name: '📅 Schedule Ahead',
+      value: `${daysAhead} day${daysAhead !== 1 ? 's' : ''}`,
+      inline: true
+    }
+  );
   
   // Add buttons for managing schedule
   const actionButtons = new ActionRowBuilder()
@@ -1114,6 +1280,11 @@ export async function showManageSchedule(interaction) {
         .setEmoji('📋')
         .setStyle(ButtonStyle.Primary)
         .setDisabled(upcomingSessions.length === 0),
+      new ButtonBuilder()
+        .setCustomId('pats_season_schedule_config_days')
+        .setLabel('Configure Days Ahead')
+        .setEmoji('⚙️')
+        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('pats_season_schedule_refresh')
         .setLabel('Refresh')
@@ -1133,6 +1304,67 @@ export async function showManageSchedule(interaction) {
   await interaction.editReply({
     embeds: [embed],
     components: upcomingSessions.length > 0 ? [actionButtons, backButton] : [backButton]
+  });
+}
+
+/**
+ * Show Days Ahead Configuration for auto-scheduling
+ */
+export async function showDaysAheadConfig(interaction) {
+  const currentSeason = getCurrentSeason();
+  if (!currentSeason) {
+    return await showSeasonAdminMenu(interaction);
+  }
+  
+  const schedule = currentSeason.schedule || {};
+  const daysAhead = schedule.daysAhead || 7;
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📅 Auto-Schedule Days Ahead')
+    .setDescription(`Configure how far in advance sessions are scheduled for **${currentSeason.name}**`)
+    .setColor('#5865F2')
+    .addFields(
+      {
+        name: 'Current Setting',
+        value: `${daysAhead} day${daysAhead !== 1 ? 's' : ''} ahead`,
+        inline: true
+      },
+      {
+        name: 'ℹ️ How it works',
+        value: 'The bot checks for NBA games this many days into the future and creates sessions automatically. Lower values = fewer sessions scheduled at once. Higher values = plan further ahead.',
+        inline: false
+      }
+    );
+  
+  const selectRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('pats_season_select_days_ahead')
+        .setPlaceholder('📅 Select days ahead...')
+        .addOptions([
+          { label: '1 day ahead', value: '1', emoji: '📅', default: daysAhead === 1 },
+          { label: '2 days ahead', value: '2', emoji: '📅', default: daysAhead === 2 },
+          { label: '3 days ahead', value: '3', emoji: '📅', default: daysAhead === 3 },
+          { label: '5 days ahead', value: '5', emoji: '📅', default: daysAhead === 5 },
+          { label: '7 days ahead (1 week)', value: '7', emoji: '📆', default: daysAhead === 7 },
+          { label: '14 days ahead (2 weeks)', value: '14', emoji: '📆', default: daysAhead === 14 },
+          { label: '21 days ahead (3 weeks)', value: '21', emoji: '📆', default: daysAhead === 21 },
+          { label: '30 days ahead (1 month)', value: '30', emoji: '📆', default: daysAhead === 30 }
+        ])
+    );
+  
+  const backRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_schedule')
+        .setLabel('Back to Schedule')
+        .setEmoji('🔙')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [selectRow, backRow]
   });
 }
 
@@ -1170,7 +1402,9 @@ export async function showAllScheduledSessions(interaction) {
     const date = new Date(s.scheduledDate);
     const gameCount = Array.isArray(s.gameDetails) ? s.gameDetails.length : s.games;
     const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    const timeStr = new Date(s.firstGameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' });
+    // Use announcement time as session start time
+    const sessionStartTime = new Date(s.notifications?.announcement?.time || s.firstGameTime);
+    const timeStr = sessionStartTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' });
     const typeEmoji = s.sessionType === 'both' ? '🌐' : '🏆';
     const typeText = s.sessionType === 'both' ? ' (Open)' : '';
     
@@ -1710,6 +1944,21 @@ export async function handleButton(interaction) {
       return await showScheduleSettings(interaction);
     }
     
+    // Configure Reminders submenu
+    if (customId === 'pats_season_config_reminders') {
+      return await showReminderConfig(interaction);
+    }
+    
+    // Configure Warnings submenu
+    if (customId === 'pats_season_config_warnings') {
+      return await showWarningConfig(interaction);
+    }
+    
+    // Configure Days Ahead
+    if (customId === 'pats_season_schedule_config_days') {
+      return await showDaysAheadConfig(interaction);
+    }
+    
     // Toggle Auto-Schedule for existing season
     if (customId === 'pats_season_toggle_auto_schedule') {
       const currentSeason = getCurrentSeason();
@@ -2145,6 +2394,78 @@ export async function handleSelectMenu(interaction) {
     if (customId === 'pats_season_schedule_select') {
       const sessionId = interaction.values[0];
       return await showSessionDetails(interaction, sessionId);
+    }
+    
+    // Reminder Times Select
+    if (customId === 'pats_season_reminder_times') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const minutes = interaction.values.map(v => parseInt(v)).sort((a, b) => b - a);
+      const { updateSeasonScheduleSettings } = await import('../utils/patsSeasons.js');
+      updateSeasonScheduleSettings(currentSeason.id, { 
+        reminders: { 
+          enabled: currentSeason.schedule?.reminders?.enabled ?? true, 
+          minutes 
+        } 
+      });
+      
+      // Update all upcoming scheduled sessions
+      await updateUpcomingSessionSettings(currentSeason.id, {
+        notifications: {
+          reminder: {
+            enabled: currentSeason.schedule?.reminders?.enabled ?? true,
+            minutesBefore: minutes[0]
+          }
+        }
+      });
+      
+      return await showReminderConfig(interaction);
+    }
+    
+    // Warning Times Select
+    if (customId === 'pats_season_warning_times') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const minutes = interaction.values.map(v => parseInt(v)).sort((a, b) => b - a);
+      const { updateSeasonScheduleSettings } = await import('../utils/patsSeasons.js');
+      updateSeasonScheduleSettings(currentSeason.id, { 
+        warnings: { 
+          enabled: currentSeason.schedule?.warnings?.enabled ?? true, 
+          minutes 
+        } 
+      });
+      
+      // Update all upcoming scheduled sessions
+      await updateUpcomingSessionSettings(currentSeason.id, {
+        notifications: {
+          warning: {
+            enabled: currentSeason.schedule?.warnings?.enabled ?? true,
+            minutesBefore: minutes[0]
+          }
+        }
+      });
+      
+      return await showWarningConfig(interaction);
+    }
+    
+    // Days Ahead Select
+    if (customId === 'pats_season_select_days_ahead') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const daysAhead = parseInt(interaction.values[0]);
+      const { updateSeasonScheduleSettings } = await import('../utils/patsSeasons.js');
+      updateSeasonScheduleSettings(currentSeason.id, { daysAhead });
+      
+      return await showDaysAheadConfig(interaction);
     }
     
   } catch (error) {
