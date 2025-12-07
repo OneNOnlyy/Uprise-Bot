@@ -947,8 +947,8 @@ export async function showScheduleSettings(interaction) {
       }
     );
   
-  // Row 1: Edit Season Info and Auto-Schedule toggle
-  const editInfoRow = new ActionRowBuilder()
+  // Row 1: Buttons for configuration
+  const buttonRow = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
         .setCustomId('pats_season_edit_info')
@@ -959,94 +959,59 @@ export async function showScheduleSettings(interaction) {
         .setCustomId('pats_season_toggle_auto_schedule')
         .setLabel(schedule.enabled ? 'Disable Auto' : 'Enable Auto')
         .setEmoji('🤖')
-        .setStyle(schedule.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
-    );
-  
-  // Row 2: Channel selector
-  const channelRow = new ActionRowBuilder()
-    .addComponents(
-      new ChannelSelectMenuBuilder()
-        .setCustomId('pats_season_select_channel')
-        .setPlaceholder('📢 Select announcement channel...')
-        .setChannelTypes(ChannelType.GuildText)
-    );
-  
-  // Row 3: Session Type selector
-  const sessionTypeRow = new ActionRowBuilder()
-    .addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId('pats_season_select_session_type')
-        .setPlaceholder('👥 Session type: ' + sessionTypeLabels[currentSessionType])
-        .addOptions([
-          { 
-            label: 'Season Only', 
-            value: 'season', 
-            description: 'Only season participants',
-            emoji: '🏆',
-            default: currentSessionType === 'season'
-          },
-          { 
-            label: 'Open to All', 
-            value: 'both', 
-            description: 'Season + casual players',
-            emoji: '🌐',
-            default: currentSessionType === 'both'
-          }
-        ])
-    );
-  
-  // Row 4: Announcement time and Min Games selectors combined
-  const timingRow = new ActionRowBuilder()
-    .addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId('pats_season_select_announcement')
-        .setPlaceholder('📣 Announcement: ' + (schedule.announcementMinutes || 60) + ' min before')
-        .addOptions([
-          { label: '15 minutes', value: '15', emoji: '⏱️' },
-          { label: '30 minutes', value: '30', emoji: '⏱️' },
-          { label: '60 minutes (1 hour)', value: '60', emoji: '⏰' },
-          { label: '90 minutes (1.5 hours)', value: '90', emoji: '⏰' },
-          { label: '120 minutes (2 hours)', value: '120', emoji: '⏰' },
-          { label: '180 minutes (3 hours)', value: '180', emoji: '⏰' }
-        ])
-    );
-  
-  // Row 5: Min Games and Notifications config
-  const configRow = new ActionRowBuilder()
-    .addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId('pats_season_select_min_games')
-        .setPlaceholder('🔢 Min games: ' + (schedule.minGames || 3) + ' games')
-        .addOptions([
-          { label: '1 game', value: '1', emoji: '🏀' },
-          { label: '2 games', value: '2', emoji: '🏀' },
-          { label: '3 games', value: '3', emoji: '🏀' },
-          { label: '4 games', value: '4', emoji: '🏀' },
-          { label: '5 games', value: '5', emoji: '🏀' },
-          { label: '6 games', value: '6', emoji: '🏀' },
-          { label: '7 games', value: '7', emoji: '🏀' },
-          { label: '8 games', value: '8', emoji: '🏀' }
-        ])
-    );
-  
-  // Row 6: Notification config and back button
-  const bottomRow = new ActionRowBuilder()
-    .addComponents(
+        .setStyle(schedule.enabled ? ButtonStyle.Danger : ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId('pats_season_config_notifications')
-        .setLabel('Configure Notifications')
+        .setLabel('Reminders & Warnings')
         .setEmoji('🔔')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId('pats_season_admin_back')
         .setLabel('Back')
-        .setEmoji('🔙')
+        .setEmoji('⬅️')
         .setStyle(ButtonStyle.Secondary)
+    );
+  
+  // Row 2: Channel and Session Type
+  const channelRow = new ActionRowBuilder()
+    .addComponents(
+      new ChannelSelectMenuBuilder()
+        .setCustomId('pats_season_select_channel')
+        .setPlaceholder('📢 Channel: ' + (schedule.channelId ? `<#${schedule.channelId}>` : 'Not set'))
+        .setChannelTypes(ChannelType.GuildText)
+    );
+  
+  // Row 3: All settings selectors
+  const settingsRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('pats_season_select_combined_settings')
+        .setPlaceholder('⚙️ Configure settings...')
+        .addOptions([
+          { 
+            label: `Session Type: ${sessionTypeLabels[currentSessionType]}`,
+            value: 'session_type',
+            description: 'Change who can join sessions',
+            emoji: '👥'
+          },
+          { 
+            label: `Announcement: ${schedule.announcementMinutes || 60} min before`,
+            value: 'announcement',
+            description: 'How early to announce sessions',
+            emoji: '📣'
+          },
+          { 
+            label: `Min Games: ${schedule.minGames || 3} games`,
+            value: 'min_games',
+            description: 'Minimum games for auto-schedule',
+            emoji: '🔢'
+          }
+        ])
     );
   
   await interaction.editReply({
     embeds: [embed],
-    components: [editInfoRow, channelRow, sessionTypeRow, timingRow, configRow, bottomRow]
+    components: [buttonRow, channelRow, settingsRow]
   });
 }
 
@@ -2677,6 +2642,127 @@ export async function handleSelectMenu(interaction) {
       await updateUpcomingSessionSettings(currentSeason.id, { announcementMinutes });
       
       return await showScheduleSettings(interaction);
+    }
+    
+    // Combined Settings Select (opens follow-up menus)
+    if (customId === 'pats_season_select_combined_settings') {
+      const selectedSetting = interaction.values[0];
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const schedule = currentSeason.schedule || {};
+      const sessionTypeLabels = { season: 'Season Only', both: 'Open to All' };
+      const currentSessionType = schedule.sessionType || 'both';
+      
+      // Create follow-up menu based on selection
+      if (selectedSetting === 'session_type') {
+        const embed = new EmbedBuilder()
+          .setColor('#FFA500')
+          .setTitle('⚙️ Configure Session Type')
+          .setDescription('Choose who can participate in auto-scheduled sessions:');
+        
+        const row = new ActionRowBuilder()
+          .addComponents(
+            new StringSelectMenuBuilder()
+              .setCustomId('pats_season_select_session_type')
+              .setPlaceholder('👥 Session type: ' + sessionTypeLabels[currentSessionType])
+              .addOptions([
+                { 
+                  label: 'Season Only', 
+                  value: 'season', 
+                  description: 'Only season participants',
+                  emoji: '🏆'
+                },
+                { 
+                  label: 'Open to All', 
+                  value: 'both', 
+                  description: 'Season + casual players',
+                  emoji: '🌐'
+                }
+              ])
+          );
+        
+        const backRow = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId('pats_season_schedule_settings')
+              .setLabel('Back')
+              .setEmoji('⬅️')
+              .setStyle(ButtonStyle.Secondary)
+          );
+        
+        return await interaction.update({ embeds: [embed], components: [row, backRow] });
+      }
+      
+      if (selectedSetting === 'announcement') {
+        const embed = new EmbedBuilder()
+          .setColor('#FFA500')
+          .setTitle('⚙️ Configure Announcement Time')
+          .setDescription('How early should sessions be announced?');
+        
+        const row = new ActionRowBuilder()
+          .addComponents(
+            new StringSelectMenuBuilder()
+              .setCustomId('pats_season_select_announcement')
+              .setPlaceholder('📣 Announcement: ' + (schedule.announcementMinutes || 60) + ' min before')
+              .addOptions([
+                { label: '15 minutes', value: '15', emoji: '⏱️' },
+                { label: '30 minutes', value: '30', emoji: '⏱️' },
+                { label: '60 minutes (1 hour)', value: '60', emoji: '⏰' },
+                { label: '90 minutes (1.5 hours)', value: '90', emoji: '⏰' },
+                { label: '120 minutes (2 hours)', value: '120', emoji: '⏰' },
+                { label: '180 minutes (3 hours)', value: '180', emoji: '⏰' }
+              ])
+          );
+        
+        const backRow = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId('pats_season_schedule_settings')
+              .setLabel('Back')
+              .setEmoji('⬅️')
+              .setStyle(ButtonStyle.Secondary)
+          );
+        
+        return await interaction.update({ embeds: [embed], components: [row, backRow] });
+      }
+      
+      if (selectedSetting === 'min_games') {
+        const embed = new EmbedBuilder()
+          .setColor('#FFA500')
+          .setTitle('⚙️ Configure Minimum Games')
+          .setDescription('Minimum NBA games required to auto-schedule a session:');
+        
+        const row = new ActionRowBuilder()
+          .addComponents(
+            new StringSelectMenuBuilder()
+              .setCustomId('pats_season_select_min_games')
+              .setPlaceholder('🔢 Min games: ' + (schedule.minGames || 3) + ' games')
+              .addOptions([
+                { label: '1 game', value: '1', emoji: '🏀' },
+                { label: '2 games', value: '2', emoji: '🏀' },
+                { label: '3 games', value: '3', emoji: '🏀' },
+                { label: '4 games', value: '4', emoji: '🏀' },
+                { label: '5 games', value: '5', emoji: '🏀' },
+                { label: '6 games', value: '6', emoji: '🏀' },
+                { label: '7 games', value: '7', emoji: '🏀' },
+                { label: '8 games', value: '8', emoji: '🏀' }
+              ])
+          );
+        
+        const backRow = new ActionRowBuilder()
+          .addComponents(
+            new ButtonBuilder()
+              .setCustomId('pats_season_schedule_settings')
+              .setLabel('Back')
+              .setEmoji('⬅️')
+              .setStyle(ButtonStyle.Secondary)
+          );
+        
+        return await interaction.update({ embeds: [embed], components: [row, backRow] });
+      }
     }
     
     // Session Type Select (Schedule Settings)
