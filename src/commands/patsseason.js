@@ -1344,11 +1344,47 @@ export async function handleButton(interaction) {
         currentSeason.schedule = { enabled: false };
       }
       
+      const newEnabledState = !currentSeason.schedule.enabled;
+      
       // Update in data
       const { updateSeasonScheduleSettings } = await import('../utils/patsSeasons.js');
       updateSeasonScheduleSettings(currentSeason.id, {
-        enabled: !currentSeason.schedule.enabled
+        enabled: newEnabledState
       });
+      
+      // If enabling, run the auto-scheduler immediately to populate sessions
+      if (newEnabledState) {
+        console.log('[SEASONS] Auto-schedule enabled - triggering immediate scheduler check');
+        try {
+          await runAutoSchedulerCheck(
+            interaction.client,
+            getESPNGamesForDate,
+            addScheduledSession,
+            scheduleSessionJobs,
+            createSchedulerHandlers(interaction.client)
+          );
+          console.log('[SEASONS] Auto-scheduler check completed');
+        } catch (schedError) {
+          console.error('[SEASONS] Error running auto-scheduler:', schedError);
+        }
+      } else {
+        // If disabling, remove all auto-scheduled sessions for this season
+        console.log('[SEASONS] Auto-schedule disabled - removing auto-scheduled sessions');
+        try {
+          const { getAllScheduledSessions, deleteScheduledSession } = await import('../utils/sessionScheduler.js');
+          const allSessions = getAllScheduledSessions();
+          const seasonSessions = allSessions.filter(s => s.seasonId === currentSeason.id);
+          
+          for (const session of seasonSessions) {
+            deleteScheduledSession(session.id);
+            console.log(`[SEASONS] Removed auto-scheduled session ${session.id}`);
+          }
+          
+          console.log(`[SEASONS] Removed ${seasonSessions.length} auto-scheduled session(s)`);
+        } catch (deleteError) {
+          console.error('[SEASONS] Error removing auto-scheduled sessions:', deleteError);
+        }
+      }
       
       return await showScheduleSettings(interaction);
     }
