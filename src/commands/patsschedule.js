@@ -200,10 +200,15 @@ export async function showScheduledSessions(interaction) {
       
       const participantText = formatParticipants(session);
       
+      // Add session type indicator
+      const sessionTypeEmoji = session.sessionType === 'both' ? '🌐' : '👥';
+      const sessionTypeText = session.sessionType === 'both' ? ' (Open to All)' : '';
+      
       embed.addFields({
-        name: `🟢 ACTIVE: ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`,
+        name: `🟢 ACTIVE: ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}${sessionTypeText}`,
         value: [
           `🎮 **${session.games.length} games**`,
+          `${sessionTypeEmoji} Type: ${session.sessionType === 'both' ? 'Open to All' : 'Casual Only'}`,
           `⏰ First game: ${firstGame.matchup} @ ${new Date(firstGame.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })}`,
           `📍 Channel: ${channelMention}`,
           `👥 Participants: ${participantText}`,
@@ -222,10 +227,15 @@ export async function showScheduledSessions(interaction) {
     
     const participantText = formatParticipants(session);
     
+    // Add session type indicator
+    const sessionTypeEmoji = session.sessionType === 'both' ? '🌐' : '👥';
+    const sessionTypeText = session.sessionType === 'both' ? ' (Open to All)' : '';
+    
     embed.addFields({
-      name: `${activeSessions.length + index + 1}. ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`,
+      name: `${activeSessions.length + index + 1}. ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}${sessionTypeText}`,
       value: [
         `🎮 **${session.games.length} games**`,
+        `${sessionTypeEmoji} Type: ${session.sessionType === 'both' ? 'Open to All' : 'Casual Only'}`,
         `⏰ First game: ${firstGame.matchup} @ ${new Date(firstGame.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles', timeZoneName: 'short' })}`,
         `📍 Channel: ${channelMention}`,
         `👥 Participants: ${participantText}`,
@@ -2152,6 +2162,7 @@ export async function createScheduledSession(interaction) {
       gameDetails: gameDetails,
       roleIds: config.roleIds,
       userIds: config.userIds,
+      sessionType: 'casual', // Manual sessions are casual by default
       notifications: {
         announcement: {
           enabled: config.notifications.announcement.enabled,

@@ -802,6 +802,14 @@ export async function showScheduleSettings(interaction) {
   
   const schedule = currentSeason.schedule || {};
   
+  // Get session type labels
+  const sessionTypeLabels = {
+    'season': '🏆 Season Only - Only season participants',
+    'both': '🌐 Open to All - Season participants + casual players',
+    'casual': '👥 Casual Only - Non-season players only'
+  };
+  const currentSessionType = schedule.sessionType || 'season';
+  
   const embed = new EmbedBuilder()
     .setTitle('⚙️ Season Schedule Settings')
     .setDescription(`Configure auto-scheduling for **${currentSeason.name}**`)
@@ -811,6 +819,11 @@ export async function showScheduleSettings(interaction) {
         name: '🤖 Auto-Schedule', 
         value: schedule.enabled ? '✅ Enabled - Sessions created automatically' : '❌ Disabled', 
         inline: true 
+      },
+      { 
+        name: '👥 Session Type',
+        value: sessionTypeLabels[currentSessionType] || sessionTypeLabels['season'],
+        inline: true
       },
       { 
         name: '📢 Announcement Channel', 
@@ -863,6 +876,29 @@ export async function showScheduleSettings(interaction) {
         .setChannelTypes(ChannelType.GuildText)
     );
   
+  const sessionTypeSelect = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('pats_season_select_session_type')
+        .setPlaceholder('👥 Select session type...')
+        .addOptions([
+          { 
+            label: 'Season Only', 
+            value: 'season', 
+            description: 'Only season participants can play',
+            emoji: '🏆',
+            default: currentSessionType === 'season'
+          },
+          { 
+            label: 'Open to All', 
+            value: 'both', 
+            description: 'Season participants + casual players',
+            emoji: '🌐',
+            default: currentSessionType === 'both'
+          }
+        ])
+    );
+  
   const announcementSelect = new ActionRowBuilder()
     .addComponents(
       new StringSelectMenuBuilder()
@@ -903,7 +939,7 @@ export async function showScheduleSettings(interaction) {
   
   await interaction.editReply({
     embeds: [embed],
-    components: [toggleButton, channelSelect, announcementSelect, notificationButtons, backButton]
+    components: [toggleButton, channelSelect, sessionTypeSelect, announcementSelect, notificationButtons, backButton]
   });
 }
 
@@ -938,7 +974,9 @@ export async function showManageSchedule(interaction) {
       const date = new Date(s.scheduledDate);
       const gameCount = Array.isArray(s.gameDetails) ? s.gameDetails.length : s.games;
       const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-      return `• **${dateStr}** - ${gameCount} games`;
+      const typeEmoji = s.sessionType === 'both' ? '🌐' : '🏆';
+      const typeText = s.sessionType === 'both' ? ' (Open to All)' : '';
+      return `${typeEmoji} **${dateStr}** - ${gameCount} games${typeText}`;
     }).join('\n');
     
     embed.addFields({
@@ -1628,6 +1666,20 @@ export async function handleSelectMenu(interaction) {
       const announcementMinutes = parseInt(interaction.values[0]);
       const { updateSeasonScheduleSettings } = await import('../utils/patsSeasons.js');
       updateSeasonScheduleSettings(currentSeason.id, { announcementMinutes });
+      
+      return await showScheduleSettings(interaction);
+    }
+    
+    // Session Type Select (Schedule Settings)
+    if (customId === 'pats_season_select_session_type') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const sessionType = interaction.values[0];
+      const { updateSeasonScheduleSettings } = await import('../utils/patsSeasons.js');
+      updateSeasonScheduleSettings(currentSeason.id, { sessionType });
       
       return await showScheduleSettings(interaction);
     }

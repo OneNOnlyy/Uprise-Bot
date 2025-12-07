@@ -1217,6 +1217,9 @@ export async function autoScheduleSessionForDate(client, date, getGamesForDate, 
   const roleIds = [];
   const userIds = currentSeason.participants || [];
   
+  // Get session type from season config (default to 'season' for backwards compatibility)
+  const sessionType = config.sessionType || 'season';
+  
   // Create session config
   const sessionConfig = {
     guildId: guildId,
@@ -1228,6 +1231,7 @@ export async function autoScheduleSessionForDate(client, date, getGamesForDate, 
     participantType: 'users',
     roleIds: roleIds,
     userIds: userIds,
+    sessionType: sessionType,
     notifications: {
       announcement: {
         enabled: true,
