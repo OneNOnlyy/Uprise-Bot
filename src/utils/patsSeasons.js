@@ -1186,13 +1186,11 @@ export async function autoScheduleSessionForDate(client, date, getGamesForDate, 
   
   // Calculate times
   const firstGameTime = new Date(Math.min(...games.map(g => new Date(g.commenceTime))));
-  const sessionStartOffset = config.sessionStartMinutes || 60;
   const announcementOffset = config.announcementMinutes || 60;
   
-  // Session starts X minutes before first game
-  const sessionStartTime = new Date(firstGameTime.getTime() - (sessionStartOffset * 60 * 1000));
-  // Announcement goes out X minutes before session starts
-  const announcementTime = new Date(sessionStartTime.getTime() - (announcementOffset * 60 * 1000));
+  // Announcement/Session starts X minutes before first game
+  const announcementTime = new Date(firstGameTime.getTime() - (announcementOffset * 60 * 1000));
+  const sessionStartTime = announcementTime; // Session starts when announcement is sent
   
   // Build game details
   const gameDetails = games.map(game => ({

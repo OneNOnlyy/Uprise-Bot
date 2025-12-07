@@ -818,26 +818,21 @@ export async function showScheduleSettings(interaction) {
         inline: true 
       },
       { 
-        name: '⏰ Session Start', 
-        value: `${schedule.sessionStartMinutes || 60} min before first game`, 
-        inline: true 
-      },
-      { 
-        name: '📣 Announcement', 
-        value: `${schedule.announcementMinutes || 60} min before session`, 
+        name: '📣 Session Start / Announcement', 
+        value: `${schedule.announcementMinutes || 60} min before first game`, 
         inline: true 
       },
       { 
         name: '🔔 Reminders', 
         value: schedule.reminders?.enabled 
-          ? `__${(schedule.reminders?.minutes || [60, 30]).join(' min, ')} min__${schedule.reminders?.dm ? ' (DM)' : ''}` 
+          ? `✅ ${(schedule.reminders?.minutes || [60, 30]).join(', ')} min before`
           : '❌ Disabled', 
         inline: true 
       },
       { 
         name: '⚠️ Warnings', 
         value: schedule.warnings?.enabled 
-          ? `__${(schedule.warnings?.minutes || [30, 10]).join(' min, ')} min__${schedule.warnings?.dm ? ' (DM)' : ''}` 
+          ? `✅ ${(schedule.warnings?.minutes || [30, 15]).join(', ')} min before`
           : '❌ Disabled', 
         inline: true 
       }
@@ -851,13 +846,37 @@ export async function showScheduleSettings(interaction) {
     });
   }
   
-  const toggleRow = new ActionRowBuilder()
+  const row1 = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
         .setCustomId('pats_season_toggle_auto_schedule')
         .setLabel(schedule.enabled ? 'Disable Auto-Schedule' : 'Enable Auto-Schedule')
         .setEmoji(schedule.enabled ? '❌' : '✅')
-        .setStyle(schedule.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
+        .setStyle(schedule.enabled ? ButtonStyle.Danger : ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('pats_season_edit_channel')
+        .setLabel('Set Channel')
+        .setEmoji('📢')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  const row2 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_season_edit_announcement')
+        .setLabel('Edit Announcement Time')
+        .setEmoji('📣')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('pats_season_toggle_reminders')
+        .setLabel(schedule.reminders?.enabled ? 'Configure Reminders' : 'Enable Reminders')
+        .setEmoji('🔔')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('pats_season_toggle_warnings')
+        .setLabel(schedule.warnings?.enabled ? 'Configure Warnings' : 'Enable Warnings')
+        .setEmoji('⚠️')
+        .setStyle(ButtonStyle.Secondary)
     );
   
   const backButton = new ActionRowBuilder()
@@ -871,7 +890,7 @@ export async function showScheduleSettings(interaction) {
   
   await interaction.editReply({
     embeds: [embed],
-    components: [toggleRow, backButton]
+    components: [row1, row2, backButton]
   });
 }
 
@@ -1389,6 +1408,120 @@ export async function handleButton(interaction) {
       return await showScheduleSettings(interaction);
     }
     
+    // Edit Channel for Schedule
+    if (customId === 'pats_season_edit_channel') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const modal = new ModalBuilder()
+        .setCustomId('pats_season_channel_modal')
+        .setTitle('Set Announcement Channel');
+      
+      const channelInput = new TextInputBuilder()
+        .setCustomId('channel_id')
+        .setLabel('Channel ID')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('Enter channel ID (right-click channel → Copy ID)')
+        .setValue(currentSeason.schedule?.channelId || '')
+        .setRequired(true);
+      
+      modal.addComponents(new ActionRowBuilder().addComponents(channelInput));
+      return await interaction.showModal(modal);
+    }
+    
+    // Edit Announcement Time
+    if (customId === 'pats_season_edit_announcement') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const modal = new ModalBuilder()
+        .setCustomId('pats_season_announcement_modal')
+        .setTitle('Set Announcement Time');
+      
+      const timeInput = new TextInputBuilder()
+        .setCustomId('announcement_minutes')
+        .setLabel('Minutes before first game')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('e.g., 60 for 1 hour before')
+        .setValue(String(currentSeason.schedule?.announcementMinutes || 60))
+        .setRequired(true);
+      
+      modal.addComponents(new ActionRowBuilder().addComponents(timeInput));
+      return await interaction.showModal(modal);
+    }
+    
+    // Toggle/Configure Reminders
+    if (customId === 'pats_season_toggle_reminders') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const modal = new ModalBuilder()
+        .setCustomId('pats_season_reminders_modal')
+        .setTitle('Configure Reminders');
+      
+      const enabledInput = new TextInputBuilder()
+        .setCustomId('reminders_enabled')
+        .setLabel('Enable reminders? (yes/no)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('yes or no')
+        .setValue(currentSeason.schedule?.reminders?.enabled ? 'yes' : 'no')
+        .setRequired(true);
+      
+      const minutesInput = new TextInputBuilder()
+        .setCustomId('reminders_minutes')
+        .setLabel('Reminder times (comma-separated minutes)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('e.g., 60, 30 for reminders at 60 and 30 min before')
+        .setValue((currentSeason.schedule?.reminders?.minutes || [60, 30]).join(', '))
+        .setRequired(false);
+      
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(enabledInput),
+        new ActionRowBuilder().addComponents(minutesInput)
+      );
+      return await interaction.showModal(modal);
+    }
+    
+    // Toggle/Configure Warnings
+    if (customId === 'pats_season_toggle_warnings') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const modal = new ModalBuilder()
+        .setCustomId('pats_season_warnings_modal')
+        .setTitle('Configure Warnings');
+      
+      const enabledInput = new TextInputBuilder()
+        .setCustomId('warnings_enabled')
+        .setLabel('Enable warnings? (yes/no)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('yes or no')
+        .setValue(currentSeason.schedule?.warnings?.enabled ? 'yes' : 'no')
+        .setRequired(true);
+      
+      const minutesInput = new TextInputBuilder()
+        .setCustomId('warnings_minutes')
+        .setLabel('Warning times (comma-separated minutes)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('e.g., 30, 15 for warnings at 30 and 15 min before')
+        .setValue((currentSeason.schedule?.warnings?.minutes || [30, 15]).join(', '))
+        .setRequired(false);
+      
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(enabledInput),
+        new ActionRowBuilder().addComponents(minutesInput)
+      );
+      return await interaction.showModal(modal);
+    }
+    
     // Manage Schedule (view upcoming scheduled sessions)
     if (customId === 'pats_season_schedule') {
       return await showManageSchedule(interaction);
@@ -1673,6 +1806,109 @@ export async function handleModal(interaction) {
       
       await saveSeasonConfigs();
       return await showCreateSeasonStep3(interaction);
+    }
+    
+    // Handle Channel Modal
+    if (customId === 'pats_season_channel_modal') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const channelId = interaction.fields.getTextInputValue('channel_id').trim();
+      
+      // Validate channel exists
+      try {
+        await interaction.client.channels.fetch(channelId);
+      } catch (error) {
+        await interaction.followUp({
+          content: '❌ Invalid channel ID. Please try again.',
+          ephemeral: true
+        });
+        return await showScheduleSettings(interaction);
+      }
+      
+      updateSeasonScheduleSettings(currentSeason.id, { channelId });
+      return await showScheduleSettings(interaction);
+    }
+    
+    // Handle Announcement Modal
+    if (customId === 'pats_season_announcement_modal') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const minutes = parseInt(interaction.fields.getTextInputValue('announcement_minutes').trim());
+      
+      if (isNaN(minutes) || minutes < 1 || minutes > 1440) {
+        await interaction.followUp({
+          content: '❌ Invalid time. Please enter a number between 1 and 1440 minutes.',
+          ephemeral: true
+        });
+        return await showScheduleSettings(interaction);
+      }
+      
+      updateSeasonScheduleSettings(currentSeason.id, { announcementMinutes: minutes });
+      return await showScheduleSettings(interaction);
+    }
+    
+    // Handle Reminders Modal
+    if (customId === 'pats_season_reminders_modal') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const enabled = interaction.fields.getTextInputValue('reminders_enabled').trim().toLowerCase() === 'yes';
+      const minutesStr = interaction.fields.getTextInputValue('reminders_minutes').trim();
+      
+      const reminders = {
+        enabled,
+        minutes: [60, 30] // default
+      };
+      
+      if (enabled && minutesStr) {
+        const minutes = minutesStr.split(',')
+          .map(s => parseInt(s.trim()))
+          .filter(n => !isNaN(n) && n > 0 && n <= 1440);
+        
+        if (minutes.length > 0) {
+          reminders.minutes = minutes.sort((a, b) => b - a);
+        }
+      }
+      
+      updateSeasonScheduleSettings(currentSeason.id, { reminders });
+      return await showScheduleSettings(interaction);
+    }
+    
+    // Handle Warnings Modal
+    if (customId === 'pats_season_warnings_modal') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const enabled = interaction.fields.getTextInputValue('warnings_enabled').trim().toLowerCase() === 'yes';
+      const minutesStr = interaction.fields.getTextInputValue('warnings_minutes').trim();
+      
+      const warnings = {
+        enabled,
+        minutes: [30, 15] // default
+      };
+      
+      if (enabled && minutesStr) {
+        const minutes = minutesStr.split(',')
+          .map(s => parseInt(s.trim()))
+          .filter(n => !isNaN(n) && n > 0 && n <= 1440);
+        
+        if (minutes.length > 0) {
+          warnings.minutes = minutes.sort((a, b) => b - a);
+        }
+      }
+      
+      updateSeasonScheduleSettings(currentSeason.id, { warnings });
+      return await showScheduleSettings(interaction);
     }
     
   } catch (error) {
