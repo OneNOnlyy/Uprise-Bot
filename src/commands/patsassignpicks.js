@@ -234,8 +234,9 @@ export async function assignPick(interaction, targetUserId, gameId, team) {
   const teamName = team === 'away' ? game.awayTeam : game.homeTeam;
   const spread = team === 'away' ? game.awaySpread : game.homeSpread;
   
-  // Make the pick on behalf of the user (savePick allows overriding existing picks)
-  const result = savePick(session.id, targetUserId, gameId, teamName, spread);
+  // Make the pick on behalf of the user (pass 'home' or 'away', not team name)
+  // savePick expects pick to be 'home' or 'away' to match the data structure
+  const result = savePick(session.id, targetUserId, gameId, team, spread);
   
   if (result.error) {
     await interaction.editReply({
