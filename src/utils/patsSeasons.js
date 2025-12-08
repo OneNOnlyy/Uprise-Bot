@@ -1220,6 +1220,16 @@ export async function autoScheduleSessionForDate(client, date, getGamesForDate, 
   // Get session type from season config (default to 'season' for backwards compatibility)
   const sessionType = config.sessionType || 'season';
   
+  // Get auto-end configuration
+  const autoEnd = config.autoEnd || { enabled: false, hoursAfterLastGame: 6 };
+  
+  // Calculate auto-end time if enabled
+  let autoEndTime = null;
+  if (autoEnd.enabled) {
+    const lastGameTime = new Date(Math.max(...games.map(g => new Date(g.commence_time))));
+    autoEndTime = new Date(lastGameTime.getTime() + (autoEnd.hoursAfterLastGame * 60 * 60 * 1000));
+  }
+  
   // Create session config
   const sessionConfig = {
     guildId: guildId,
@@ -1232,6 +1242,11 @@ export async function autoScheduleSessionForDate(client, date, getGamesForDate, 
     roleIds: roleIds,
     userIds: userIds,
     sessionType: sessionType,
+    autoEnd: autoEnd.enabled ? {
+      enabled: true,
+      time: autoEndTime.toISOString(),
+      hoursAfterLastGame: autoEnd.hoursAfterLastGame
+    } : { enabled: false },
     notifications: {
       announcement: {
         enabled: true,

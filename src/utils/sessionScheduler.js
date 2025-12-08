@@ -92,6 +92,7 @@ export function addScheduledSession(sessionConfig) {
     participantType: sessionConfig.participantType, // 'role' or 'users'
     roleIds: sessionConfig.roleIds || [],
     userIds: sessionConfig.userIds || [],
+    autoEnd: sessionConfig.autoEnd || { enabled: false },
     notifications: {
       announcement: {
         enabled: sessionConfig.notifications.announcement.enabled,
@@ -392,6 +393,24 @@ export function scheduleSessionJobs(session, handlers, isNewSession = false) {
     
     scheduledJobs.set(`${session.id}_start`, job);
     console.log(`[Scheduler] Scheduled session start for ${session.id} at ${firstGameTime.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT (cron: ${cronTime})`);
+  }
+  
+  // Auto-end job (if enabled)
+  if (session.autoEnd?.enabled && session.autoEnd.time) {
+    const autoEndTime = new Date(session.autoEnd.time);
+    if (autoEndTime > now) {
+      const cronTime = getCronExpression(autoEndTime);
+      const job = cron.schedule(cronTime, () => {
+        console.log(`[Scheduler] Auto-end job triggered for ${session.id}`);
+        handlers.endSession(session);
+        scheduledJobs.delete(`${session.id}_autoend`);
+      }, { timezone });
+      
+      scheduledJobs.set(`${session.id}_autoend`, job);
+      console.log(`[Scheduler] Scheduled auto-end for ${session.id} at ${autoEndTime.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT (${session.autoEnd.hoursAfterLastGame}hrs after last game)`);
+    } else {
+      console.log(`[Scheduler] Auto-end time has already passed for ${session.id}`);
+    }
   }
 }
 

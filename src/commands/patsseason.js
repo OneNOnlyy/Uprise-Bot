@@ -119,6 +119,10 @@ function getSeasonConfig(userId) {
         announcementMinutes: 120,
         sessionType: 'season',
         daysAhead: 7, // Default to 1 week ahead
+        autoEnd: {
+          enabled: false,
+          hoursAfterLastGame: 6
+        },
         reminders: {
           enabled: true,
           minutes: [60, 30],
@@ -1073,6 +1077,13 @@ export async function showAutoScheduleSettings(interaction) {
         inline: true
       },
       {
+        name: '⏱️ Auto-End Sessions',
+        value: schedule.autoEnd?.enabled 
+          ? `✅ ${schedule.autoEnd.hoursAfterLastGame || 6}hrs after last game`
+          : '❌ Disabled',
+        inline: true
+      },
+      {
         name: 'ℹ️ How it works',
         value: 'When enabled, sessions are automatically scheduled when enough NBA games are detected.',
         inline: false
@@ -1086,6 +1097,11 @@ export async function showAutoScheduleSettings(interaction) {
         .setLabel(schedule.enabled ? 'Disable Auto-Schedule' : 'Enable Auto-Schedule')
         .setEmoji('🤖')
         .setStyle(schedule.enabled ? ButtonStyle.Danger : ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('pats_season_toggle_auto_end')
+        .setLabel(schedule.autoEnd?.enabled ? 'Disable Auto-End' : 'Enable Auto-End')
+        .setEmoji('⏱️')
+        .setStyle(schedule.autoEnd?.enabled ? ButtonStyle.Danger : ButtonStyle.Success),
       new ButtonBuilder()
         .setCustomId('pats_season_auto_back')
         .setLabel('Back to Settings')
@@ -1118,9 +1134,25 @@ export async function showAutoScheduleSettings(interaction) {
         ])
     );
 
+  const autoEndRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('pats_season_select_auto_end_hours')
+        .setPlaceholder('⏱️ Auto-end: ' + (schedule.autoEnd?.hoursAfterLastGame || 6) + ' hours after last game')
+        .addOptions([
+          { label: '3 hours after last game', value: '3', emoji: '⏱️' },
+          { label: '4 hours after last game', value: '4', emoji: '⏱️' },
+          { label: '5 hours after last game', value: '5', emoji: '⏱️' },
+          { label: '6 hours after last game', value: '6', emoji: '⏱️' },
+          { label: '8 hours after last game', value: '8', emoji: '⏱️' },
+          { label: '12 hours after last game', value: '12', emoji: '⏱️' },
+          { label: '24 hours after last game', value: '24', emoji: '⏱️' }
+        ])
+    );
+
   await interaction.editReply({
     embeds: [embed],
-    components: [buttonRow, channelRow, minGamesRow]
+    components: [buttonRow, channelRow, minGamesRow, autoEndRow]
   });
 }
 
@@ -2378,6 +2410,37 @@ export async function handleButton(interaction) {
       return await showAutoScheduleSettings(interaction);
     }
     
+    // Toggle Auto-End for existing season
+    if (customId === 'pats_season_toggle_auto_end') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      // Initialize autoEnd if it doesn't exist
+      if (!currentSeason.schedule) {
+        currentSeason.schedule = {};
+      }
+      if (!currentSeason.schedule.autoEnd) {
+        currentSeason.schedule.autoEnd = { enabled: false, hoursAfterLastGame: 6 };
+      }
+      
+      const newEnabledState = !currentSeason.schedule.autoEnd.enabled;
+      
+      // Update in data
+      const { updateSeasonScheduleSettings } = await import('../utils/patsSeasons.js');
+      updateSeasonScheduleSettings(currentSeason.id, {
+        autoEnd: {
+          enabled: newEnabledState,
+          hoursAfterLastGame: currentSeason.schedule.autoEnd.hoursAfterLastGame || 6
+        }
+      });
+      
+      console.log(`[SEASONS] Auto-end ${newEnabledState ? 'enabled' : 'disabled'} for ${currentSeason.name}`);
+      
+      return await showAutoScheduleSettings(interaction);
+    }
+    
     // Toggle Reminders (Schedule Settings)
     if (customId === 'pats_season_toggle_reminders') {
       const currentSeason = getCurrentSeason();
@@ -2725,6 +2788,29 @@ export async function handleSelectMenu(interaction) {
       return await showNotificationConfig(interaction);
     }
     
+    // Auto-End Hours Select (Scheduling Settings)
+    if (customId === 'pats_season_select_auto_end_hours') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const hours = parseInt(interaction.values[0]);
+      const { updateSeasonScheduleSettings } = await import('../utils/patsSeasons.js');
+      
+      // Preserve existing enabled state
+      const currentAutoEnd = currentSeason.schedule?.autoEnd || { enabled: false, hoursAfterLastGame: 6 };
+      updateSeasonScheduleSettings(currentSeason.id, { 
+        autoEnd: {
+          enabled: currentAutoEnd.enabled,
+          hoursAfterLastGame: hours
+        }
+      });
+      
+      console.log(`[SEASONS] Updated auto-end to ${hours} hours for ${currentSeason.name}`);
+      
+      return await showAutoScheduleSettings(interaction);
+    }
 
     
     // Min Games Select (Auto-Schedule Settings)

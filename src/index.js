@@ -186,6 +186,21 @@ function createSchedulerHandlers(client) {
     startSession: async (session) => {
       // Session already started at announcement time - no action needed
       console.log(`[Scheduler] First game time reached for session ${session.id} (already started at announcement)`);
+    },
+    endSession: async (session) => {
+      // Auto-end the PATS session
+      console.log(`[Scheduler] Auto-ending session ${session.id}`);
+      const { endActiveSession } = await import('./utils/patsData.js');
+      const result = endActiveSession();
+      if (result) {
+        const channel = await client.channels.fetch(session.channelId);
+        if (channel) {
+          await channel.send(`⏰ **Session Auto-Ended**\n\nThe PATS session has been automatically ended ${session.autoEnd.hoursAfterLastGame} hours after the last game.\n\nUse \`/pats leaderboard\` to view the final results!`);
+        }
+        console.log(`[Scheduler] ✅ Session ${session.id} auto-ended successfully`);
+      } else {
+        console.log(`[Scheduler] ⚠️ Failed to auto-end session ${session.id} (no active session found)`);
+      }
     }
   };
 }
