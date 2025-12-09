@@ -175,6 +175,10 @@ function createSchedulerHandlers(client) {
       await sendSessionAnnouncement(client, session);
       // Start the PATS session when announcement is sent
       await startScheduledSession(client, session);
+      // Clean up the scheduled session after it has started
+      const { deleteScheduledSession } = await import('./utils/sessionScheduler.js');
+      deleteScheduledSession(session.id);
+      console.log(`[Scheduler] Cleaned up scheduled session ${session.id} after starting`);
     },
     sendReminders: async (session) => {
       await sendSessionReminder(client, session);
@@ -667,6 +671,14 @@ async function sendSessionAnnouncement(client, session) {
  */
 async function sendSessionReminder(client, session) {
   try {
+    // Check if there's already an active session - if so, don't send reminders
+    const { getActiveSession } = await import('./utils/patsData.js');
+    const activeSession = getActiveSession();
+    if (activeSession) {
+      console.log(`[Scheduler] Skipping reminder for ${session.id} - active session already running`);
+      return;
+    }
+    
     const { getUserPreferences } = await import('./utils/userPreferences.js');
     const { EmbedBuilder } = await import('discord.js');
     
