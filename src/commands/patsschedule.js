@@ -3324,7 +3324,7 @@ export async function showAutoSchedulePreview(interaction) {
     try {
       const games = await getESPNGamesForDate(dateStr);
       const upcomingGames = i === 0 
-        ? games.filter(g => new Date(g.date) > new Date())
+        ? games.filter(g => new Date(g.commenceTime) > new Date())
         : games;
       
       const hasExisting = hasAutoScheduledSessionForDate(dateStr);
@@ -3457,7 +3457,7 @@ export async function runAutoSchedulerNow(interaction) {
     try {
       const games = await getESPNGamesForDate(dateStr);
       const upcomingGames = i === 0 
-        ? games.filter(g => new Date(g.date) > new Date())
+        ? games.filter(g => new Date(g.commenceTime) > new Date())
         : games;
       
       if (upcomingGames.length < config.minGames) {
@@ -3517,12 +3517,12 @@ export async function runAutoSchedulerNow(interaction) {
  */
 async function createAutoScheduledSession(client, dateStr, games, config) {
   // Sort games by start time
-  games.sort((a, b) => new Date(a.date) - new Date(b.date));
+  games.sort((a, b) => new Date(a.commenceTime) - new Date(b.commenceTime));
   
   const firstGame = games[0];
   const lastGame = games[games.length - 1];
-  const firstGameTime = new Date(firstGame.date);
-  const lastGameTime = new Date(lastGame.date);
+  const firstGameTime = new Date(firstGame.commenceTime);
+  const lastGameTime = new Date(lastGame.commenceTime);
   
   // Calculate announcement time
   const announcementHours = config.notifications?.announcement?.hoursBefore || 9;
@@ -3540,7 +3540,7 @@ async function createAutoScheduledSession(client, dateStr, games, config) {
     homeTeam: game.homeTeam?.displayName || game.homeTeam,
     awayAbbr: game.awayTeam?.abbreviation || game.awayAbbr,
     homeAbbr: game.homeTeam?.abbreviation || game.homeAbbr,
-    startTime: game.date
+    startTime: game.commenceTime
   }));
   
   // Create session config
