@@ -529,7 +529,15 @@ export function saveAutoScheduleConfig(config) {
  */
 export function deleteAutoScheduledSessions() {
   const data = loadScheduledSessions();
+  
+  // Debug logging
+  console.log(`[Scheduler] Total sessions: ${data.sessions.length}`);
+  data.sessions.forEach(s => {
+    console.log(`[Scheduler]   - Session ${s.id}: autoScheduled=${s.autoScheduled}, seasonId=${s.seasonId}, createdBy=${s.createdBy}`);
+  });
+  
   const autoSessions = data.sessions.filter(s => s.autoScheduled && !s.seasonId);
+  console.log(`[Scheduler] Found ${autoSessions.length} auto-scheduled sessions (no seasonId)`);
   
   if (autoSessions.length === 0) {
     return { count: 0, sessions: [] };
