@@ -1263,6 +1263,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.deferUpdate();
         await patsscheduleCommand.showAutoScheduleConfig(interaction, true);
       }
+      else if (interaction.customId === 'schedule_auto_config_back') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showAutoScheduleConfig(interaction, false);
+      }
       else if (interaction.customId === 'schedule_auto_preview') {
         await interaction.deferUpdate();
         await patsscheduleCommand.showAutoSchedulePreview(interaction);

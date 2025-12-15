@@ -2650,7 +2650,7 @@ export async function showAutoScheduleMenu(interaction) {
         .setStyle(config.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
         .setDisabled(!config.channelId), // Can't enable without configuration
       new ButtonBuilder()
-        .setCustomId('schedule_auto_configure')
+        .setCustomId('schedule_auto_config_back')
         .setLabel('Configure')
         .setEmoji('⚙️')
         .setStyle(ButtonStyle.Primary)
@@ -2861,7 +2861,7 @@ export async function showAutoScheduleMinGamesSelector(interaction) {
   const backRow = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
-        .setCustomId('schedule_auto_configure')
+        .setCustomId('schedule_auto_config_back')
         .setLabel('Back')
         .setEmoji('◀️')
         .setStyle(ButtonStyle.Secondary)
@@ -2899,7 +2899,7 @@ export async function showAutoScheduleChannelSelector(interaction) {
   const backRow = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
-        .setCustomId('schedule_auto_configure')
+        .setCustomId('schedule_auto_config_back')
         .setLabel('Back')
         .setEmoji('◀️')
         .setStyle(ButtonStyle.Secondary)
@@ -2959,7 +2959,7 @@ export async function showAutoScheduleParticipantsMenu(interaction) {
         .setStyle(ButtonStyle.Danger)
         .setDisabled(participantLines.length === 0),
       new ButtonBuilder()
-        .setCustomId('schedule_auto_configure')
+        .setCustomId('schedule_auto_config_back')
         .setLabel('Done')
         .setEmoji('✅')
         .setStyle(ButtonStyle.Success)
@@ -3088,7 +3088,7 @@ export async function showAutoScheduleNotifications(interaction) {
         .setEmoji('⚠️')
         .setStyle(notifs.warning?.enabled ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId('schedule_auto_configure')
+        .setCustomId('schedule_auto_config_back')
         .setLabel('Done')
         .setEmoji('✅')
         .setStyle(ButtonStyle.Primary)
@@ -3284,7 +3284,7 @@ export async function showAutoScheduleAutoEnd(interaction) {
         .setLabel(autoEnd.enabled ? 'Disable Auto-End' : 'Enable Auto-End')
         .setStyle(autoEnd.enabled ? ButtonStyle.Danger : ButtonStyle.Success),
       new ButtonBuilder()
-        .setCustomId('schedule_auto_configure')
+        .setCustomId('schedule_auto_config_back')
         .setLabel('Back')
         .setEmoji('◀️')
         .setStyle(ButtonStyle.Secondary)
