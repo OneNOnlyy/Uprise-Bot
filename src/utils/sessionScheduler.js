@@ -222,6 +222,30 @@ export function deleteSeasonScheduledSessions(seasonId) {
 }
 
 /**
+ * Delete all scheduled sessions for ALL seasons
+ */
+export function deleteAllSeasonScheduledSessions() {
+  const data = loadScheduledSessions();
+  const seasonSessions = data.sessions.filter(s => s.seasonId);
+  
+  if (seasonSessions.length === 0) {
+    return { count: 0, sessions: [] };
+  }
+  
+  // Remove all season sessions
+  data.sessions = data.sessions.filter(s => !s.seasonId);
+  saveScheduledSessions(data);
+  
+  // Cancel cron jobs for each session
+  seasonSessions.forEach(session => {
+    cancelSessionJobs(session.id);
+  });
+  
+  console.log(`[Scheduler] Deleted ${seasonSessions.length} scheduled session(s) for all seasons`);
+  return { count: seasonSessions.length, sessions: seasonSessions };
+}
+
+/**
  * Cancel all cron jobs for a session
  */
 function cancelSessionJobs(sessionId) {

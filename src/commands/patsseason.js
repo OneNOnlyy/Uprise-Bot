@@ -350,10 +350,9 @@ export async function showSeasonAdminMenu(interaction) {
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('pats_season_clear_sessions')
-        .setLabel('Clear Scheduled Sessions')
+        .setLabel('Clear All Season Sessions')
         .setEmoji('🗑️')
-        .setStyle(ButtonStyle.Danger)
-        .setDisabled(!currentSeason),
+        .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId('pats_season_end')
         .setLabel('End Season Early')
@@ -2254,19 +2253,15 @@ export async function handleButton(interaction) {
     // Clear Scheduled Sessions button
     if (customId === 'pats_season_clear_sessions') {
       const currentSeason = getCurrentSeason();
-      if (!currentSeason) {
-        return await showSeasonAdminMenu(interaction);
-      }
-      
-      const { deleteSeasonScheduledSessions } = await import('../utils/sessionScheduler.js');
-      const result = deleteSeasonScheduledSessions(currentSeason.id);
+      const { deleteAllSeasonScheduledSessions } = await import('../utils/sessionScheduler.js');
+      const result = deleteAllSeasonScheduledSessions();
       
       const embed = new EmbedBuilder()
-        .setTitle('🗑️ Cleared Scheduled Sessions')
+        .setTitle('🗑️ Cleared All Season Sessions')
         .setDescription(
           result.count > 0
-            ? `Deleted **${result.count}** scheduled session(s) for **${currentSeason.name}**.`
-            : `No scheduled sessions found for **${currentSeason.name}**.`
+            ? `Deleted **${result.count}** scheduled session(s) across all seasons.`
+            : `No season scheduled sessions found.`
         )
         .setColor(result.count > 0 ? '#57F287' : '#FFA500');
       
