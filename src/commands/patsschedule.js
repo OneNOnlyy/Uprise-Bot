@@ -3301,7 +3301,7 @@ export async function showAutoScheduleAutoEnd(interaction) {
  */
 export async function showAutoSchedulePreview(interaction) {
   const config = getAutoScheduleConfig();
-  const { getESPNGamesForDate } = await import('../utils/nbaScores.js');
+  const { getESPNGamesForDate } = await import('../utils/oddsApi.js');
   
   const embed = new EmbedBuilder()
     .setTitle('👁️ Auto-Schedule Preview')
@@ -3434,7 +3434,7 @@ export async function runAutoSchedulerNow(interaction) {
     components: []
   });
   
-  const { getESPNGamesForDate } = await import('../utils/nbaScores.js');
+  const { getESPNGamesForDate } = await import('../utils/oddsApi.js');
   const { createSchedulerHandlers } = await import('../utils/sessionScheduler.js');
   
   const handlers = createSchedulerHandlers(interaction.client);
