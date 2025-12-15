@@ -1250,9 +1250,120 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.deferUpdate();
         await patsscheduleCommand.showDateSelection(interaction);
       }
-      else if (interaction.customId === 'schedule_auto_schedule') {
+      // Auto-schedule menu and handlers
+      else if (interaction.customId === 'schedule_auto_menu') {
         await interaction.deferUpdate();
-        await patsscheduleCommand.autoScheduleToday(interaction);
+        await patsscheduleCommand.showAutoScheduleMenu(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_toggle') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.toggleAutoSchedule(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_configure') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showAutoScheduleConfig(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_preview') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showAutoSchedulePreview(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_run_now') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.runAutoSchedulerNow(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_clear') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.clearAutoScheduledSessions(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_days') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showAutoScheduleDaysSelector(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_mingames') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showAutoScheduleMinGamesSelector(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_channel') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showAutoScheduleChannelSelector(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_participants') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showAutoScheduleParticipantsMenu(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_participants_roles') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showAutoScheduleRoleSelector(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_participants_users') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showAutoScheduleUserSelector(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_participants_clear') {
+        await interaction.deferUpdate();
+        const config = patsscheduleCommand.getAutoScheduleEditConfig(interaction.user.id);
+        config.roleIds = [];
+        config.userIds = [];
+        await patsscheduleCommand.showAutoScheduleParticipantsMenu(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_notifications') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showAutoScheduleNotifications(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_notif_announcement') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showAutoScheduleAnnouncementSelector(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_notif_reminder') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showAutoScheduleReminderSelector(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_notif_warning') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showAutoScheduleWarningSelector(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_autoend') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showAutoScheduleAutoEnd(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_autoend_toggle') {
+        await interaction.deferUpdate();
+        const config = patsscheduleCommand.getAutoScheduleEditConfig(interaction.user.id);
+        config.autoEnd = config.autoEnd || { enabled: false, hoursAfterLastGame: 6 };
+        config.autoEnd.enabled = !config.autoEnd.enabled;
+        await patsscheduleCommand.showAutoScheduleAutoEnd(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_announcement_toggle') {
+        await interaction.deferUpdate();
+        const config = patsscheduleCommand.getAutoScheduleEditConfig(interaction.user.id);
+        config.notifications = config.notifications || {};
+        config.notifications.announcement = config.notifications.announcement || { enabled: true, hoursBefore: 9 };
+        config.notifications.announcement.enabled = !config.notifications.announcement.enabled;
+        await patsscheduleCommand.showAutoScheduleAnnouncementSelector(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_reminder_toggle') {
+        await interaction.deferUpdate();
+        const config = patsscheduleCommand.getAutoScheduleEditConfig(interaction.user.id);
+        config.notifications = config.notifications || {};
+        config.notifications.reminder = config.notifications.reminder || { enabled: true, minutesBefore: 60 };
+        config.notifications.reminder.enabled = !config.notifications.reminder.enabled;
+        await patsscheduleCommand.showAutoScheduleReminderSelector(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_warning_toggle') {
+        await interaction.deferUpdate();
+        const config = patsscheduleCommand.getAutoScheduleEditConfig(interaction.user.id);
+        config.notifications = config.notifications || {};
+        config.notifications.warning = config.notifications.warning || { enabled: true, minutesBefore: 15 };
+        config.notifications.warning.enabled = !config.notifications.warning.enabled;
+        await patsscheduleCommand.showAutoScheduleWarningSelector(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_save') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.saveAutoScheduleConfiguration(interaction);
+      }
+      else if (interaction.customId === 'schedule_main_menu') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showMainMenu(interaction);
       }
       else if (interaction.customId.startsWith('schedule_date_')) {
         const selectedDate = interaction.customId.replace('schedule_date_', '');
@@ -1478,6 +1589,78 @@ client.on(Events.InteractionCreate, async (interaction) => {
           embeds: [],
           components: []
         });
+      }
+      // Auto-schedule select menu handlers
+      else if (interaction.customId === 'schedule_auto_days_select') {
+        await interaction.deferUpdate();
+        const days = parseInt(interaction.values[0]);
+        const config = patsscheduleCommand.getAutoScheduleEditConfig(interaction.user.id);
+        config.daysAhead = days;
+        await patsscheduleCommand.showAutoScheduleConfig(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_mingames_select') {
+        await interaction.deferUpdate();
+        const minGames = parseInt(interaction.values[0]);
+        const config = patsscheduleCommand.getAutoScheduleEditConfig(interaction.user.id);
+        config.minGames = minGames;
+        await patsscheduleCommand.showAutoScheduleConfig(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_channel_select') {
+        await interaction.deferUpdate();
+        const channelId = interaction.values[0];
+        const config = patsscheduleCommand.getAutoScheduleEditConfig(interaction.user.id);
+        config.channelId = channelId;
+        config.guildId = interaction.guild.id;
+        await patsscheduleCommand.showAutoScheduleConfig(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_roles_select') {
+        await interaction.deferUpdate();
+        const roleIds = interaction.values;
+        const config = patsscheduleCommand.getAutoScheduleEditConfig(interaction.user.id);
+        config.roleIds = roleIds;
+        await patsscheduleCommand.showAutoScheduleParticipantsMenu(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_users_select') {
+        await interaction.deferUpdate();
+        const userIds = interaction.values;
+        const config = patsscheduleCommand.getAutoScheduleEditConfig(interaction.user.id);
+        config.userIds = userIds;
+        await patsscheduleCommand.showAutoScheduleParticipantsMenu(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_announcement_select') {
+        await interaction.deferUpdate();
+        const hours = parseInt(interaction.values[0]);
+        const config = patsscheduleCommand.getAutoScheduleEditConfig(interaction.user.id);
+        config.notifications = config.notifications || {};
+        config.notifications.announcement = config.notifications.announcement || { enabled: true };
+        config.notifications.announcement.hoursBefore = hours;
+        await patsscheduleCommand.showAutoScheduleNotifications(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_reminder_select') {
+        await interaction.deferUpdate();
+        const minutes = parseInt(interaction.values[0]);
+        const config = patsscheduleCommand.getAutoScheduleEditConfig(interaction.user.id);
+        config.notifications = config.notifications || {};
+        config.notifications.reminder = config.notifications.reminder || { enabled: true };
+        config.notifications.reminder.minutesBefore = minutes;
+        await patsscheduleCommand.showAutoScheduleNotifications(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_warning_select') {
+        await interaction.deferUpdate();
+        const minutes = parseInt(interaction.values[0]);
+        const config = patsscheduleCommand.getAutoScheduleEditConfig(interaction.user.id);
+        config.notifications = config.notifications || {};
+        config.notifications.warning = config.notifications.warning || { enabled: true };
+        config.notifications.warning.minutesBefore = minutes;
+        await patsscheduleCommand.showAutoScheduleNotifications(interaction);
+      }
+      else if (interaction.customId === 'schedule_auto_autoend_select') {
+        await interaction.deferUpdate();
+        const hours = parseInt(interaction.values[0]);
+        const config = patsscheduleCommand.getAutoScheduleEditConfig(interaction.user.id);
+        config.autoEnd = config.autoEnd || { enabled: false };
+        config.autoEnd.hoursAfterLastGame = hours;
+        await patsscheduleCommand.showAutoScheduleAutoEnd(interaction);
       }
     } catch (error) {
       console.error('Error handling schedule interaction:', error);

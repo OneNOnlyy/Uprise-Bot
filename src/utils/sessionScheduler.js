@@ -486,6 +486,80 @@ function getCronTimezone() {
   return 'America/Los_Angeles';
 }
 
+// ============================================
+// AUTO-SCHEDULE CONFIGURATION
+// ============================================
+
+/**
+ * Get auto-schedule configuration
+ */
+export function getAutoScheduleConfig() {
+  const data = loadScheduledSessions();
+  return data.autoSchedule || {
+    enabled: false,
+    daysAhead: 7,
+    minGames: 1,
+    channelId: null,
+    guildId: null,
+    roleIds: [],
+    userIds: [],
+    notifications: {
+      announcement: { enabled: true, hoursBefore: 9 },
+      reminder: { enabled: true, minutesBefore: 60 },
+      warning: { enabled: true, minutesBefore: 15 }
+    },
+    autoEnd: { enabled: false, hoursAfterLastGame: 6 },
+    createdBy: null,
+    createdByUsername: null
+  };
+}
+
+/**
+ * Save auto-schedule configuration
+ */
+export function saveAutoScheduleConfig(config) {
+  const data = loadScheduledSessions();
+  data.autoSchedule = config;
+  saveScheduledSessions(data);
+  return config;
+}
+
+/**
+ * Delete all auto-scheduled sessions (non-season)
+ */
+export function deleteAutoScheduledSessions() {
+  const data = loadScheduledSessions();
+  const autoSessions = data.sessions.filter(s => s.autoScheduled && !s.seasonId);
+  
+  if (autoSessions.length === 0) {
+    return { count: 0, sessions: [] };
+  }
+  
+  // Remove all auto-scheduled sessions
+  data.sessions = data.sessions.filter(s => !s.autoScheduled || s.seasonId);
+  saveScheduledSessions(data);
+  
+  // Cancel cron jobs for each session
+  autoSessions.forEach(session => {
+    cancelSessionJobs(session.id);
+  });
+  
+  console.log(`[Scheduler] Deleted ${autoSessions.length} auto-scheduled session(s)`);
+  return { count: autoSessions.length, sessions: autoSessions };
+}
+
+/**
+ * Check if a date already has an auto-scheduled session
+ */
+export function hasAutoScheduledSessionForDate(dateStr) {
+  const data = loadScheduledSessions();
+  return data.sessions.some(s => {
+    if (!s.autoScheduled || s.seasonId) return false;
+    const sessionDate = new Date(s.startTime || s.firstGameTime).toISOString().split('T')[0];
+    return sessionDate === dateStr;
+  });
+}
+
 /**
  * Initialize scheduler - schedule all pending sessions
  * Call this when bot starts up
@@ -505,4 +579,25 @@ export function initializeScheduler(handlers) {
  */
 export function getActiveJobs() {
   return Array.from(scheduledJobs.keys());
+}
+/**
+ * Create scheduler handlers for use with auto-scheduling
+ */
+export function createSchedulerHandlers(client) {
+  // Import handlers from index.js at runtime to avoid circular dependencies
+  return {
+    onAnnouncement: async (session) => {
+      console.log(`[Scheduler] Announcement handler called for session ${session.id}`);
+    },
+    onReminder: async (session) => {
+      console.log(`[Scheduler] Reminder handler called for session ${session.id}`);
+    },
+    onWarning: async (session) => {
+      console.log(`[Scheduler] Warning handler called for session ${session.id}`);
+    },
+    onAutoEnd: async (session) => {
+      console.log(`[Scheduler] Auto-end handler called for session ${session.id}`);
+    },
+    client
+  };
 }

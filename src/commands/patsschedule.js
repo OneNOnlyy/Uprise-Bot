@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, UserSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { getAllScheduledSessions, getScheduledSession, deleteScheduledSession, getAllTemplates, getTemplate, deleteTemplate, addScheduledSession, saveTemplate, updateScheduledSession, scheduleSessionJobs } from '../utils/sessionScheduler.js';
+import { getAllScheduledSessions, getScheduledSession, deleteScheduledSession, getAllTemplates, getTemplate, deleteTemplate, addScheduledSession, saveTemplate, updateScheduledSession, scheduleSessionJobs, getAutoScheduleConfig, saveAutoScheduleConfig, deleteAutoScheduledSessions, hasAutoScheduledSessionForDate } from '../utils/sessionScheduler.js';
 import { getESPNGamesForDate } from '../utils/oddsApi.js';
 
 // Store in-progress session configurations (userId -> config)
@@ -93,9 +93,15 @@ export async function execute(interaction) {
  * Show main menu
  */
 export async function showMainMenu(interaction) {
+  const autoConfig = getAutoScheduleConfig();
+  const autoStatus = autoConfig.enabled ? '✅' : '❌';
+  
   const embed = new EmbedBuilder()
     .setTitle('📅 Schedule PATS Session')
-    .setDescription('Choose an option to schedule and manage PATS sessions.')
+    .setDescription(
+      'Choose an option to schedule and manage PATS sessions.\n\n' +
+      `**Auto-Schedule:** ${autoStatus} ${autoConfig.enabled ? 'Enabled' : 'Disabled'}`
+    )
     .setColor('#5865F2')
     .setFooter({ text: 'Use the buttons below to navigate' });
   
@@ -107,10 +113,10 @@ export async function showMainMenu(interaction) {
         .setEmoji('📆')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
-        .setCustomId('schedule_auto_schedule')
-        .setLabel('Auto-Schedule Today')
+        .setCustomId('schedule_auto_menu')
+        .setLabel('Auto-Scheduling')
         .setEmoji('🤖')
-        .setStyle(ButtonStyle.Success),
+        .setStyle(autoConfig.enabled ? ButtonStyle.Success : ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('schedule_view_sessions')
         .setLabel('View Scheduled Sessions')
@@ -2474,117 +2480,1195 @@ export async function handleUserModalSubmit(interaction) {
   }, 2000);
 }
 
+// ============================================
+// AUTO-SCHEDULING SYSTEM
+// ============================================
+
+// Store in-progress auto-schedule configurations (userId -> config)
+const autoScheduleConfigs = new Map();
+
 /**
- * Auto-schedule a session for today
+ * Get or create auto-schedule config for user (in-progress editing)
  */
-export async function autoScheduleToday(interaction) {
-  const { getESPNGamesForDate } = await import('../utils/nbaScores.js');
+export function getAutoScheduleEditConfig(userId) {
+  if (!autoScheduleConfigs.has(userId)) {
+    // Load from saved config or use defaults
+    const saved = getAutoScheduleConfig();
+    autoScheduleConfigs.set(userId, { ...saved });
+  }
+  return autoScheduleConfigs.get(userId);
+}
+
+/**
+ * Clear auto-schedule edit config for user
+ */
+function clearAutoScheduleEditConfig(userId) {
+  autoScheduleConfigs.delete(userId);
+}
+
+/**
+ * Save auto-schedule configuration from edit config
+ */
+export async function saveAutoScheduleConfiguration(interaction) {
+  const editConfig = getAutoScheduleEditConfig(interaction.user.id);
   
-  // Get today's date
-  const today = new Date();
-  const dateStr = today.toISOString().split('T')[0];
-  const dateDisplay = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  // Validate configuration
+  if (!editConfig.channelId) {
+    const embed = new EmbedBuilder()
+      .setTitle('⚠️ Configuration Incomplete')
+      .setDescription('Please set a channel before saving.')
+      .setColor('#ED4245');
+    
+    await interaction.editReply({
+      embeds: [embed],
+      components: []
+    });
+    
+    setTimeout(async () => {
+      await showAutoScheduleConfig(interaction);
+    }, 2000);
+    return;
+  }
   
-  // Check if there's already a session scheduled for today
-  const existingSessions = getAllScheduledSessions().filter(s => !s.seasonId);
-  const todaySession = existingSessions.find(s => {
-    const sessionDate = new Date(s.startTime).toISOString().split('T')[0];
-    return sessionDate === dateStr;
+  // Add creator info
+  editConfig.createdBy = interaction.user.id;
+  editConfig.createdByUsername = interaction.user.username;
+  editConfig.guildId = interaction.guild.id;
+  
+  // Save the configuration
+  saveAutoScheduleConfig(editConfig);
+  
+  // Clear the edit config
+  clearAutoScheduleEditConfig(interaction.user.id);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('💾 Configuration Saved')
+    .setDescription('Auto-schedule settings have been saved successfully.')
+    .setColor('#57F287');
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: []
   });
   
-  if (todaySession) {
-    const embed = new EmbedBuilder()
-      .setColor(0xFF6B35)
-      .setTitle('⚠️ Session Already Exists')
-      .setDescription(`A session is already scheduled for today (${dateDisplay}).\n\nUse "View Scheduled Sessions" to manage it.`)
-      .setTimestamp();
-    
-    await interaction.editReply({
-      embeds: [embed],
-      components: []
-    });
-    
-    setTimeout(async () => {
-      await showMainMenu(interaction);
-    }, 3000);
-    return;
-  }
+  setTimeout(async () => {
+    await showAutoScheduleMenu(interaction);
+  }, 2000);
+}
+
+/**
+ * Show auto-schedule main menu
+ */
+export async function showAutoScheduleMenu(interaction) {
+  const config = getAutoScheduleConfig();
   
-  // Fetch today's games
-  let games;
-  try {
-    games = await getESPNGamesForDate(dateStr);
-  } catch (error) {
-    console.error('[SCHEDULE] Error fetching games:', error);
-    
-    const embed = new EmbedBuilder()
-      .setColor(0xFF0000)
-      .setTitle('❌ Error')
-      .setDescription('Failed to fetch today\'s games. Please try again later.')
-      .setTimestamp();
-    
-    await interaction.editReply({
-      embeds: [embed],
-      components: []
-    });
-    
-    setTimeout(async () => {
-      await showMainMenu(interaction);
-    }, 3000);
-    return;
-  }
+  // Count upcoming auto-scheduled sessions
+  const autoSessions = getAllScheduledSessions().filter(s => s.autoScheduled && !s.seasonId);
+  const upcomingSessions = autoSessions.filter(s => new Date(s.startTime || s.firstGameTime) > new Date());
   
-  // Filter to games that haven't started yet
-  const now = new Date();
-  const upcomingGames = games.filter(g => new Date(g.date) > now);
+  const statusEmoji = config.enabled ? '✅' : '❌';
+  const statusText = config.enabled ? 'Enabled' : 'Disabled';
   
-  if (upcomingGames.length === 0) {
-    const embed = new EmbedBuilder()
-      .setColor(0xFF6B35)
-      .setTitle('⚠️ No Games Today')
-      .setDescription(`There are no upcoming NBA games today (${dateDisplay}).`)
-      .setTimestamp();
-    
-    await interaction.editReply({
-      embeds: [embed],
-      components: []
-    });
-    
-    setTimeout(async () => {
-      await showMainMenu(interaction);
-    }, 3000);
-    return;
-  }
-  
-  // Pre-select all upcoming games
-  clearSessionConfig(interaction.user.id);
-  const config = getSessionConfig(interaction.user.id);
-  config.selectedDate = dateStr;
-  config.games = upcomingGames;
-  config.selectedGameIndices = upcomingGames.map((_, index) => index);
-  
-  // Show success message and go to configuration
   const embed = new EmbedBuilder()
-    .setColor(0x00FF00)
-    .setTitle('✅ Games Auto-Selected')
+    .setTitle('🤖 Auto-Schedule Settings')
     .setDescription(
-      `Found **${upcomingGames.length}** upcoming game${upcomingGames.length !== 1 ? 's' : ''} for today (${dateDisplay}).\n\n` +
-      upcomingGames.map(g => `**${g.awayTeam.displayName}** @ **${g.homeTeam.displayName}**`).join('\n') +
-      '\n\nProceed to configure your session settings.'
+      `Automatically schedule PATS sessions for upcoming NBA games.\n\n` +
+      `**Status:** ${statusEmoji} ${statusText}\n` +
+      `**Scheduled Sessions:** ${upcomingSessions.length} upcoming`
     )
-    .setTimestamp();
+    .setColor(config.enabled ? '#57F287' : '#ED4245');
   
-  const continueButton = new ActionRowBuilder()
+  // Add current settings if configured
+  if (config.channelId) {
+    const settingsLines = [
+      `📅 **Days Ahead:** ${config.daysAhead} days`,
+      `🏀 **Min Games:** ${config.minGames} game${config.minGames !== 1 ? 's' : ''}`,
+      `📢 **Channel:** <#${config.channelId}>`
+    ];
+    
+    // Participants
+    const participants = [];
+    if (config.roleIds?.length > 0) {
+      participants.push(`Roles: ${config.roleIds.map(id => `<@&${id}>`).join(', ')}`);
+    }
+    if (config.userIds?.length > 0) {
+      participants.push(`Users: ${config.userIds.length} user${config.userIds.length !== 1 ? 's' : ''}`);
+    }
+    if (participants.length > 0) {
+      settingsLines.push(`👥 **Participants:** ${participants.join(' | ')}`);
+    }
+    
+    // Notifications
+    const notifParts = [];
+    if (config.notifications?.announcement?.enabled) {
+      notifParts.push(`📣 ${config.notifications.announcement.hoursBefore}h before`);
+    }
+    if (config.notifications?.reminder?.enabled) {
+      notifParts.push(`⏰ ${config.notifications.reminder.minutesBefore}m reminder`);
+    }
+    if (config.notifications?.warning?.enabled) {
+      notifParts.push(`⚠️ ${config.notifications.warning.minutesBefore}m warning`);
+    }
+    if (notifParts.length > 0) {
+      settingsLines.push(`🔔 **Notifications:** ${notifParts.join(', ')}`);
+    }
+    
+    // Auto-end
+    if (config.autoEnd?.enabled) {
+      settingsLines.push(`🏁 **Auto-End:** ${config.autoEnd.hoursAfterLastGame}h after last game`);
+    }
+    
+    embed.addFields({ name: '⚙️ Current Settings', value: settingsLines.join('\n') });
+  } else {
+    embed.addFields({ name: '⚙️ Settings', value: '⚠️ Not configured yet - click "Configure" to set up' });
+  }
+  
+  // Show upcoming scheduled dates if enabled
+  if (config.enabled && upcomingSessions.length > 0) {
+    const datesList = upcomingSessions
+      .slice(0, 7)
+      .map(s => {
+        const date = new Date(s.scheduledDate || s.startTime);
+        return `• ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} (${s.games || s.gameDetails?.length || '?'} games)`;
+      })
+      .join('\n');
+    embed.addFields({ 
+      name: '📋 Upcoming Sessions', 
+      value: datesList + (upcomingSessions.length > 7 ? `\n... and ${upcomingSessions.length - 7} more` : '')
+    });
+  }
+  
+  const row1 = new ActionRowBuilder()
     .addComponents(
       new ButtonBuilder()
-        .setCustomId(`schedule_continue_config_${dateStr}`)
-        .setLabel('Continue to Settings')
+        .setCustomId('schedule_auto_toggle')
+        .setLabel(config.enabled ? 'Disable Auto-Schedule' : 'Enable Auto-Schedule')
+        .setEmoji(config.enabled ? '🔴' : '🟢')
+        .setStyle(config.enabled ? ButtonStyle.Danger : ButtonStyle.Success)
+        .setDisabled(!config.channelId), // Can't enable without configuration
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_configure')
+        .setLabel('Configure')
         .setEmoji('⚙️')
+        .setStyle(ButtonStyle.Primary)
+    );
+  
+  const row2 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_preview')
+        .setLabel('Preview Schedule')
+        .setEmoji('👁️')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(!config.channelId),
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_run_now')
+        .setLabel('Run Now')
+        .setEmoji('▶️')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(!config.enabled),
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_clear')
+        .setLabel('Clear Sessions')
+        .setEmoji('🗑️')
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(upcomingSessions.length === 0)
+    );
+  
+  const backRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_main_menu')
+        .setLabel('Back to Main Menu')
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row1, row2, backRow]
+  });
+}
+
+/**
+ * Show auto-schedule configuration menu
+ */
+export async function showAutoScheduleConfig(interaction) {
+  // Initialize edit config from saved
+  clearAutoScheduleEditConfig(interaction.user.id);
+  const config = getAutoScheduleEditConfig(interaction.user.id);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('⚙️ Configure Auto-Schedule')
+    .setDescription('Set up how sessions will be automatically scheduled.')
+    .setColor('#5865F2');
+  
+  // Current settings summary
+  const settingsLines = [
+    `📅 **Days Ahead:** ${config.daysAhead} days`,
+    `🏀 **Min Games Required:** ${config.minGames} game${config.minGames !== 1 ? 's' : ''}`,
+    `📢 **Channel:** ${config.channelId ? `<#${config.channelId}>` : '⚠️ Not set'}`,
+  ];
+  
+  // Participants
+  const participants = [];
+  if (config.roleIds?.length > 0) {
+    participants.push(`${config.roleIds.length} role${config.roleIds.length !== 1 ? 's' : ''}`);
+  }
+  if (config.userIds?.length > 0) {
+    participants.push(`${config.userIds.length} user${config.userIds.length !== 1 ? 's' : ''}`);
+  }
+  settingsLines.push(`👥 **Participants:** ${participants.length > 0 ? participants.join(', ') : '⚠️ Not set'}`);
+  
+  embed.addFields({ name: '📋 Current Configuration', value: settingsLines.join('\n') });
+  
+  const row1 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_days')
+        .setLabel(`Days Ahead: ${config.daysAhead}`)
+        .setEmoji('📅')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_mingames')
+        .setLabel(`Min Games: ${config.minGames}`)
+        .setEmoji('🏀')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  const row2 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_channel')
+        .setLabel('Set Channel')
+        .setEmoji('📢')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_participants')
+        .setLabel('Set Participants')
+        .setEmoji('👥')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  const row3 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_notifications')
+        .setLabel('Notifications')
+        .setEmoji('🔔')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_autoend')
+        .setLabel('Auto-End')
+        .setEmoji('🏁')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  const row4 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_save')
+        .setLabel('Save Configuration')
+        .setEmoji('💾')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_menu')
+        .setLabel('Cancel')
+        .setEmoji('❌')
+        .setStyle(ButtonStyle.Danger)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row1, row2, row3, row4]
+  });
+}
+
+/**
+ * Show days ahead selector
+ */
+export async function showAutoScheduleDaysSelector(interaction) {
+  const config = getAutoScheduleEditConfig(interaction.user.id);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📅 Days Ahead')
+    .setDescription('Select how many days in advance to auto-schedule sessions.')
+    .setColor('#5865F2')
+    .addFields({ name: 'Current', value: `${config.daysAhead} days` });
+  
+  const options = [1, 2, 3, 5, 7, 10, 14, 21, 30].map(days => 
+    new StringSelectMenuOptionBuilder()
+      .setLabel(`${days} day${days !== 1 ? 's' : ''}`)
+      .setValue(days.toString())
+      .setDefault(config.daysAhead === days)
+  );
+  
+  const selectRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('schedule_auto_days_select')
+        .setPlaceholder('Select days ahead')
+        .addOptions(options)
+    );
+  
+  const backRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_configure')
+        .setLabel('Back')
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [selectRow, backRow]
+  });
+}
+
+/**
+ * Show min games selector
+ */
+export async function showAutoScheduleMinGamesSelector(interaction) {
+  const config = getAutoScheduleEditConfig(interaction.user.id);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('🏀 Minimum Games Required')
+    .setDescription('Set the minimum number of NBA games required to auto-schedule a session for that day.')
+    .setColor('#5865F2')
+    .addFields({ name: 'Current', value: `${config.minGames} game${config.minGames !== 1 ? 's' : ''}` });
+  
+  const options = [1, 2, 3, 4, 5, 6, 7, 8].map(games => 
+    new StringSelectMenuOptionBuilder()
+      .setLabel(`${games} game${games !== 1 ? 's' : ''}`)
+      .setValue(games.toString())
+      .setDefault(config.minGames === games)
+  );
+  
+  const selectRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('schedule_auto_mingames_select')
+        .setPlaceholder('Select minimum games')
+        .addOptions(options)
+    );
+  
+  const backRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_configure')
+        .setLabel('Back')
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [selectRow, backRow]
+  });
+}
+
+/**
+ * Show channel selector for auto-schedule
+ */
+export async function showAutoScheduleChannelSelector(interaction) {
+  const config = getAutoScheduleEditConfig(interaction.user.id);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📢 Select Channel')
+    .setDescription('Choose the channel where auto-scheduled sessions will be posted.')
+    .setColor('#5865F2');
+  
+  if (config.channelId) {
+    embed.addFields({ name: 'Current', value: `<#${config.channelId}>` });
+  }
+  
+  const channelRow = new ActionRowBuilder()
+    .addComponents(
+      new ChannelSelectMenuBuilder()
+        .setCustomId('schedule_auto_channel_select')
+        .setPlaceholder('Select a channel')
+        .setChannelTypes(ChannelType.GuildText)
+    );
+  
+  const backRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_configure')
+        .setLabel('Back')
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [channelRow, backRow]
+  });
+}
+
+/**
+ * Show participants selector for auto-schedule
+ */
+export async function showAutoScheduleParticipantsMenu(interaction) {
+  const config = getAutoScheduleEditConfig(interaction.user.id);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('👥 Set Participants')
+    .setDescription('Configure who can participate in auto-scheduled sessions.')
+    .setColor('#5865F2');
+  
+  const participantLines = [];
+  if (config.roleIds?.length > 0) {
+    participantLines.push(`**Roles:** ${config.roleIds.map(id => `<@&${id}>`).join(', ')}`);
+  }
+  if (config.userIds?.length > 0) {
+    participantLines.push(`**Users:** ${config.userIds.length} user${config.userIds.length !== 1 ? 's' : ''}`);
+  }
+  
+  if (participantLines.length > 0) {
+    embed.addFields({ name: 'Current Participants', value: participantLines.join('\n') });
+  } else {
+    embed.addFields({ name: 'Current Participants', value: '⚠️ No participants configured' });
+  }
+  
+  const row1 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_participants_roles')
+        .setLabel('Add Roles')
+        .setEmoji('👑')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_participants_users')
+        .setLabel('Add Users')
+        .setEmoji('👤')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  const row2 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_participants_clear')
+        .setLabel('Clear All')
+        .setEmoji('🗑️')
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(participantLines.length === 0),
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_configure')
+        .setLabel('Done')
+        .setEmoji('✅')
+        .setStyle(ButtonStyle.Success)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [row1, row2]
+  });
+}
+
+/**
+ * Show role selector for auto-schedule participants
+ */
+export async function showAutoScheduleRoleSelector(interaction) {
+  const config = getAutoScheduleEditConfig(interaction.user.id);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('👑 Select Roles')
+    .setDescription('Choose roles that can participate in auto-scheduled sessions.')
+    .setColor('#5865F2');
+  
+  if (config.roleIds?.length > 0) {
+    embed.addFields({ name: 'Current Roles', value: config.roleIds.map(id => `<@&${id}>`).join(', ') });
+  }
+  
+  const roleRow = new ActionRowBuilder()
+    .addComponents(
+      new RoleSelectMenuBuilder()
+        .setCustomId('schedule_auto_roles_select')
+        .setPlaceholder('Select roles')
+        .setMaxValues(10)
+    );
+  
+  const backRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_participants')
+        .setLabel('Back')
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [roleRow, backRow]
+  });
+}
+
+/**
+ * Show user selector for auto-schedule participants
+ */
+export async function showAutoScheduleUserSelector(interaction) {
+  const config = getAutoScheduleEditConfig(interaction.user.id);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('👤 Select Users')
+    .setDescription('Choose specific users that can participate in auto-scheduled sessions.')
+    .setColor('#5865F2');
+  
+  if (config.userIds?.length > 0) {
+    embed.addFields({ name: 'Current Users', value: `${config.userIds.length} user${config.userIds.length !== 1 ? 's' : ''} selected` });
+  }
+  
+  const userRow = new ActionRowBuilder()
+    .addComponents(
+      new UserSelectMenuBuilder()
+        .setCustomId('schedule_auto_users_select')
+        .setPlaceholder('Select users')
+        .setMaxValues(25)
+    );
+  
+  const backRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_participants')
+        .setLabel('Back')
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [userRow, backRow]
+  });
+}
+
+/**
+ * Show notifications config for auto-schedule
+ */
+export async function showAutoScheduleNotifications(interaction) {
+  const config = getAutoScheduleEditConfig(interaction.user.id);
+  const notifs = config.notifications || {};
+  
+  const embed = new EmbedBuilder()
+    .setTitle('🔔 Notification Settings')
+    .setDescription('Configure when notifications are sent for auto-scheduled sessions.')
+    .setColor('#5865F2');
+  
+  const lines = [
+    `📣 **Announcement:** ${notifs.announcement?.enabled ? `${notifs.announcement.hoursBefore}h before first game` : 'Disabled'}`,
+    `⏰ **Reminder:** ${notifs.reminder?.enabled ? `${notifs.reminder.minutesBefore}m before first game` : 'Disabled'}`,
+    `⚠️ **Warning:** ${notifs.warning?.enabled ? `${notifs.warning.minutesBefore}m before first game` : 'Disabled'}`
+  ];
+  embed.addFields({ name: 'Current Settings', value: lines.join('\n') });
+  
+  const row1 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_notif_announcement')
+        .setLabel(`Announcement: ${notifs.announcement?.enabled ? 'ON' : 'OFF'}`)
+        .setEmoji('📣')
+        .setStyle(notifs.announcement?.enabled ? ButtonStyle.Success : ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_notif_reminder')
+        .setLabel(`Reminder: ${notifs.reminder?.enabled ? 'ON' : 'OFF'}`)
+        .setEmoji('⏰')
+        .setStyle(notifs.reminder?.enabled ? ButtonStyle.Success : ButtonStyle.Secondary)
+    );
+  
+  const row2 = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_notif_warning')
+        .setLabel(`Warning: ${notifs.warning?.enabled ? 'ON' : 'OFF'}`)
+        .setEmoji('⚠️')
+        .setStyle(notifs.warning?.enabled ? ButtonStyle.Success : ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_configure')
+        .setLabel('Done')
+        .setEmoji('✅')
         .setStyle(ButtonStyle.Primary)
     );
   
   await interaction.editReply({
     embeds: [embed],
-    components: [continueButton]
+    components: [row1, row2]
   });
 }
+
+/**
+ * Show announcement time selector
+ */
+export async function showAutoScheduleAnnouncementSelector(interaction) {
+  const config = getAutoScheduleEditConfig(interaction.user.id);
+  const currentHours = config.notifications?.announcement?.hoursBefore || 9;
+  const enabled = config.notifications?.announcement?.enabled ?? true;
+  
+  const embed = new EmbedBuilder()
+    .setTitle('📣 Announcement Settings')
+    .setDescription('Set when the announcement is posted before the first game.')
+    .setColor('#5865F2')
+    .addFields({ name: 'Current', value: enabled ? `${currentHours} hours before` : 'Disabled' });
+  
+  const options = [1, 2, 3, 4, 6, 8, 9, 10, 12, 18, 24].map(hours => 
+    new StringSelectMenuOptionBuilder()
+      .setLabel(`${hours} hour${hours !== 1 ? 's' : ''} before`)
+      .setValue(hours.toString())
+      .setDefault(currentHours === hours)
+  );
+  
+  const selectRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('schedule_auto_announcement_select')
+        .setPlaceholder('Select announcement time')
+        .addOptions(options)
+    );
+  
+  const toggleRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_announcement_toggle')
+        .setLabel(enabled ? 'Disable Announcement' : 'Enable Announcement')
+        .setStyle(enabled ? ButtonStyle.Danger : ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_notifications')
+        .setLabel('Back')
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [selectRow, toggleRow]
+  });
+}
+
+/**
+ * Show reminder time selector
+ */
+export async function showAutoScheduleReminderSelector(interaction) {
+  const config = getAutoScheduleEditConfig(interaction.user.id);
+  const currentMins = config.notifications?.reminder?.minutesBefore || 60;
+  const enabled = config.notifications?.reminder?.enabled ?? true;
+  
+  const embed = new EmbedBuilder()
+    .setTitle('⏰ Reminder Settings')
+    .setDescription('Set when the reminder is sent before the first game.')
+    .setColor('#5865F2')
+    .addFields({ name: 'Current', value: enabled ? `${currentMins} minutes before` : 'Disabled' });
+  
+  const options = [15, 30, 45, 60, 90, 120].map(mins => 
+    new StringSelectMenuOptionBuilder()
+      .setLabel(`${mins} minutes before`)
+      .setValue(mins.toString())
+      .setDefault(currentMins === mins)
+  );
+  
+  const selectRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('schedule_auto_reminder_select')
+        .setPlaceholder('Select reminder time')
+        .addOptions(options)
+    );
+  
+  const toggleRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_reminder_toggle')
+        .setLabel(enabled ? 'Disable Reminder' : 'Enable Reminder')
+        .setStyle(enabled ? ButtonStyle.Danger : ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_notifications')
+        .setLabel('Back')
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [selectRow, toggleRow]
+  });
+}
+
+/**
+ * Show warning time selector
+ */
+export async function showAutoScheduleWarningSelector(interaction) {
+  const config = getAutoScheduleEditConfig(interaction.user.id);
+  const currentMins = config.notifications?.warning?.minutesBefore || 15;
+  const enabled = config.notifications?.warning?.enabled ?? true;
+  
+  const embed = new EmbedBuilder()
+    .setTitle('⚠️ Warning Settings')
+    .setDescription('Set when the final warning is sent before the first game.')
+    .setColor('#5865F2')
+    .addFields({ name: 'Current', value: enabled ? `${currentMins} minutes before` : 'Disabled' });
+  
+  const options = [5, 10, 15, 20, 30].map(mins => 
+    new StringSelectMenuOptionBuilder()
+      .setLabel(`${mins} minutes before`)
+      .setValue(mins.toString())
+      .setDefault(currentMins === mins)
+  );
+  
+  const selectRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('schedule_auto_warning_select')
+        .setPlaceholder('Select warning time')
+        .addOptions(options)
+    );
+  
+  const toggleRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_warning_toggle')
+        .setLabel(enabled ? 'Disable Warning' : 'Enable Warning')
+        .setStyle(enabled ? ButtonStyle.Danger : ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_notifications')
+        .setLabel('Back')
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [selectRow, toggleRow]
+  });
+}
+
+/**
+ * Show auto-end configuration
+ */
+export async function showAutoScheduleAutoEnd(interaction) {
+  const config = getAutoScheduleEditConfig(interaction.user.id);
+  const autoEnd = config.autoEnd || { enabled: false, hoursAfterLastGame: 6 };
+  
+  const embed = new EmbedBuilder()
+    .setTitle('🏁 Auto-End Settings')
+    .setDescription('Configure whether sessions automatically end after the last game.')
+    .setColor('#5865F2')
+    .addFields({ 
+      name: 'Current', 
+      value: autoEnd.enabled 
+        ? `✅ Enabled - ${autoEnd.hoursAfterLastGame} hours after last game` 
+        : '❌ Disabled - Sessions must be manually ended'
+    });
+  
+  const options = [1, 2, 3, 4, 5, 6, 8, 10, 12].map(hours => 
+    new StringSelectMenuOptionBuilder()
+      .setLabel(`${hours} hour${hours !== 1 ? 's' : ''} after last game`)
+      .setValue(hours.toString())
+      .setDefault(autoEnd.hoursAfterLastGame === hours)
+  );
+  
+  const selectRow = new ActionRowBuilder()
+    .addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('schedule_auto_autoend_select')
+        .setPlaceholder('Select auto-end time')
+        .addOptions(options)
+    );
+  
+  const toggleRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_autoend_toggle')
+        .setLabel(autoEnd.enabled ? 'Disable Auto-End' : 'Enable Auto-End')
+        .setStyle(autoEnd.enabled ? ButtonStyle.Danger : ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_configure')
+        .setLabel('Back')
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [selectRow, toggleRow]
+  });
+}
+
+/**
+ * Preview auto-schedule - show what days would be scheduled
+ */
+export async function showAutoSchedulePreview(interaction) {
+  const config = getAutoScheduleConfig();
+  const { getESPNGamesForDate } = await import('../utils/nbaScores.js');
+  
+  const embed = new EmbedBuilder()
+    .setTitle('👁️ Auto-Schedule Preview')
+    .setDescription(`Checking next ${config.daysAhead} days for games...`)
+    .setColor('#5865F2');
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: []
+  });
+  
+  const preview = [];
+  const today = new Date();
+  
+  for (let i = 0; i <= config.daysAhead; i++) {
+    const checkDate = new Date(today);
+    checkDate.setDate(today.getDate() + i);
+    const dateStr = checkDate.toISOString().split('T')[0];
+    
+    try {
+      const games = await getESPNGamesForDate(dateStr);
+      const upcomingGames = i === 0 
+        ? games.filter(g => new Date(g.date) > new Date())
+        : games;
+      
+      const hasExisting = hasAutoScheduledSessionForDate(dateStr);
+      const meetsMin = upcomingGames.length >= config.minGames;
+      
+      let status;
+      if (hasExisting) {
+        status = '✅ Already scheduled';
+      } else if (!meetsMin && upcomingGames.length > 0) {
+        status = `⏭️ Only ${upcomingGames.length} game${upcomingGames.length !== 1 ? 's' : ''} (min: ${config.minGames})`;
+      } else if (upcomingGames.length === 0) {
+        status = '⏭️ No games';
+      } else {
+        status = `🆕 Would schedule (${upcomingGames.length} games)`;
+      }
+      
+      preview.push({
+        date: checkDate,
+        dateStr,
+        games: upcomingGames.length,
+        status,
+        wouldSchedule: !hasExisting && meetsMin && upcomingGames.length > 0
+      });
+    } catch (error) {
+      console.error(`[Auto-Schedule] Error fetching games for ${dateStr}:`, error);
+      preview.push({
+        date: checkDate,
+        dateStr,
+        games: 0,
+        status: '❌ Error fetching games',
+        wouldSchedule: false
+      });
+    }
+  }
+  
+  const wouldScheduleCount = preview.filter(p => p.wouldSchedule).length;
+  
+  const previewEmbed = new EmbedBuilder()
+    .setTitle('👁️ Auto-Schedule Preview')
+    .setDescription(
+      `Based on current settings, **${wouldScheduleCount}** new session${wouldScheduleCount !== 1 ? 's' : ''} would be scheduled.\n\n` +
+      `**Settings:** ${config.daysAhead} days ahead, minimum ${config.minGames} game${config.minGames !== 1 ? 's' : ''}`
+    )
+    .setColor('#5865F2');
+  
+  const previewLines = preview.map(p => {
+    const dateDisplay = p.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    return `${p.status}\n└ ${dateDisplay}`;
+  });
+  
+  // Split into chunks if too long
+  const chunkSize = 7;
+  for (let i = 0; i < previewLines.length; i += chunkSize) {
+    const chunk = previewLines.slice(i, i + chunkSize);
+    previewEmbed.addFields({
+      name: i === 0 ? '📅 Schedule Preview' : '\u200b',
+      value: chunk.join('\n'),
+      inline: false
+    });
+  }
+  
+  const backRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_menu')
+        .setLabel('Back to Auto-Schedule')
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [previewEmbed],
+    components: [backRow]
+  });
+}
+
+/**
+ * Run auto-scheduler now
+ */
+export async function runAutoSchedulerNow(interaction) {
+  const config = getAutoScheduleConfig();
+  
+  if (!config.enabled || !config.channelId) {
+    const embed = new EmbedBuilder()
+      .setTitle('⚠️ Cannot Run')
+      .setDescription('Auto-scheduling must be enabled and configured before running.')
+      .setColor('#ED4245');
+    
+    await interaction.editReply({
+      embeds: [embed],
+      components: []
+    });
+    
+    setTimeout(async () => {
+      await showAutoScheduleMenu(interaction);
+    }, 2000);
+    return;
+  }
+  
+  const embed = new EmbedBuilder()
+    .setTitle('▶️ Running Auto-Scheduler')
+    .setDescription('Checking for games and scheduling sessions...')
+    .setColor('#5865F2');
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: []
+  });
+  
+  const { getESPNGamesForDate } = await import('../utils/nbaScores.js');
+  const { createSchedulerHandlers } = await import('../utils/sessionScheduler.js');
+  
+  const handlers = createSchedulerHandlers(interaction.client);
+  const today = new Date();
+  let sessionsCreated = 0;
+  let sessionsSkipped = 0;
+  const createdSessions = [];
+  
+  for (let i = 0; i <= config.daysAhead; i++) {
+    const checkDate = new Date(today);
+    checkDate.setDate(today.getDate() + i);
+    const dateStr = checkDate.toISOString().split('T')[0];
+    
+    // Skip if already has session
+    if (hasAutoScheduledSessionForDate(dateStr)) {
+      sessionsSkipped++;
+      continue;
+    }
+    
+    try {
+      const games = await getESPNGamesForDate(dateStr);
+      const upcomingGames = i === 0 
+        ? games.filter(g => new Date(g.date) > new Date())
+        : games;
+      
+      if (upcomingGames.length < config.minGames) {
+        continue;
+      }
+      
+      // Create the session
+      const session = await createAutoScheduledSession(interaction.client, dateStr, upcomingGames, config);
+      if (session) {
+        sessionsCreated++;
+        createdSessions.push({
+          date: checkDate,
+          games: upcomingGames.length
+        });
+        
+        // Schedule cron jobs
+        scheduleSessionJobs(session, handlers, true);
+      }
+    } catch (error) {
+      console.error(`[Auto-Schedule] Error scheduling for ${dateStr}:`, error);
+    }
+  }
+  
+  const resultEmbed = new EmbedBuilder()
+    .setTitle('✅ Auto-Scheduler Complete')
+    .setDescription(
+      `**Created:** ${sessionsCreated} session${sessionsCreated !== 1 ? 's' : ''}\n` +
+      `**Skipped:** ${sessionsSkipped} (already scheduled)`
+    )
+    .setColor('#57F287');
+  
+  if (createdSessions.length > 0) {
+    const sessionList = createdSessions.map(s => {
+      const dateDisplay = s.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      return `• ${dateDisplay} (${s.games} games)`;
+    }).join('\n');
+    resultEmbed.addFields({ name: '📅 Sessions Created', value: sessionList });
+  }
+  
+  const backRow = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_auto_menu')
+        .setLabel('Back to Auto-Schedule')
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [resultEmbed],
+    components: [backRow]
+  });
+}
+
+/**
+ * Create an auto-scheduled session for a specific date
+ */
+async function createAutoScheduledSession(client, dateStr, games, config) {
+  // Sort games by start time
+  games.sort((a, b) => new Date(a.date) - new Date(b.date));
+  
+  const firstGame = games[0];
+  const lastGame = games[games.length - 1];
+  const firstGameTime = new Date(firstGame.date);
+  const lastGameTime = new Date(lastGame.date);
+  
+  // Calculate announcement time
+  const announcementHours = config.notifications?.announcement?.hoursBefore || 9;
+  const announcementTime = new Date(firstGameTime.getTime() - (announcementHours * 60 * 60 * 1000));
+  
+  // Calculate auto-end time if enabled
+  let autoEndTime = null;
+  if (config.autoEnd?.enabled) {
+    autoEndTime = new Date(lastGameTime.getTime() + (config.autoEnd.hoursAfterLastGame * 60 * 60 * 1000));
+  }
+  
+  // Build game details
+  const gameDetails = games.map(game => ({
+    awayTeam: game.awayTeam?.displayName || game.awayTeam,
+    homeTeam: game.homeTeam?.displayName || game.homeTeam,
+    awayAbbr: game.awayTeam?.abbreviation || game.awayAbbr,
+    homeAbbr: game.homeTeam?.abbreviation || game.homeAbbr,
+    startTime: game.date
+  }));
+  
+  // Create session config
+  const sessionConfig = {
+    guildId: config.guildId,
+    channelId: config.channelId,
+    scheduledDate: dateStr,
+    startTime: firstGameTime.toISOString(),
+    firstGameTime: firstGameTime.toISOString(),
+    games: games.length,
+    gameDetails: gameDetails,
+    participantType: 'users',
+    roleIds: config.roleIds || [],
+    userIds: config.userIds || [],
+    autoEnd: config.autoEnd?.enabled ? {
+      enabled: true,
+      time: autoEndTime.toISOString(),
+      hoursAfterLastGame: config.autoEnd.hoursAfterLastGame
+    } : { enabled: false },
+    notifications: {
+      announcement: {
+        enabled: config.notifications?.announcement?.enabled ?? true,
+        time: announcementTime.toISOString(),
+        hoursBefore: announcementHours
+      },
+      reminder: {
+        enabled: config.notifications?.reminder?.enabled ?? true,
+        minutesBefore: config.notifications?.reminder?.minutesBefore || 60
+      },
+      warning: {
+        enabled: config.notifications?.warning?.enabled ?? true,
+        minutesBefore: config.notifications?.warning?.minutesBefore || 15
+      }
+    },
+    createdBy: config.createdBy || 'auto',
+    createdByUsername: config.createdByUsername || 'Auto-Scheduler',
+    autoScheduled: true
+  };
+  
+  // Add the session
+  const session = addScheduledSession(sessionConfig);
+  console.log(`[Auto-Schedule] Created session ${session.id} for ${dateStr} with ${games.length} games`);
+  
+  return session;
+}
+
+/**
+ * Toggle auto-scheduling on/off
+ */
+export async function toggleAutoSchedule(interaction) {
+  const config = getAutoScheduleConfig();
+  
+  if (!config.channelId) {
+    const embed = new EmbedBuilder()
+      .setTitle('⚠️ Configuration Required')
+      .setDescription('You must configure auto-scheduling settings before enabling it.')
+      .setColor('#ED4245');
+    
+    await interaction.editReply({
+      embeds: [embed],
+      components: []
+    });
+    
+    setTimeout(async () => {
+      await showAutoScheduleConfig(interaction);
+    }, 2000);
+    return;
+  }
+  
+  const wasEnabled = config.enabled;
+  config.enabled = !wasEnabled;
+  saveAutoScheduleConfig(config);
+  
+  if (!config.enabled) {
+    // Disabling - remove all auto-scheduled sessions
+    const result = deleteAutoScheduledSessions();
+    
+    const embed = new EmbedBuilder()
+      .setTitle('🔴 Auto-Schedule Disabled')
+      .setDescription(
+        `Auto-scheduling has been disabled.\n\n` +
+        `**Sessions Removed:** ${result.count}`
+      )
+      .setColor('#ED4245');
+    
+    await interaction.editReply({
+      embeds: [embed],
+      components: []
+    });
+  } else {
+    // Enabling - schedule sessions
+    const embed = new EmbedBuilder()
+      .setTitle('🟢 Auto-Schedule Enabled')
+      .setDescription('Auto-scheduling has been enabled. Running initial schedule...')
+      .setColor('#57F287');
+    
+    await interaction.editReply({
+      embeds: [embed],
+      components: []
+    });
+    
+    // Run the auto-scheduler
+    await runAutoSchedulerNow(interaction);
+    return;
+  }
+  
+  setTimeout(async () => {
+    await showAutoScheduleMenu(interaction);
+  }, 2500);
+}
+
+/**
+ * Clear all auto-scheduled sessions
+ */
+export async function clearAutoScheduledSessions(interaction) {
+  const result = deleteAutoScheduledSessions();
+  
+  const embed = new EmbedBuilder()
+    .setTitle('🗑️ Cleared Auto-Scheduled Sessions')
+    .setDescription(
+      result.count > 0
+        ? `Deleted **${result.count}** auto-scheduled session${result.count !== 1 ? 's' : ''}.`
+        : 'No auto-scheduled sessions to clear.'
+    )
+    .setColor(result.count > 0 ? '#57F287' : '#FFA500');
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: []
+  });
+  
+  setTimeout(async () => {
+    await showAutoScheduleMenu(interaction);
+  }, 2500);
+}
+
