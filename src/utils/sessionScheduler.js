@@ -248,7 +248,7 @@ export function deleteAllSeasonScheduledSessions() {
 /**
  * Cancel all cron jobs for a session
  */
-function cancelSessionJobs(sessionId) {
+export function cancelSessionJobs(sessionId) {
   const jobKeys = Array.from(scheduledJobs.keys()).filter(key => key.startsWith(sessionId));
   
   jobKeys.forEach(key => {
