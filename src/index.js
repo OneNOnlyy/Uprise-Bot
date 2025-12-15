@@ -1518,6 +1518,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.deferUpdate();
         await patsscheduleCommand.dismissMenu(interaction);
       }
+      else if (interaction.customId === 'schedule_delete_all') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.confirmDeleteAllSessions(interaction);
+      }
+      else if (interaction.customId === 'schedule_delete_all_confirm') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.deleteAllScheduledSessions(interaction);
+      }
+      else if (interaction.customId === 'schedule_delete_all_cancel') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.showScheduledSessions(interaction);
+      }
       else if (interaction.customId.startsWith('schedule_start_now_')) {
         const sessionId = interaction.customId.replace('schedule_start_now_', '');
         await interaction.deferUpdate();

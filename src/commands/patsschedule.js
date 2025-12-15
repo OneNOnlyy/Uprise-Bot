@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, UserSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { getAllScheduledSessions, getScheduledSession, deleteScheduledSession, getAllTemplates, getTemplate, deleteTemplate, addScheduledSession, saveTemplate, updateScheduledSession, scheduleSessionJobs, getAutoScheduleConfig, saveAutoScheduleConfig, deleteAutoScheduledSessions, hasAutoScheduledSessionForDate } from '../utils/sessionScheduler.js';
+import { getAllScheduledSessions, getScheduledSession, deleteScheduledSession, getAllTemplates, getTemplate, deleteTemplate, addScheduledSession, saveTemplate, updateScheduledSession, scheduleSessionJobs, getAutoScheduleConfig, saveAutoScheduleConfig, deleteAutoScheduledSessions, hasAutoScheduledSessionForDate, loadScheduledSessions, saveScheduledSessions, cancelSessionJobs } from '../utils/sessionScheduler.js';
 import { getESPNGamesForDate } from '../utils/oddsApi.js';
 
 // Store in-progress session configurations (userId -> config)
@@ -287,10 +287,15 @@ export async function showScheduledSessions(interaction) {
         .setEmoji('⬅️')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
+        .setCustomId('schedule_delete_all')
+        .setLabel('Delete All Sessions')
+        .setEmoji('🗑️')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
         .setCustomId('schedule_cancel')
         .setLabel('Cancel')
         .setEmoji('❌')
-        .setStyle(ButtonStyle.Danger)
+        .setStyle(ButtonStyle.Secondary)
     );
   
   const components = manageButtons.components.length > 0 ? [manageButtons, backButton] : [backButton];
@@ -3678,3 +3683,201 @@ export async function clearAutoScheduledSessions(interaction) {
   }, 2500);
 }
 
+
+/**
+ * Show confirmation dialog for deleting all scheduled sessions
+ */
+export async function confirmDeleteAllSessions(interaction) {
+  const sessions = getAllScheduledSessions()
+    .filter(s => !s.seasonId); // Only non-season sessions
+  const now = new Date();
+  
+  const activeSessions = sessions.filter(s => {
+    const firstGameTime = new Date(s.firstGameTime);
+    const lastGameTime = s.gameDetails.length > 0 
+      ? new Date(s.gameDetails[s.gameDetails.length - 1].startTime)
+      : firstGameTime;
+    return now >= firstGameTime && now <= new Date(lastGameTime.getTime() + 4 * 60 * 60 * 1000);
+  });
+  
+  const upcomingSessions = sessions.filter(s => new Date(s.firstGameTime) > now);
+  
+  const embed = new EmbedBuilder()
+    .setTitle(' Delete All Scheduled Sessions?')
+    .setDescription(
+      + "This will permanently delete **${sessions.length} session${sessions.length !== 1 ? 's' : ''}**:\n\n" + 
+      + "` **${activeSessions.length}** active session${activeSessions.length !== 1 ? 's' : ''}\n" + 
+      + "` **${upcomingSessions.length}** upcoming session${upcomingSessions.length !== 1 ? 's' : ''}\n\n" + 
+      `**This action cannot be undone!**`
+    )
+    .setColor('#ED4245');
+  
+  const confirmButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_delete_all_confirm')
+        .setLabel('Yes, Delete All')
+        .setEmoji('')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('schedule_delete_all_cancel')
+        .setLabel('Cancel')
+        .setEmoji('')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [confirmButtons]
+  });
+}
+
+/**
+ * Delete all scheduled sessions (non-season)
+ */
+export async function deleteAllScheduledSessions(interaction) {
+  const data = loadScheduledSessions();
+  const sessions = data.sessions.filter(s => !s.seasonId);
+  const count = sessions.length;
+  
+  if (count === 0) {
+    const embed = new EmbedBuilder()
+      .setTitle(' No Sessions to Delete')
+      .setDescription('There are no scheduled sessions to delete.')
+      .setColor('#FFA500');
+    
+    await interaction.editReply({
+      embeds: [embed],
+      components: []
+    });
+    
+    setTimeout(async () => {
+      await showScheduleMainMenu(interaction);
+    }, 2000);
+    return;
+  }
+  
+  // Cancel all cron jobs
+  sessions.forEach(session => {
+    cancelSessionJobs(session.id);
+  });
+  
+  // Remove all non-season sessions
+  data.sessions = data.sessions.filter(s => s.seasonId);
+  saveScheduledSessions(data);
+  
+  console.log(+ "[Scheduler] Deleted all ${count} scheduled session(s)");
+  
+  const embed = new EmbedBuilder()
+    .setTitle(' All Sessions Deleted')
+    .setDescription(+ "Successfully deleted **${count}** scheduled session${count !== 1 ? 's' : ''}.")
+    .setColor('#57F287');
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: []
+  });
+  
+  setTimeout(async () => {
+    await showScheduleMainMenu(interaction);
+  }, 2500);
+}
+
+/**
+ * Show confirmation dialog for deleting all scheduled sessions
+ */
+export async function confirmDeleteAllSessions(interaction) {
+  const sessions = getAllScheduledSessions()
+    .filter(s => !s.seasonId); // Only non-season sessions
+  const now = new Date();
+  
+  const activeSessions = sessions.filter(s => {
+    const firstGameTime = new Date(s.firstGameTime);
+    const lastGameTime = s.gameDetails.length > 0 
+      ? new Date(s.gameDetails[s.gameDetails.length - 1].startTime)
+      : firstGameTime;
+    return now >= firstGameTime && now <= new Date(lastGameTime.getTime() + 4 * 60 * 60 * 1000);
+  });
+  
+  const upcomingSessions = sessions.filter(s => new Date(s.firstGameTime) > now);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('⚠️ Delete All Scheduled Sessions?')
+    .setDescription(
+      `This will permanently delete **${sessions.length} session${sessions.length !== 1 ? 's' : ''}**:\n\n` +
+      `🟢 **${activeSessions.length}** active session${activeSessions.length !== 1 ? 's' : ''}\n` +
+      `⏰ **${upcomingSessions.length}** upcoming session${upcomingSessions.length !== 1 ? 's' : ''}\n\n` +
+      `**This action cannot be undone!**`
+    )
+    .setColor('#ED4245');
+  
+  const confirmButtons = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId('schedule_delete_all_confirm')
+        .setLabel('Yes, Delete All')
+        .setEmoji('🗑️')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId('schedule_delete_all_cancel')
+        .setLabel('Cancel')
+        .setEmoji('❌')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [confirmButtons]
+  });
+}
+
+/**
+ * Delete all scheduled sessions (non-season)
+ */
+export async function deleteAllScheduledSessions(interaction) {
+  const data = loadScheduledSessions();
+  const sessions = data.sessions.filter(s => !s.seasonId);
+  const count = sessions.length;
+  
+  if (count === 0) {
+    const embed = new EmbedBuilder()
+      .setTitle('📋 No Sessions to Delete')
+      .setDescription('There are no scheduled sessions to delete.')
+      .setColor('#FFA500');
+    
+    await interaction.editReply({
+      embeds: [embed],
+      components: []
+    });
+    
+    setTimeout(async () => {
+      await showScheduleMainMenu(interaction);
+    }, 2000);
+    return;
+  }
+  
+  // Cancel all cron jobs
+  sessions.forEach(session => {
+    cancelSessionJobs(session.id);
+  });
+  
+  // Remove all non-season sessions
+  data.sessions = data.sessions.filter(s => s.seasonId);
+  saveScheduledSessions(data);
+  
+  console.log(`[Scheduler] Deleted all ${count} scheduled session(s)`);
+  
+  const embed = new EmbedBuilder()
+    .setTitle('✅ All Sessions Deleted')
+    .setDescription(`Successfully deleted **${count}** scheduled session${count !== 1 ? 's' : ''}.`)
+    .setColor('#57F287');
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: []
+  });
+  
+  setTimeout(async () => {
+    await showScheduleMainMenu(interaction);
+  }, 2500);
+}
