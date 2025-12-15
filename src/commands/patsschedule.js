@@ -3536,10 +3536,10 @@ async function createAutoScheduledSession(client, dateStr, games, config) {
   
   // Build game details
   const gameDetails = games.map(game => ({
-    awayTeam: game.awayTeam?.displayName || game.awayTeam,
-    homeTeam: game.homeTeam?.displayName || game.homeTeam,
-    awayAbbr: game.awayTeam?.abbreviation || game.awayAbbr,
-    homeAbbr: game.homeTeam?.abbreviation || game.homeAbbr,
+    awayTeam: game.awayTeam,
+    homeTeam: game.homeTeam,
+    awayAbbr: game.awayAbbr,
+    homeAbbr: game.homeAbbr,
     startTime: game.commenceTime
   }));
   
