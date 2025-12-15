@@ -2560,6 +2560,9 @@ export async function saveAutoScheduleConfiguration(interaction) {
  * Show auto-schedule main menu
  */
 export async function showAutoScheduleMenu(interaction) {
+  // Clear any in-progress edit config when returning to menu
+  clearAutoScheduleEditConfig(interaction.user.id);
+  
   const config = getAutoScheduleConfig();
   
   // Count upcoming auto-scheduled sessions
@@ -2693,9 +2696,11 @@ export async function showAutoScheduleMenu(interaction) {
 /**
  * Show auto-schedule configuration menu
  */
-export async function showAutoScheduleConfig(interaction) {
-  // Initialize edit config from saved
-  clearAutoScheduleEditConfig(interaction.user.id);
+export async function showAutoScheduleConfig(interaction, resetConfig = false) {
+  // Only reset if explicitly requested (e.g., first time entering)
+  if (resetConfig) {
+    clearAutoScheduleEditConfig(interaction.user.id);
+  }
   const config = getAutoScheduleEditConfig(interaction.user.id);
   
   const embed = new EmbedBuilder()

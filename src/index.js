@@ -1261,7 +1261,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       else if (interaction.customId === 'schedule_auto_configure') {
         await interaction.deferUpdate();
-        await patsscheduleCommand.showAutoScheduleConfig(interaction);
+        await patsscheduleCommand.showAutoScheduleConfig(interaction, true);
       }
       else if (interaction.customId === 'schedule_auto_preview') {
         await interaction.deferUpdate();
