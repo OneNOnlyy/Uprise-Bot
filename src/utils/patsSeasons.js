@@ -1200,6 +1200,7 @@ export async function autoScheduleSessionForDate(client, date, getGamesForDate, 
     homeTeam: game.homeTeam,
     awayAbbr: game.awayAbbr,
     homeAbbr: game.homeAbbr,
+    matchup: `${game.awayTeam} @ ${game.homeTeam}`,
     startTime: game.commenceTime
   }));
   
