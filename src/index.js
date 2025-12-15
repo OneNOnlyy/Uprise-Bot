@@ -1250,6 +1250,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.deferUpdate();
         await patsscheduleCommand.showDateSelection(interaction);
       }
+      else if (interaction.customId === 'schedule_auto_schedule') {
+        await interaction.deferUpdate();
+        await patsscheduleCommand.autoScheduleToday(interaction);
+      }
       else if (interaction.customId.startsWith('schedule_date_')) {
         const selectedDate = interaction.customId.replace('schedule_date_', '');
         await interaction.deferUpdate();

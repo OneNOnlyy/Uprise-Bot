@@ -349,11 +349,22 @@ export async function showSeasonAdminMenu(interaction) {
         .setEmoji('📜')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
+        .setCustomId('pats_season_clear_sessions')
+        .setLabel('Clear Scheduled Sessions')
+        .setEmoji('🗑️')
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(!currentSeason),
+      new ButtonBuilder()
         .setCustomId('pats_season_end')
         .setLabel('End Season Early')
         .setEmoji('🏁')
         .setStyle(ButtonStyle.Danger)
-        .setDisabled(!currentSeason),
+        .setDisabled(!currentSeason)
+    );
+  
+  // Buttons row 4
+  const row4 = new ActionRowBuilder()
+    .addComponents(
       new ButtonBuilder()
         .setCustomId('pats_season_back')
         .setLabel('Back')
@@ -363,7 +374,7 @@ export async function showSeasonAdminMenu(interaction) {
   
   await interaction.editReply({
     embeds: [embed],
-    components: [row1, row2, row3]
+    components: [row1, row2, row3, row4]
   });
 }
 
@@ -2240,6 +2251,41 @@ export async function handleButton(interaction) {
     }
     
     // End Season
+    // Clear Scheduled Sessions button
+    if (customId === 'pats_season_clear_sessions') {
+      const currentSeason = getCurrentSeason();
+      if (!currentSeason) {
+        return await showSeasonAdminMenu(interaction);
+      }
+      
+      const { deleteSeasonScheduledSessions } = await import('../utils/sessionScheduler.js');
+      const result = deleteSeasonScheduledSessions(currentSeason.id);
+      
+      const embed = new EmbedBuilder()
+        .setTitle('🗑️ Cleared Scheduled Sessions')
+        .setDescription(
+          result.count > 0
+            ? `Deleted **${result.count}** scheduled session(s) for **${currentSeason.name}**.`
+            : `No scheduled sessions found for **${currentSeason.name}**.`
+        )
+        .setColor(result.count > 0 ? '#57F287' : '#FFA500');
+      
+      if (result.count > 0) {
+        embed.addFields({
+          name: '📅 Removed Sessions',
+          value: result.sessions.map(s => `• ${s.scheduledDate} (${Array.isArray(s.games) ? s.games.length : s.games} games)`).join('\n').slice(0, 1024)
+        });
+      }
+      
+      await interaction.editReply({ embeds: [embed], components: [] });
+      
+      setTimeout(async () => {
+        await showSeasonAdminMenu(interaction);
+      }, 2500);
+      
+      return;
+    }
+    
     if (customId === 'pats_season_end') {
       return await showEndSeasonConfirmation(interaction);
     }

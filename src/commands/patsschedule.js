@@ -107,10 +107,19 @@ export async function showMainMenu(interaction) {
         .setEmoji('📆')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
+        .setCustomId('schedule_auto_schedule')
+        .setLabel('Auto-Schedule Today')
+        .setEmoji('🤖')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
         .setCustomId('schedule_view_sessions')
         .setLabel('View Scheduled Sessions')
         .setEmoji('📋')
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Secondary)
+    );
+  
+  const buttons2 = new ActionRowBuilder()
+    .addComponents(
       new ButtonBuilder()
         .setCustomId('schedule_templates')
         .setLabel('Saved Templates')
@@ -129,7 +138,7 @@ export async function showMainMenu(interaction) {
   
   await interaction.editReply({
     embeds: [embed],
-    components: [buttons, cancelRow]
+    components: [buttons, buttons2, cancelRow]
   });
 }
 
@@ -2465,5 +2474,117 @@ export async function handleUserModalSubmit(interaction) {
   }, 2000);
 }
 
-
-
+/**
+ * Auto-schedule a session for today
+ */
+export async function autoScheduleToday(interaction) {
+  const { getESPNGamesForDate } = await import('../utils/nbaScores.js');
+  
+  // Get today's date
+  const today = new Date();
+  const dateStr = today.toISOString().split('T')[0];
+  const dateDisplay = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  
+  // Check if there's already a session scheduled for today
+  const existingSessions = getAllScheduledSessions().filter(s => !s.seasonId);
+  const todaySession = existingSessions.find(s => {
+    const sessionDate = new Date(s.startTime).toISOString().split('T')[0];
+    return sessionDate === dateStr;
+  });
+  
+  if (todaySession) {
+    const embed = new EmbedBuilder()
+      .setColor(0xFF6B35)
+      .setTitle('⚠️ Session Already Exists')
+      .setDescription(`A session is already scheduled for today (${dateDisplay}).\n\nUse "View Scheduled Sessions" to manage it.`)
+      .setTimestamp();
+    
+    await interaction.editReply({
+      embeds: [embed],
+      components: []
+    });
+    
+    setTimeout(async () => {
+      await showMainMenu(interaction);
+    }, 3000);
+    return;
+  }
+  
+  // Fetch today's games
+  let games;
+  try {
+    games = await getESPNGamesForDate(dateStr);
+  } catch (error) {
+    console.error('[SCHEDULE] Error fetching games:', error);
+    
+    const embed = new EmbedBuilder()
+      .setColor(0xFF0000)
+      .setTitle('❌ Error')
+      .setDescription('Failed to fetch today\'s games. Please try again later.')
+      .setTimestamp();
+    
+    await interaction.editReply({
+      embeds: [embed],
+      components: []
+    });
+    
+    setTimeout(async () => {
+      await showMainMenu(interaction);
+    }, 3000);
+    return;
+  }
+  
+  // Filter to games that haven't started yet
+  const now = new Date();
+  const upcomingGames = games.filter(g => new Date(g.date) > now);
+  
+  if (upcomingGames.length === 0) {
+    const embed = new EmbedBuilder()
+      .setColor(0xFF6B35)
+      .setTitle('⚠️ No Games Today')
+      .setDescription(`There are no upcoming NBA games today (${dateDisplay}).`)
+      .setTimestamp();
+    
+    await interaction.editReply({
+      embeds: [embed],
+      components: []
+    });
+    
+    setTimeout(async () => {
+      await showMainMenu(interaction);
+    }, 3000);
+    return;
+  }
+  
+  // Pre-select all upcoming games
+  clearSessionConfig(interaction.user.id);
+  const config = getSessionConfig(interaction.user.id);
+  config.selectedDate = dateStr;
+  config.games = upcomingGames;
+  config.selectedGameIndices = upcomingGames.map((_, index) => index);
+  
+  // Show success message and go to configuration
+  const embed = new EmbedBuilder()
+    .setColor(0x00FF00)
+    .setTitle('✅ Games Auto-Selected')
+    .setDescription(
+      `Found **${upcomingGames.length}** upcoming game${upcomingGames.length !== 1 ? 's' : ''} for today (${dateDisplay}).\n\n` +
+      upcomingGames.map(g => `**${g.awayTeam.displayName}** @ **${g.homeTeam.displayName}**`).join('\n') +
+      '\n\nProceed to configure your session settings.'
+    )
+    .setTimestamp();
+  
+  const continueButton = new ActionRowBuilder()
+    .addComponents(
+      new ButtonBuilder()
+        .setCustomId(`schedule_continue_config_${dateStr}`)
+        .setLabel('Continue to Settings')
+        .setEmoji('⚙️')
+        .setStyle(ButtonStyle.Primary)
+    );
+  
+  await interaction.editReply({
+    embeds: [embed],
+    components: [continueButton]
+  });
+}
