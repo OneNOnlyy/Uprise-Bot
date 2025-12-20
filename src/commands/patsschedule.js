@@ -3703,11 +3703,11 @@ export async function confirmDeleteAllSessions(interaction) {
   const upcomingSessions = sessions.filter(s => new Date(s.firstGameTime) > now);
   
   const embed = new EmbedBuilder()
-    .setTitle(' Delete All Scheduled Sessions?')
+    .setTitle('⚠️ Delete All Scheduled Sessions?')
     .setDescription(
-      + "This will permanently delete **${sessions.length} session${sessions.length !== 1 ? 's' : ''}**:\n\n" + 
-      + "` **${activeSessions.length}** active session${activeSessions.length !== 1 ? 's' : ''}\n" + 
-      + "` **${upcomingSessions.length}** upcoming session${upcomingSessions.length !== 1 ? 's' : ''}\n\n" + 
+      `This will permanently delete **${sessions.length} session${sessions.length !== 1 ? 's' : ''}**:\n\n` +
+      `🟢 **${activeSessions.length}** active session${activeSessions.length !== 1 ? 's' : ''}\n` +
+      `⏰ **${upcomingSessions.length}** upcoming session${upcomingSessions.length !== 1 ? 's' : ''}\n\n` +
       `**This action cannot be undone!**`
     )
     .setColor('#ED4245');
@@ -3717,12 +3717,12 @@ export async function confirmDeleteAllSessions(interaction) {
       new ButtonBuilder()
         .setCustomId('schedule_delete_all_confirm')
         .setLabel('Yes, Delete All')
-        .setEmoji('')
+        .setEmoji('🗑️')
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId('schedule_delete_all_cancel')
         .setLabel('Cancel')
-        .setEmoji('')
+        .setEmoji('❌')
         .setStyle(ButtonStyle.Secondary)
     );
   
@@ -3742,7 +3742,7 @@ export async function deleteAllScheduledSessions(interaction) {
   
   if (count === 0) {
     const embed = new EmbedBuilder()
-      .setTitle(' No Sessions to Delete')
+      .setTitle('📋 No Sessions to Delete')
       .setDescription('There are no scheduled sessions to delete.')
       .setColor('#FFA500');
     
@@ -3766,11 +3766,11 @@ export async function deleteAllScheduledSessions(interaction) {
   data.sessions = data.sessions.filter(s => s.seasonId);
   saveScheduledSessions(data);
   
-  console.log(+ "[Scheduler] Deleted all ${count} scheduled session(s)");
+  console.log(`[Scheduler] Deleted all ${count} scheduled session(s)`);
   
   const embed = new EmbedBuilder()
-    .setTitle(' All Sessions Deleted')
-    .setDescription(+ "Successfully deleted **${count}** scheduled session${count !== 1 ? 's' : ''}.")
+    .setTitle('✅ All Sessions Deleted')
+    .setDescription(`Successfully deleted **${count}** scheduled session${count !== 1 ? 's' : ''}.`)
     .setColor('#57F287');
   
   await interaction.editReply({
