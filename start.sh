@@ -64,7 +64,10 @@ if [ "$AUTO_UPDATE" = "0" ]; then
 fi
 
 # Check if this is a git repository
-if [ -d ".git" ]; then
+if [ ! -d ".git" ]; then
+    echo "⚠️ Not a git repository - cannot auto-update."
+    echo "💡 Your hosting may deploy files directly from GitHub instead of using git."
+else
     echo "📥 Pulling latest changes..."
     
     # Stash any local changes to avoid merge conflicts
@@ -91,8 +94,6 @@ if [ -d ".git" ]; then
     else
         echo "⚠️ Git pull failed (exit code: $PULL_EXIT_CODE), continuing with existing files..."
     fi
-else
-    echo "⚠️ Not a git repository. Skipping update."
 fi
 
 # Install/update dependencies
