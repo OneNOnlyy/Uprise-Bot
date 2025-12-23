@@ -14,11 +14,26 @@ if ! command -v git &> /dev/null; then
         apt-get update -qq > /dev/null 2>&1
         apt-get install -y git -qq > /dev/null 2>&1
         echo "✅ Git installed"
+        # Refresh command hash
+        hash -r
     elif command -v apk &> /dev/null; then
         apk add --no-cache git > /dev/null 2>&1
         echo "✅ Git installed"
+        hash -r
     else
         echo "⚠️ Cannot install git, skipping auto-update..."
+        echo "📦 Installing dependencies..."
+        npm install
+        echo "⚡ Deploying slash commands..."
+        node src/deploy-commands.js
+        echo "🚀 Starting Uprise Bot..."
+        npm start
+        exit 0
+    fi
+    
+    # Verify git is now accessible
+    if ! command -v git &> /dev/null; then
+        echo "⚠️ Git installed but not found in PATH, skipping auto-update..."
         echo "📦 Installing dependencies..."
         npm install
         echo "⚡ Deploying slash commands..."
