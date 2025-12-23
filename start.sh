@@ -4,6 +4,9 @@
 
 echo "🔄 Checking for updates from GitHub..."
 
+# Ensure common binary paths are in PATH
+export PATH="/usr/bin:/bin:/usr/local/bin:$PATH"
+
 # Check if AUTO_UPDATE is disabled
 if [ "$AUTO_UPDATE" = "0" ]; then
     echo "⏭️ Auto-update disabled, skipping git pull..."
@@ -16,24 +19,14 @@ fi
 
 # Check if git is available
 if ! command -v git &> /dev/null; then
-    echo "⚠️ Git not found in PATH, trying to use /usr/bin/git directly..."
-    # Add common paths to PATH
-    export PATH="/usr/bin:/bin:/usr/local/bin:$PATH"
-    
-    # Try using git directly
-    if /usr/bin/git --version &> /dev/null; then
-        echo "✅ Found git at /usr/bin/git"
-        alias git='/usr/bin/git'
-    elif command -v git &> /dev/null; then
-        echo "✅ Git now accessible via PATH"
-    else
-        echo "⚠️ Git not accessible, skipping auto-update..."
-        echo "📦 Installing dependencies..."
-        npm install
-        echo "🚀 Starting Uprise Bot..."
-        npm start
-        exit 0
-    fi
+    echo "⚠️ Git not found, skipping auto-update..."
+    echo "📦 Installing dependencies..."
+    npm install
+    echo "⚡ Deploying slash commands..."
+    node src/deploy-commands.js
+    echo "🚀 Starting Uprise Bot..."
+    npm start
+    exit 0
 fi
 
 # Check if this is a git repository
