@@ -45,8 +45,6 @@ else
     
     # Only proceed if git was found
     if [ -n "$GIT" ]; then
-    # Only proceed if git was found
-    if [ -n "$GIT" ]; then
         # Initialize git repo if not present
         if [ ! -d ".git" ]; then
             echo "📦 Initializing git repository..."
