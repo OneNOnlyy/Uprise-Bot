@@ -32,11 +32,11 @@ if ! command -v git &> /dev/null; then
     # Try to find git in common locations
     if command -v git &> /dev/null; then
         GIT_CMD="git"
-    elif [ -x "/usr/bin/git" ]; then
+    elif /usr/bin/git --version &> /dev/null 2>&1; then
         GIT_CMD="/usr/bin/git"
-    elif [ -x "/bin/git" ]; then
+    elif /bin/git --version &> /dev/null 2>&1; then
         GIT_CMD="/bin/git"
-    elif [ -x "/usr/local/bin/git" ]; then
+    elif /usr/local/bin/git --version &> /dev/null 2>&1; then
         GIT_CMD="/usr/local/bin/git"
     else
         echo "⚠️ Git installed but not found, skipping auto-update..."
