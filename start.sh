@@ -8,18 +8,16 @@ echo "🔄 Checking for updates from GitHub..."
 export PATH="/usr/bin:/bin:/usr/local/bin:$PATH"
 
 # Install git if not present
+GIT_CMD="git"
 if ! command -v git &> /dev/null; then
     echo "📦 Git not found, installing..."
     if command -v apt-get &> /dev/null; then
         apt-get update -qq > /dev/null 2>&1
         apt-get install -y git -qq > /dev/null 2>&1
         echo "✅ Git installed"
-        # Refresh command hash
-        hash -r
     elif command -v apk &> /dev/null; then
         apk add --no-cache git > /dev/null 2>&1
         echo "✅ Git installed"
-        hash -r
     else
         echo "⚠️ Cannot install git, skipping auto-update..."
         echo "📦 Installing dependencies..."
@@ -31,9 +29,17 @@ if ! command -v git &> /dev/null; then
         exit 0
     fi
     
-    # Verify git is now accessible
-    if ! command -v git &> /dev/null; then
-        echo "⚠️ Git installed but not found in PATH, skipping auto-update..."
+    # Try to find git in common locations
+    if command -v git &> /dev/null; then
+        GIT_CMD="git"
+    elif [ -x "/usr/bin/git" ]; then
+        GIT_CMD="/usr/bin/git"
+    elif [ -x "/bin/git" ]; then
+        GIT_CMD="/bin/git"
+    elif [ -x "/usr/local/bin/git" ]; then
+        GIT_CMD="/usr/local/bin/git"
+    else
+        echo "⚠️ Git installed but not found, skipping auto-update..."
         echo "📦 Installing dependencies..."
         npm install
         echo "⚡ Deploying slash commands..."
@@ -42,6 +48,7 @@ if ! command -v git &> /dev/null; then
         npm start
         exit 0
     fi
+    echo "✅ Using git at: $GIT_CMD"
 fi
 
 # Check if AUTO_UPDATE is disabled
@@ -61,19 +68,19 @@ if [ -d ".git" ]; then
     echo "📥 Pulling latest changes..."
     
     # Stash any local changes to avoid merge conflicts
-    if [ -n "$(git status --porcelain)" ]; then
+    if [ -n "$($GIT_CMD status --porcelain 2>/dev/null)" ]; then
         echo "📦 Stashing local changes..."
-        git stash
+        $GIT_CMD stash
     fi
     
     # Configure git
-    git config pull.ff only
+    $GIT_CMD config pull.ff only
     
     # Set remote URL (no authentication needed for public repo)
-    git remote set-url origin https://github.com/OneNOnlyy/Uprise-Bot.git
+    $GIT_CMD remote set-url origin https://github.com/OneNOnlyy/Uprise-Bot.git
     
     # Add timeout to git pull (30 seconds)
-    timeout 30s git pull origin main 2>&1
+    timeout 30s $GIT_CMD pull origin main 2>&1
     
     PULL_EXIT_CODE=$?
     
