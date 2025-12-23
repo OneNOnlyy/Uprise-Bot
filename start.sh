@@ -12,14 +12,22 @@ else
     if ! command -v git &> /dev/null; then
         echo "📦 Installing git..."
         if command -v apt-get &> /dev/null; then
-            apt-get update -qq > /dev/null 2>&1
-            apt-get install -y git -qq > /dev/null 2>&1
+            echo "   Running: apt-get update && apt-get install -y git"
+            apt-get update -qq && apt-get install -y git
         elif command -v apk &> /dev/null; then
-            apk add --no-cache git > /dev/null 2>&1
+            echo "   Running: apk add git"
+            apk add --no-cache git
         fi
         
         # Refresh command cache after installation
         hash -r 2>/dev/null || true
+        
+        # Check if installation succeeded
+        if command -v git &> /dev/null; then
+            echo "   ✅ Git installed successfully"
+        else
+            echo "   ⚠️ Git installation may have failed or requires root permissions"
+        fi
     fi
     
     # Find git executable (check multiple locations)
