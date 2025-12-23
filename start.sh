@@ -19,12 +19,22 @@ fi
 
 # Check if git is available
 GIT_CMD=""
+echo "🔍 Debugging git detection..."
+echo "   PATH: $PATH"
+command -v git && echo "   command -v git: found" || echo "   command -v git: not found"
+[ -x "/usr/bin/git" ] && echo "   /usr/bin/git executable: yes" || echo "   /usr/bin/git executable: no"
+[ -f "/usr/bin/git" ] && echo "   /usr/bin/git exists: yes" || echo "   /usr/bin/git exists: no"
+/usr/bin/git --version 2>&1 && echo "   /usr/bin/git runs: yes" || echo "   /usr/bin/git runs: no"
+
 if command -v git &> /dev/null; then
     GIT_CMD="git"
     echo "✅ Git found in PATH"
 elif [ -x "/usr/bin/git" ]; then
     GIT_CMD="/usr/bin/git"
     echo "✅ Git found at /usr/bin/git"
+elif /usr/bin/git --version &> /dev/null; then
+    GIT_CMD="/usr/bin/git"
+    echo "✅ Git runs at /usr/bin/git (forcing use)"
 else
     echo "⚠️ Git not found, skipping auto-update..."
     echo "📦 Installing dependencies..."
