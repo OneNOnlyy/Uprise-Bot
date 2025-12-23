@@ -18,7 +18,14 @@ if [ "$AUTO_UPDATE" = "0" ]; then
 fi
 
 # Check if git is available
-if ! command -v git &> /dev/null; then
+GIT_CMD=""
+if command -v git &> /dev/null; then
+    GIT_CMD="git"
+    echo "✅ Git found in PATH"
+elif [ -x "/usr/bin/git" ]; then
+    GIT_CMD="/usr/bin/git"
+    echo "✅ Git found at /usr/bin/git"
+else
     echo "⚠️ Git not found, skipping auto-update..."
     echo "📦 Installing dependencies..."
     npm install
@@ -34,19 +41,19 @@ if [ -d ".git" ]; then
     echo "📥 Pulling latest changes..."
     
     # Stash any local changes to avoid merge conflicts
-    if [ -n "$(git status --porcelain)" ]; then
+    if [ -n "$($GIT_CMD status --porcelain)" ]; then
         echo "📦 Stashing local changes..."
-        git stash
+        $GIT_CMD stash
     fi
     
     # Configure git
-    git config pull.ff only
+    $GIT_CMD config pull.ff only
     
     # Set remote URL (no authentication needed for public repo)
-    git remote set-url origin https://github.com/OneNOnlyy/Uprise-Bot.git
+    $GIT_CMD remote set-url origin https://github.com/OneNOnlyy/Uprise-Bot.git
     
     # Add timeout to git pull (30 seconds)
-    timeout 30s git pull origin main 2>&1
+    timeout 30s $GIT_CMD pull origin main 2>&1
     
     PULL_EXIT_CODE=$?
     
