@@ -43,10 +43,25 @@ else
     $GIT config pull.rebase false > /dev/null 2>&1
     $GIT remote set-url origin https://github.com/OneNOnlyy/Uprise-Bot.git > /dev/null 2>&1
     
-    if $GIT pull origin main --force 2>&1 | grep -q "Already up to date\|Updating\|Fast-forward"; then
+    # Store current commit before pull
+    OLD_COMMIT=$($GIT rev-parse HEAD 2>/dev/null || echo "none")
+    
+    # Pull with visible output
+    $GIT pull origin main --force
+    
+    # Check if anything changed
+    NEW_COMMIT=$($GIT rev-parse HEAD 2>/dev/null || echo "none")
+    
+    if [ "$OLD_COMMIT" != "$NEW_COMMIT" ] && [ "$NEW_COMMIT" != "none" ]; then
+        echo ""
+        echo "📝 Changes pulled:"
+        $GIT log $OLD_COMMIT..$NEW_COMMIT --oneline --decorate 2>/dev/null || echo "  (commit log unavailable)"
+        echo ""
         echo "✅ Code updated from GitHub"
+    elif $GIT status 2>&1 | grep -q "up to date\|up-to-date"; then
+        echo "✅ Already up to date"
     else
-        echo "⚠️ Update completed (may have conflicts, continuing anyway)"
+        echo "✅ Update completed"
     fi
 fi
 
