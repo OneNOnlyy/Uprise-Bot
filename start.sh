@@ -17,13 +17,14 @@ else
         elif command -v apk &> /dev/null; then
             apk add --no-cache git > /dev/null 2>&1
         fi
+        
+        # Refresh PATH after installation
+        export PATH="/usr/bin:/usr/local/bin:$PATH"
     fi
     
-    # Set git command (try to find it)
+    # Set git command (use actual location)
     if command -v git &> /dev/null; then
-        GIT="/usr/bin/git"
-    elif [ -f "/usr/bin/git" ]; then
-        GIT="/usr/bin/git"
+        GIT=$(command -v git)
     else
         GIT="git"
     fi
