@@ -14,34 +14,26 @@ if [ "$AUTO_UPDATE" = "0" ]; then
     exit 0
 fi
 
-# Check if git is available in PATH
+# Check if git is available
 if ! command -v git &> /dev/null; then
-    echo "⚠️ Git not found in PATH, checking common locations..."
-    # Try common git installation paths
-    if [ -f "/usr/bin/git" ]; then
-        export PATH="/usr/bin:$PATH"
-    elif [ -f "/bin/git" ]; then
-        export PATH="/bin:$PATH"
-    elif [ -f "/usr/local/bin/git" ]; then
-        export PATH="/usr/local/bin:$PATH"
+    echo "⚠️ Git not found in PATH, trying to use /usr/bin/git directly..."
+    # Add common paths to PATH
+    export PATH="/usr/bin:/bin:/usr/local/bin:$PATH"
+    
+    # Try using git directly
+    if /usr/bin/git --version &> /dev/null; then
+        echo "✅ Found git at /usr/bin/git"
+        alias git='/usr/bin/git'
+    elif command -v git &> /dev/null; then
+        echo "✅ Git now accessible via PATH"
     else
-        echo "⚠️ Git not found, skipping auto-update..."
+        echo "⚠️ Git not accessible, skipping auto-update..."
         echo "📦 Installing dependencies..."
         npm install
         echo "🚀 Starting Uprise Bot..."
         npm start
         exit 0
     fi
-fi
-
-# Verify git is now accessible
-if ! command -v git &> /dev/null; then
-    echo "⚠️ Could not locate git, skipping auto-update..."
-    echo "📦 Installing dependencies..."
-    npm install
-    echo "🚀 Starting Uprise Bot..."
-    npm start
-    exit 0
 fi
 
 # Check if this is a git repository
