@@ -1101,13 +1101,25 @@ export function isSessionScheduledForDate(date) {
 export function getNextUnscheduledDate(daysAhead = 2) {
   const currentSeason = getCurrentSeason();
   if (!currentSeason) return null;
-  
+
+  // Use Pacific Time for date math so "today" matches the bot's scheduling timezone
+  const pacificFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+
   const now = new Date();
+  const parts = pacificFormatter.formatToParts(now);
+  const year = Number(parts.find(p => p.type === 'year')?.value);
+  const month = Number(parts.find(p => p.type === 'month')?.value);
+  const day = Number(parts.find(p => p.type === 'day')?.value);
   const seasonEnd = new Date(currentSeason.endDate);
   
   for (let i = 0; i <= daysAhead; i++) {
-    const checkDate = new Date(now);
-    checkDate.setDate(checkDate.getDate() + i);
+    // Create a stable YYYY-MM-DD date key based on Pacific calendar date
+    const checkDate = new Date(Date.UTC(year, month - 1, day + i));
     
     // Don't schedule past season end
     if (checkDate > seasonEnd) break;
@@ -1194,15 +1206,20 @@ export async function autoScheduleSessionForDate(client, date, getGamesForDate, 
   const sessionStartTime = announcementTime; // Session starts when announcement is sent
   
   // Build game details
-  const gameDetails = games.map(game => ({
-    id: game.id,
-    awayTeam: game.awayTeam,
-    homeTeam: game.homeTeam,
-    awayAbbr: game.awayAbbr,
-    homeAbbr: game.homeAbbr,
-    matchup: `${game.awayTeam} @ ${game.homeTeam}`,
-    startTime: game.commenceTime
-  }));
+  const gameDetails = games
+    .slice()
+    .sort((a, b) => new Date(a.commenceTime) - new Date(b.commenceTime))
+    .map(game => ({
+      // Match the non-season scheduler shape for downstream consistency
+      gameId: game.id,
+      id: game.id,
+      awayTeam: game.awayTeam,
+      homeTeam: game.homeTeam,
+      awayAbbr: game.awayAbbr,
+      homeAbbr: game.homeAbbr,
+      matchup: `${game.awayTeam} @ ${game.homeTeam}`,
+      startTime: game.commenceTime
+    }));
   
   // Get guild ID from channel
   let guildId = null;
@@ -1227,7 +1244,7 @@ export async function autoScheduleSessionForDate(client, date, getGamesForDate, 
   // Calculate auto-end time if enabled
   let autoEndTime = null;
   if (autoEnd.enabled) {
-    const lastGameTime = new Date(Math.max(...games.map(g => new Date(g.commence_time))));
+    const lastGameTime = new Date(Math.max(...games.map(g => new Date(g.commenceTime))));
     autoEndTime = new Date(lastGameTime.getTime() + (autoEnd.hoursAfterLastGame * 60 * 60 * 1000));
   }
   
@@ -1237,7 +1254,8 @@ export async function autoScheduleSessionForDate(client, date, getGamesForDate, 
     channelId: channelId,
     scheduledDate: date,
     firstGameTime: firstGameTime.toISOString(),
-    games: games.length,
+    // Store actual game IDs so downstream systems can reason about game count/selection
+    games: games.map(g => g.id),
     gameDetails: gameDetails,
     participantType: 'users',
     roleIds: roleIds,
@@ -1330,10 +1348,21 @@ export async function runAutoSchedulerCheck(client, getGamesForDate, addSchedule
   let sessionsCreated = 0;
   let sessionsSkipped = 0;
   
-  // Check today and future days
+  // Use Pacific Time for date math so scheduled sessions line up with the configured cron timezone
+  const pacificFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const nowParts = pacificFormatter.formatToParts(new Date());
+  const baseYear = Number(nowParts.find(p => p.type === 'year')?.value);
+  const baseMonth = Number(nowParts.find(p => p.type === 'month')?.value);
+  const baseDay = Number(nowParts.find(p => p.type === 'day')?.value);
+
+  // Check today and future days (Pacific calendar dates)
   for (let i = 0; i <= daysAhead; i++) {
-    const checkDate = new Date();
-    checkDate.setDate(checkDate.getDate() + i);
+    const checkDate = new Date(Date.UTC(baseYear, baseMonth - 1, baseDay + i));
     const dateStr = checkDate.toISOString().split('T')[0];
     
     console.log(`[SEASONS] 🔎 Checking day ${i}/${daysAhead}: ${dateStr}`);
