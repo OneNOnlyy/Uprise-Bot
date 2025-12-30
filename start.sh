@@ -32,11 +32,24 @@ else
         $GIT config pull.rebase false > /dev/null 2>&1
         $GIT remote set-url origin https://github.com/OneNOnlyy/Uprise-Bot.git > /dev/null 2>&1
         
+        # Backup start.sh before pulling (we don't want it overwritten)
+        if [ -f "start.sh" ]; then
+            cp start.sh start.sh.backup
+        fi
+        
         # Store current commit before pull
         OLD_COMMIT=$($GIT rev-parse HEAD 2>/dev/null || echo "none")
         
+        # Stash local changes to avoid conflicts
+        $GIT stash push -u -m "Auto-stash before pull" > /dev/null 2>&1
+        
         # Pull with visible output
         $GIT pull origin main --force
+        
+        # Restore start.sh from backup (never let it be overwritten)
+        if [ -f "start.sh.backup" ]; then
+            mv start.sh.backup start.sh
+        fi
         
         # Check if anything changed
         NEW_COMMIT=$($GIT rev-parse HEAD 2>/dev/null || echo "none")
