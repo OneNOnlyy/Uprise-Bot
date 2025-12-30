@@ -40,8 +40,10 @@ else
         # Store current commit before pull
         OLD_COMMIT=$($GIT rev-parse HEAD 2>/dev/null || echo "none")
         
-        # Force reset to match remote (discard local changes except start.sh backup)
-        $GIT fetch origin main > /dev/null 2>&1
+        # Fetch and force reset to match remote (discard all local changes)
+        echo "   Fetching latest code..."
+        $GIT fetch origin main
+        echo "   Resetting to match GitHub..."
         $GIT reset --hard origin/main
         
         # Restore start.sh from backup (never let it be overwritten)
