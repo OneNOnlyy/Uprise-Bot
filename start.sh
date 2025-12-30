@@ -40,11 +40,9 @@ else
         # Store current commit before pull
         OLD_COMMIT=$($GIT rev-parse HEAD 2>/dev/null || echo "none")
         
-        # Stash local changes to avoid conflicts
-        $GIT stash push -u -m "Auto-stash before pull" > /dev/null 2>&1
-        
-        # Pull with visible output
-        $GIT pull origin main --force
+        # Force reset to match remote (discard local changes except start.sh backup)
+        $GIT fetch origin main > /dev/null 2>&1
+        $GIT reset --hard origin/main
         
         # Restore start.sh from backup (never let it be overwritten)
         if [ -f "start.sh.backup" ]; then
