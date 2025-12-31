@@ -1917,7 +1917,15 @@ export async function handlePlayerSelection(interaction) {
   await interaction.deferUpdate();
   
   // Check if this is a past session selection, game detail selection, or player selection
-  if (interaction.customId === 'pats_select_past_session') {
+  if (interaction.customId === 'pats_leaderboard_select_month_stats') {
+    const monthKey = interaction.values[0];
+    const patsleaderboardCommand = await import('./patsleaderboard.js');
+    await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'monthly', monthKey);
+  } else if (interaction.customId === 'pats_leaderboard_select_month_cmd') {
+    const monthKey = interaction.values[0];
+    const patsleaderboardCommand = await import('./patsleaderboard.js');
+    await patsleaderboardCommand.showLeaderboardStandalone(interaction, 'monthly', monthKey);
+  } else if (interaction.customId === 'pats_select_past_session') {
     const sessionId = interaction.values[0];
     await showHistoricalDashboard(interaction, sessionId);
   } else if (interaction.customId === 'pats_select_historical_game_detail') {

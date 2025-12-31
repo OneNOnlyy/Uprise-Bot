@@ -1010,6 +1010,26 @@ export function getMonthlyLeaderboard(monthKey = getCurrentPacificMonthKey()) {
   return filtered;
 }
 
+export function getAvailableMonthlyLeaderboardMonths(limit = 24) {
+  const data = readPATSData();
+
+  const monthKeys = new Set();
+  for (const user of Object.values(data.users || {})) {
+    const monthlyStats = user?.monthlyStats || {};
+    for (const [monthKey, bucket] of Object.entries(monthlyStats)) {
+      const total = (bucket?.totalWins || 0) + (bucket?.totalLosses || 0) + (bucket?.totalPushes || 0);
+      const sessions = bucket?.sessions || 0;
+      if (total > 0 || sessions > 0) {
+        monthKeys.add(monthKey);
+      }
+    }
+  }
+
+  const sorted = [...monthKeys].filter(Boolean).sort((a, b) => b.localeCompare(a));
+  if (typeof limit !== 'number' || !Number.isFinite(limit) || limit <= 0) return sorted;
+  return sorted.slice(0, limit);
+}
+
 export function getUserMonthlyStats(userId, monthKey = getCurrentPacificMonthKey()) {
   const data = readPATSData();
 

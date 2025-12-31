@@ -1,5 +1,5 @@
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { getLeaderboard, getMonthlyLeaderboard, getUserStats, getUserMonthlyStats, getActiveGlobalSession, getUserPicks, getLiveSessionLeaderboard, getCurrentSessionStats, getCurrentPacificMonthKey } from '../utils/patsData.js';
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from 'discord.js';
+import { getLeaderboard, getMonthlyLeaderboard, getAvailableMonthlyLeaderboardMonths, getUserStats, getUserMonthlyStats, getActiveGlobalSession, getUserPicks, getLiveSessionLeaderboard, getCurrentSessionStats, getCurrentPacificMonthKey } from '../utils/patsData.js';
 
 function normalizeFilterType(filterType) {
   // Legacy boolean and legacy names
@@ -32,11 +32,12 @@ export const data = new SlashCommandBuilder()
  * @param {Interaction} interaction 
  * @param {string} filterType - 'monthly' or 'alltime' (legacy: 'role'/'global')
  * @param {boolean} fromStatsMenu - If true, show navigation buttons for stats menu
+ * @param {string|null} monthKeyOverride - For monthly view, show a specific YYYY-MM
  */
-export async function buildLeaderboardEmbed(interaction, filterType = 'monthly', fromStatsMenu = false) {
+export async function buildLeaderboardEmbed(interaction, filterType = 'monthly', fromStatsMenu = false, monthKeyOverride = null) {
   filterType = normalizeFilterType(filterType);
   
-  const monthKey = getCurrentPacificMonthKey();
+  const monthKey = filterType === 'monthly' ? (monthKeyOverride || getCurrentPacificMonthKey()) : getCurrentPacificMonthKey();
   const monthLabel = formatMonthKey(monthKey);
   const monthlyLeaderboard = getMonthlyLeaderboard(monthKey);
   const allTimeLeaderboard = getLeaderboard();
@@ -182,6 +183,31 @@ export async function buildLeaderboardEmbed(interaction, filterType = 'monthly',
       .setDisabled(filterType === 'alltime')
   );
   components.push(toggleRow);
+
+  // Monthly history selector (only on Monthly page)
+  if (filterType === 'monthly') {
+    const selectId = fromStatsMenu ? 'pats_leaderboard_select_month_stats' : 'pats_leaderboard_select_month_cmd';
+    const months = getAvailableMonthlyLeaderboardMonths(24);
+    if (monthKey && !months.includes(monthKey)) {
+      months.unshift(monthKey);
+    }
+
+    const options = months.slice(0, 25).map(mk => ({
+      label: formatMonthKey(mk),
+      value: mk,
+      default: mk === monthKey
+    }));
+
+    if (options.length > 0) {
+      const monthSelectRow = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(selectId)
+          .setPlaceholder('Select Month')
+          .addOptions(options)
+      );
+      components.push(monthSelectRow);
+    }
+  }
   
   // Navigation row (only if from stats menu)
   if (fromStatsMenu) {
@@ -201,8 +227,8 @@ export async function buildLeaderboardEmbed(interaction, filterType = 'monthly',
 /**
  * Show leaderboard with toggle buttons (called from stats menu)
  */
-export async function showLeaderboardFromStats(interaction, filterType = 'global') {
-  const { embed, components } = await buildLeaderboardEmbed(interaction, filterType, true);
+export async function showLeaderboardFromStats(interaction, filterType = 'global', monthKey = null) {
+  const { embed, components } = await buildLeaderboardEmbed(interaction, filterType, true, monthKey);
   
   await interaction.editReply({
     embeds: [embed],
@@ -213,8 +239,8 @@ export async function showLeaderboardFromStats(interaction, filterType = 'global
 /**
  * Show leaderboard standalone (called from /pats leaderboard command or its toggle buttons)
  */
-export async function showLeaderboardStandalone(interaction, filterType = 'global') {
-  const { embed, components } = await buildLeaderboardEmbed(interaction, filterType, false);
+export async function showLeaderboardStandalone(interaction, filterType = 'global', monthKey = null) {
+  const { embed, components } = await buildLeaderboardEmbed(interaction, filterType, false, monthKey);
   
   await interaction.editReply({
     embeds: [embed],
@@ -229,7 +255,7 @@ export async function execute(interaction) {
       await interaction.deferReply();
     }
 
-    const { embed, components } = await buildLeaderboardEmbed(interaction, 'monthly', false);
+    const { embed, components } = await buildLeaderboardEmbed(interaction, 'monthly', false, null);
 
     await interaction.editReply({ 
       embeds: [embed],
