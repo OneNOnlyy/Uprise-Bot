@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import { getFormattedGamesForDate } from '../utils/oddsApi.js';
-import { getActiveSession, updateSessionSpreads } from '../utils/patsData.js';
+import { getActiveGlobalSession, updateSessionSpreads } from '../utils/patsData.js';
 
 export const data = new SlashCommandBuilder()
   .setName('patsrefreshspreads')
@@ -12,10 +12,10 @@ export async function execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
     // Check if there's an active session
-    const session = getActiveSession();
+    const session = getActiveGlobalSession();
     if (!session) {
       await interaction.editReply({
-        content: '❌ There is no active PATS session. Start one with `/patsstart` first.',
+        content: '❌ There is no active global PATS session. Start one with `/patsstart` first.',
       });
       return;
     }

@@ -9,11 +9,17 @@ import {
   TextInputBuilder,
   TextInputStyle
 } from 'discord.js';
-import { getActiveSession, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory, updateGameResult } from '../utils/patsData.js';
+import { createPATSSession, getActiveSession, getActiveSessionForUser, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory, updateGameResult } from '../utils/patsData.js';
 import { getTeamAbbreviation, fetchCBSSportsScores } from '../utils/oddsApi.js';
 import { getUserSessionSnapshots, loadSessionSnapshot, loadInjuryData, loadRosterData } from '../utils/sessionSnapshot.js';
 import { getUpcomingScheduledSessions } from '../utils/sessionScheduler.js';
 import { getCurrentSeason, getSeasonStandings, isUserInCurrentSeason, getSeasonHistory, getSessionsInSeason } from '../utils/patsSeasons.js';
+import { fetchGamesForSession } from '../utils/dataCache.js';
+
+function getPacificDateStr() {
+  // YYYY-MM-DD in Pacific time
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+}
 
 /**
  * FAIL-SAFE: Fix spreads where one is 0 but the other isn't (they should be inverse)
@@ -232,7 +238,7 @@ export async function execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     
     // Fetch fresh CBS scores before showing dashboard
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (session) {
       try {
         console.log('🔄 Loading dashboard - fetching fresh CBS scores...');
@@ -297,6 +303,85 @@ export async function execute(interaction) {
  */
 export async function handleDashboardButton(interaction) {
   try {
+    if (interaction.customId === 'pats_dashboard_personal_start') {
+      await interaction.deferUpdate();
+
+      const embed = new EmbedBuilder()
+        .setTitle('🟢 Start Personal Session')
+        .setDescription('Start your own personal picks session for **today**?\n\nThis will be private (no public announcement).')
+        .setColor(0x57F287);
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('pats_personal_start_confirm')
+          .setLabel('Yes, start today')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId('pats_personal_start_cancel')
+          .setLabel('Cancel')
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+      await interaction.editReply({ embeds: [embed], components: [row] });
+      return;
+    }
+
+    if (interaction.customId === 'pats_personal_start_cancel') {
+      await interaction.deferUpdate();
+      await showDashboard(interaction);
+      return;
+    }
+
+    if (interaction.customId === 'pats_personal_start_confirm') {
+      await interaction.deferUpdate();
+
+      // Don't create personal sessions if a global session is running
+      const globalSession = getActiveSession();
+      if (globalSession) {
+        await showDashboard(interaction);
+        return;
+      }
+
+      // If the user already has a personal session, just show it
+      const existingPersonal = getActiveSessionForUser(interaction.user.id);
+      if (existingPersonal) {
+        await showDashboard(interaction);
+        return;
+      }
+
+      const dateStr = getPacificDateStr();
+      const games = await fetchGamesForSession(dateStr);
+      if (!games || games.length === 0) {
+        await interaction.editReply({
+          content: `❌ No NBA games found for ${dateStr}.`,
+          embeds: [],
+          components: []
+        });
+        return;
+      }
+
+      const now = new Date();
+      const upcomingGames = games.filter(g => new Date(g.commenceTime) >= now);
+
+      if (upcomingGames.length === 0) {
+        await interaction.editReply({
+          content: `❌ No upcoming games remaining today (${dateStr}).`,
+          embeds: [],
+          components: []
+        });
+        return;
+      }
+
+      createPATSSession(dateStr, upcomingGames, [interaction.user.id], {
+        isPersonal: true,
+        ownerId: interaction.user.id,
+        linkToSeason: false
+      });
+
+      await showDashboard(interaction);
+      return;
+    }
+
     if (interaction.customId === 'pats_dashboard_makepick') {
       // Defer and import makepick command
       await interaction.deferUpdate();
@@ -433,7 +518,7 @@ export async function handleDashboardButton(interaction) {
         return;
       }
       
-      const session = getActiveSession();
+      const session = getActiveSessionForUser(interaction.user.id);
       if (session) {
         try {
           console.log('🔄 Refreshing dashboard - fetching fresh scores...');
@@ -579,7 +664,7 @@ export async function handleDashboardButton(interaction) {
  */
 export async function showDashboard(interaction) {
   // Check for active session
-  const session = getActiveSession();
+  const session = getActiveSessionForUser(interaction.user.id);
   
   if (!session) {
     // Get user's overall stats to display
@@ -682,6 +767,11 @@ export async function showDashboard(interaction) {
       // Add buttons to view detailed stats and help
       const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
+          .setCustomId('pats_dashboard_personal_start')
+          .setLabel('Start Personal Session (Today)')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('🟢'),
+        new ButtonBuilder()
           .setCustomId('pats_no_session_stats_menu')
           .setLabel('All Statistics')
           .setStyle(ButtonStyle.Primary)
@@ -704,9 +794,17 @@ export async function showDashboard(interaction) {
       });
     } else {
       // No stats at all - just show the message
+      const buttons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('pats_dashboard_personal_start')
+          .setLabel('Start Personal Session (Today)')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('🟢')
+      );
+
       await interaction.editReply({
         embeds: [embed],
-        components: []
+        components: [buttons]
       });
     }
     return;
@@ -1135,8 +1233,8 @@ async function searchPlayers(interaction, searchQuery) {
   const data = readPATSData();
   
   // Get active session to check who has made picks
-  const { getActiveSession, getUserPicks } = await import('../utils/patsData.js');
-  const activeSession = getActiveSession();
+  const { getActiveSessions, getUserPicks } = await import('../utils/patsData.js');
+  const activeSessions = getActiveSessions();
   
   // Get all users who have played (have stats) OR have made picks in current session
   const playerIds = Object.keys(data.users).filter(userId => {
@@ -1145,8 +1243,8 @@ async function searchPlayers(interaction, searchQuery) {
     // Check if user has any completed games (wins, losses, or pushes)
     const hasGames = (user.totalWins || 0) + (user.totalLosses || 0) + (user.totalPushes || 0) > 0;
     
-    // Check if user has picks in current active session
-    const hasCurrentPicks = activeSession && getUserPicks(activeSession.id, userId).length > 0;
+    // Check if user has picks in any active session
+    const hasCurrentPicks = activeSessions.some(s => getUserPicks(s.id, userId).length > 0);
     
     const included = hasGames || hasCurrentPicks;
     if (included) {
@@ -1457,7 +1555,7 @@ async function showUserStats(interaction, targetUserId = null) {
  * Show everyone's picks for all games in the session (paginated by game)
  */
 async function showEveryonesPicks(interaction, gameIndex = 0) {
-  const session = getActiveSession();
+  const session = getActiveSessionForUser(interaction.user.id);
   
   if (!session) {
     await interaction.editReply({

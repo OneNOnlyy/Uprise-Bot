@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
-import { getActiveSession, closePATSSession } from '../utils/patsData.js';
+import { getActiveGlobalSession, closePATSSession } from '../utils/patsData.js';
 
 export const data = new SlashCommandBuilder()
   .setName('patsend')
@@ -11,10 +11,10 @@ export async function execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
     // Check if there's an active session
-    const session = getActiveSession();
+    const session = getActiveGlobalSession();
     if (!session) {
       await interaction.editReply({
-        content: '❌ No active PATS session to end.',
+        content: '❌ No active global PATS session to end.',
       });
       return;
     }

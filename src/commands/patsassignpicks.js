@@ -7,7 +7,7 @@ import {
   ButtonBuilder,
   ButtonStyle
 } from 'discord.js';
-import { getActiveSession, savePick, getUserPicks } from '../utils/patsData.js';
+import { getActiveGlobalSession, savePick, getUserPicks } from '../utils/patsData.js';
 import { getTeamAbbreviation } from '../utils/oddsApi.js';
 
 export const data = new SlashCommandBuilder()
@@ -23,11 +23,11 @@ export const data = new SlashCommandBuilder()
  * Show the game selection menu for assigning picks
  */
 export async function showGameSelection(interaction, targetUser) {
-  const session = getActiveSession();
+  const session = getActiveGlobalSession();
   
   if (!session) {
     await interaction.editReply({
-      content: '❌ No active PATS session.',
+      content: '❌ No active global PATS session.',
       components: []
     });
     return;
@@ -111,11 +111,11 @@ export async function showGameSelection(interaction, targetUser) {
  * Show team selection for a specific game
  */
 export async function showTeamSelection(interaction, targetUserId, gameId) {
-  const session = getActiveSession();
+  const session = getActiveGlobalSession();
   
   if (!session) {
     await interaction.editReply({
-      content: '❌ No active PATS session.',
+      content: '❌ No active global PATS session.',
       components: []
     });
     return;
@@ -203,11 +203,11 @@ export async function showTeamSelection(interaction, targetUserId, gameId) {
  * Process the pick assignment
  */
 export async function assignPick(interaction, targetUserId, gameId, team) {
-  const session = getActiveSession();
+  const session = getActiveGlobalSession();
   
   if (!session) {
     await interaction.editReply({
-      content: '❌ No active PATS session.',
+      content: '❌ No active global PATS session.',
       components: []
     });
     return;
@@ -264,10 +264,10 @@ export async function execute(interaction) {
   try {
     await interaction.deferReply({ ephemeral: true });
     
-    const session = getActiveSession();
+    const session = getActiveGlobalSession();
     if (!session) {
       await interaction.editReply({
-        content: '❌ No active PATS session. Start one with `/patsstart`.',
+        content: '❌ No active global PATS session. Start one with `/patsstart`.',
       });
       return;
     }

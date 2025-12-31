@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { getLeaderboard, getActiveSession, getUserPicks, getLiveSessionLeaderboard, getCurrentSessionStats } from '../utils/patsData.js';
+import { getLeaderboard, getActiveGlobalSession, getUserPicks, getLiveSessionLeaderboard, getCurrentSessionStats } from '../utils/patsData.js';
 import { getCurrentSeason, getSeasonStandings } from '../utils/patsSeasons.js';
 
 // PATS Role ID for Blazers Uprise filter
@@ -22,8 +22,8 @@ export async function buildLeaderboardEmbed(interaction, filterType = 'global', 
   }
   
   const leaderboard = getLeaderboard();
-  const session = getActiveSession();
-  const liveLeaderboard = getLiveSessionLeaderboard();
+  const session = getActiveGlobalSession();
+  const liveLeaderboard = session ? getLiveSessionLeaderboard(session) : null;
   const currentSeason = getCurrentSeason();
   
   const leaderboardTitles = {

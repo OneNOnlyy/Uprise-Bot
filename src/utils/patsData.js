@@ -8,9 +8,9 @@ const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, '../../data');
 const PATS_FILE = path.join(DATA_DIR, 'pats.json');
 
-// Cache for session leaderboard (updated max once per minute)
-let leaderboardCache = null;
-let lastLeaderboardUpdate = 0;
+// Cache for session leaderboards (updated max once per minute, per session)
+const leaderboardCacheBySessionId = new Map();
+const lastLeaderboardUpdateBySessionId = new Map();
 const LEADERBOARD_CACHE_DURATION = 60000; // 1 minute in milliseconds
 
 // Lazy import for patsSeasons to avoid circular dependency
@@ -142,6 +142,9 @@ function ensureUser(data, userId, username = null) {
  */
 export function createPATSSession(date, games, participants, options = {}) {
   const data = readPATSData();
+
+  const sessionType = options.sessionType || (options.isPersonal ? 'personal' : 'global');
+  const ownerId = options.ownerId || null;
   
   const session = {
     id: Date.now().toString(),
@@ -167,32 +170,36 @@ export function createPATSSession(date, games, participants, options = {}) {
     status: 'active',
     createdAt: new Date().toISOString(),
     warningMinutes: options.warningMinutes || 30, // Default warning time from schedule or 30
-    seasonId: null // Will be set if a season is active
+    seasonId: null, // Will be set if a season is active
+    sessionType,
+    ownerId
   };
   
   data.activeSessions.push(session);
   writePATSData(data);
   
-  // Link session to current season if one is active
-  (async () => {
-    try {
-      const seasons = await getSeasonsModule();
-      const currentSeason = seasons.getCurrentSeason();
-      if (currentSeason) {
-        seasons.linkSessionToSeason(session.id);
-        // Update the session with seasonId
-        const freshData = readPATSData();
-        const freshSession = freshData.activeSessions.find(s => s.id === session.id);
-        if (freshSession) {
-          freshSession.seasonId = currentSeason.id;
-          writePATSData(freshData);
+  // Link session to current season if one is active (global sessions only)
+  if (sessionType !== 'personal' && options.linkToSeason !== false) {
+    (async () => {
+      try {
+        const seasons = await getSeasonsModule();
+        const currentSeason = seasons.getCurrentSeason();
+        if (currentSeason) {
+          seasons.linkSessionToSeason(session.id);
+          // Update the session with seasonId
+          const freshData = readPATSData();
+          const freshSession = freshData.activeSessions.find(s => s.id === session.id);
+          if (freshSession) {
+            freshSession.seasonId = currentSeason.id;
+            writePATSData(freshData);
+          }
+          console.log(`[PATS] Session ${session.id} linked to season ${currentSeason.name}`);
         }
-        console.log(`[PATS] Session ${session.id} linked to season ${currentSeason.name}`);
+      } catch (error) {
+        console.error('[PATS] Error linking session to season:', error);
       }
-    } catch (error) {
-      console.error('[PATS] Error linking session to season:', error);
-    }
-  })();
+    })();
+  }
   
   // Start monitoring injuries for all session games
   (async () => {
@@ -212,7 +219,51 @@ export function createPATSSession(date, games, participants, options = {}) {
  */
 export function getActiveSession() {
   const data = readPATSData();
+  // Global session takes priority and is what most systems expect.
+  const globalSession = data.activeSessions.find(s => s.status === 'active' && s.sessionType !== 'personal');
+  if (globalSession) {
+    return globalSession;
+  }
+
+  // Backwards-compatible: if no global exists, return the first active session.
   return data.activeSessions.find(s => s.status === 'active');
+}
+
+/**
+ * Get the active global session only.
+ * Returns null if there is no global session.
+ */
+export function getActiveGlobalSession() {
+  const data = readPATSData();
+  return data.activeSessions.find(s => s.status === 'active' && s.sessionType !== 'personal') || null;
+}
+
+/**
+ * Get active PATS session for a specific user.
+ * - If a global session exists, always return it.
+ * - Otherwise, return the user's personal session if present.
+ */
+export function getActiveSessionForUser(userId) {
+  const data = readPATSData();
+
+  const globalSession = data.activeSessions.find(s => s.status === 'active' && s.sessionType !== 'personal');
+  if (globalSession) {
+    return globalSession;
+  }
+
+  if (!userId) {
+    return null;
+  }
+
+  return data.activeSessions.find(s => s.status === 'active' && s.sessionType === 'personal' && s.ownerId === userId) || null;
+}
+
+/**
+ * Get all active sessions (global + personal)
+ */
+export function getActiveSessions() {
+  const data = readPATSData();
+  return data.activeSessions.filter(s => s.status === 'active');
 }
 
 /**
@@ -943,7 +994,7 @@ export function getUserStats(userId) {
  * Get user's current session stats
  */
 export function getCurrentSessionStats(userId) {
-  const session = getActiveSession();
+  const session = getActiveSessionForUser(userId);
   if (!session) {
     return null;
   }
@@ -1021,17 +1072,48 @@ export function getCurrentSessionStats(userId) {
  * Shows current standings for active session with real-time win/loss tracking
  */
 export function getLiveSessionLeaderboard(forceUpdate = false) {
-  const now = Date.now();
-  
-  // Return cached data if within cache duration
-  if (!forceUpdate && leaderboardCache && (now - lastLeaderboardUpdate) < LEADERBOARD_CACHE_DURATION) {
-    return leaderboardCache;
+  // Backwards-compatible overload:
+  // - getLiveSessionLeaderboard(true)
+  // - getLiveSessionLeaderboard(sessionOrSessionId)
+  // - getLiveSessionLeaderboard(sessionOrSessionId, true)
+  let sessionOrSessionId = null;
+  if (typeof forceUpdate !== 'boolean') {
+    sessionOrSessionId = forceUpdate;
+    forceUpdate = false;
   }
-  
-  const session = getActiveSession();
+
+  // Handle 2-arg call shape: (sessionOrSessionId, forceUpdate)
+  let resolvedForceUpdate = forceUpdate;
+  if (sessionOrSessionId && typeof sessionOrSessionId === 'object' && typeof arguments[1] === 'boolean') {
+    resolvedForceUpdate = arguments[1];
+  }
+  if (typeof sessionOrSessionId === 'string' && typeof arguments[1] === 'boolean') {
+    resolvedForceUpdate = arguments[1];
+  }
+
+  const now = Date.now();
+
+  let session = null;
+  if (!sessionOrSessionId || typeof sessionOrSessionId === 'boolean') {
+    session = getActiveSession();
+  } else if (typeof sessionOrSessionId === 'string') {
+    const activeSessions = getActiveSessions();
+    session = activeSessions.find(s => s.id === sessionOrSessionId) || null;
+  } else {
+    session = sessionOrSessionId;
+  }
+
   if (!session) {
-    leaderboardCache = null;
     return null;
+  }
+
+  const cacheKey = session.id;
+  const cached = leaderboardCacheBySessionId.get(cacheKey);
+  const lastUpdate = lastLeaderboardUpdateBySessionId.get(cacheKey) || 0;
+
+  // Return cached data if within cache duration
+  if (!resolvedForceUpdate && cached && (now - lastUpdate) < LEADERBOARD_CACHE_DURATION) {
+    return cached;
   }
   
   const standings = [];
@@ -1118,21 +1200,35 @@ export function getLiveSessionLeaderboard(forceUpdate = false) {
     return b.wins - a.wins;
   });
   
-  leaderboardCache = {
+  const computed = {
     standings,
     session,
     lastUpdate: now
   };
-  lastLeaderboardUpdate = now;
+  leaderboardCacheBySessionId.set(cacheKey, computed);
+  lastLeaderboardUpdateBySessionId.set(cacheKey, now);
   
-  return leaderboardCache;
+  return computed;
 }
 
 /**
  * Force update the leaderboard cache (called when game results are updated)
  */
 export function updateLeaderboardCache() {
-  return getLiveSessionLeaderboard(true);
+  const sessionIds = arguments.length > 0 ? arguments[0] : null;
+
+  if (!sessionIds) {
+    const sessions = getActiveSessions();
+    for (const session of sessions) {
+      getLiveSessionLeaderboard(session, true);
+    }
+    return;
+  }
+
+  const ids = Array.isArray(sessionIds) ? sessionIds : [sessionIds];
+  for (const sessionId of ids) {
+    getLiveSessionLeaderboard(sessionId, true);
+  }
 }
 
 /**

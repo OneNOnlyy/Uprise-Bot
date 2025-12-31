@@ -1,3 +1,53 @@
 {
-  "sessions": []
+  "sessions": [
+    {
+      "sessionId": "1764878401550",
+      "date": "2025-12-04",
+      "gameCount": 5,
+      "participantCount": 3,
+      "createdAt": "2025-12-05T06:42:33.414Z"
+    },
+    {
+      "sessionId": "1764795601106",
+      "date": "2025-12-03",
+      "gameCount": 9,
+      "participantCount": 3,
+      "createdAt": "2025-12-04T05:20:34.904Z"
+    },
+    {
+      "sessionId": "1764705601744",
+      "date": "2025-12-02",
+      "gameCount": 6,
+      "participantCount": 2,
+      "createdAt": "2025-12-03T06:31:31.296Z"
+    },
+    {
+      "sessionId": "1764623102695",
+      "date": "2025-12-01",
+      "gameCount": 9,
+      "participantCount": 2,
+      "createdAt": "2025-12-02T05:58:00.701Z"
+    },
+    {
+      "sessionId": "1764527006178",
+      "date": "2025-11-30",
+      "gameCount": 8,
+      "participantCount": 2,
+      "createdAt": "2025-12-01T17:12:58.493Z"
+    },
+    {
+      "sessionId": "1764439201708",
+      "date": "2025-11-29",
+      "gameCount": 8,
+      "participantCount": 2,
+      "createdAt": "2025-12-02T05:58:48.426Z"
+    },
+    {
+      "sessionId": "1764368114472",
+      "date": "2025-11-28",
+      "gameCount": 11,
+      "participantCount": 2,
+      "createdAt": "2025-12-02T05:59:43.101Z"
+    }
+  ]
 }

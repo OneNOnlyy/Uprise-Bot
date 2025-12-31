@@ -7,7 +7,7 @@
   ButtonBuilder,
   ButtonStyle
 } from 'discord.js';
-import { getActiveSession, savePick, getUserPicks } from '../utils/patsData.js';
+import { getActiveSessionForUser, savePick, getUserPicks } from '../utils/patsData.js';
 import { getCachedMatchupInfo } from '../utils/dataCache.js';
 import { getMatchupInfo, formatInjuries } from '../utils/espnApi.js';
 import { isSubscribed } from '../features/injuryTracking.js';
@@ -39,7 +39,7 @@ export async function execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
     // Check for active session
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (!session) {
       await interaction.editReply({
         content: '❌ No active PATS session. Wait for an admin to start one with `/patsstart`.',
@@ -196,7 +196,7 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
       await interaction.deferUpdate();
     }
 
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (!session) {
       await interaction.editReply({
         content: '❌ Session ended.',
@@ -470,7 +470,7 @@ export async function handleGameSelection(interaction, gameIdOverride = null) {
  */
 export async function handlePickSubmission(interaction) {
   try {
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (!session) {
       await interaction.reply({
         content: '❌ Session ended.',
@@ -538,7 +538,7 @@ export async function handlePickSubmission(interaction) {
  */
 export async function handleDoubleDownToggle(interaction) {
   try {
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (!session) {
       await interaction.reply({
         content: '❌ Session ended.',
@@ -615,7 +615,7 @@ export async function handleSetDoubleDown(interaction) {
   try {
     await interaction.deferUpdate();
 
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (!session) {
       await interaction.followUp({
         content: '❌ Session ended.',
@@ -715,7 +715,7 @@ export async function handleRemoveDoubleDown(interaction) {
   try {
     await interaction.deferUpdate();
 
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (!session) {
       await interaction.followUp({
         content: '❌ Session ended.',
@@ -780,7 +780,7 @@ export async function handleBackToMenu(interaction) {
   try {
     await interaction.deferUpdate();
     
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (!session) {
       await interaction.editReply({
         content: '❌ No active PATS session.',
@@ -924,7 +924,7 @@ export async function handleViewInjuries(interaction) {
   try {
     await interaction.deferUpdate();
 
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (!session) {
       await interaction.editReply({
         content: '❌ Session ended.',
@@ -1026,7 +1026,7 @@ export async function handleViewMatchup(interaction) {
   try {
     await interaction.deferUpdate();
 
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (!session) {
       await interaction.editReply({
         content: '❌ Session ended.',
@@ -1166,7 +1166,7 @@ export async function handleViewRoster(interaction) {
   try {
     await interaction.deferUpdate();
 
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (!session) {
       await interaction.editReply({
         content: '❌ Session ended.',
@@ -1282,7 +1282,7 @@ export async function handleViewMyPicks(interaction) {
   try {
     await interaction.deferUpdate();
     
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (!session) {
       await interaction.editReply({
         content: '❌ No active PATS session found.',
@@ -1494,7 +1494,7 @@ export async function handleBackToGame(interaction) {
  */
 export async function handleMakepickFromDashboard(interaction) {
   try {
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (!session) {
       await interaction.editReply({
         content: '❌ No active PATS session.',

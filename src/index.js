@@ -71,10 +71,10 @@ client.once(Events.ClientReady, async (readyClient) => {
   await initInjuryTracking(client);
   
   // Check if there's an active PATS session and start injury monitoring
-  const { getActiveSession } = await import('./utils/patsData.js');
-  const activeSession = getActiveSession();
-  if (activeSession) {
-    console.log('[Startup] Active PATS session found, starting injury monitoring...');
+  const { getActiveSessions } = await import('./utils/patsData.js');
+  const activeSessions = getActiveSessions();
+  if (activeSessions.length > 0) {
+    console.log('[Startup] Active PATS session(s) found, starting injury monitoring...');
     const { startSessionInjuryMonitoring } = await import('./utils/dataCache.js');
     await startSessionInjuryMonitoring();
   }
@@ -215,12 +215,12 @@ function createSchedulerHandlers(client) {
 async function handleTrackInjuries(interaction) {
   try {
     const gameId = interaction.customId.replace('pats_track_injuries_', '');
-    const { getActiveSession } = await import('./utils/patsData.js');
+    const { getActiveSessionForUser } = await import('./utils/patsData.js');
     const { getCachedMatchupInfo } = await import('./utils/dataCache.js');
     const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
     const { formatInjuries } = await import('./utils/espnApi.js');
     
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (!session) {
       await interaction.reply({
         content: '❌ No active PATS session found.',
@@ -341,12 +341,12 @@ async function handleTrackInjuries(interaction) {
 async function handleUntrackInjuries(interaction) {
   try {
     const gameId = interaction.customId.replace('pats_untrack_injuries_', '');
-    const { getActiveSession } = await import('./utils/patsData.js');
+    const { getActiveSessionForUser } = await import('./utils/patsData.js');
     const { getCachedMatchupInfo } = await import('./utils/dataCache.js');
     const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
     const { formatInjuries } = await import('./utils/espnApi.js');
     
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (!session) {
       await interaction.reply({
         content: '❌ No active PATS session found.',
@@ -458,13 +458,13 @@ async function handleRefreshInjuries(interaction) {
     await interaction.deferUpdate();
     
     const gameId = interaction.customId.replace('pats_refresh_injuries_', '');
-    const { getActiveSession } = await import('./utils/patsData.js');
+    const { getActiveSessionForUser } = await import('./utils/patsData.js');
     const { getCachedMatchupInfo } = await import('./utils/dataCache.js');
     const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = await import('discord.js');
     const { formatInjuries } = await import('./utils/espnApi.js');
     const { isSubscribed } = await import('./features/injuryTracking.js');
     
-    const session = getActiveSession();
+    const session = getActiveSessionForUser(interaction.user.id);
     if (!session) {
       await interaction.followUp({
         content: '❌ No active PATS session.',
@@ -672,9 +672,9 @@ async function sendSessionAnnouncement(client, session) {
 async function sendSessionReminder(client, session) {
   try {
     // Check if there's already an active session - if so, don't send reminders
-    const { getActiveSession } = await import('./utils/patsData.js');
-    const activeSession = getActiveSession();
-    if (activeSession) {
+    const { getActiveGlobalSession } = await import('./utils/patsData.js');
+    const activeGlobalSession = getActiveGlobalSession();
+    if (activeGlobalSession) {
       console.log(`[Scheduler] Skipping reminder for ${session.id} - active session already running`);
       return;
     }

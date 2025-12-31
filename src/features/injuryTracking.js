@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { EmbedBuilder } from 'discord.js';
 import { getCachedMatchupInfo } from '../utils/dataCache.js';
-import { getActiveSession } from '../utils/patsData.js';
+import { getActiveSessions } from '../utils/patsData.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -243,8 +243,8 @@ async function checkInjuryUpdates(client) {
 
   console.log(`[Injury Tracking] Checking ${trackingData.subscriptions.length} subscriptions...`);
 
-  const session = getActiveSession();
-  if (!session) {
+  const sessions = getActiveSessions();
+  if (!sessions || sessions.length === 0) {
     console.log('[Injury Tracking] No active session, skipping check');
     return;
   }
@@ -253,8 +253,9 @@ async function checkInjuryUpdates(client) {
 
   for (const sub of trackingData.subscriptions) {
     try {
-      // Check if game still exists in session
-      const game = session.games.find(g => g.id === sub.gameId);
+      // Check if game still exists in any active session
+      const sessionWithGame = sessions.find(s => s.games.some(g => g.id === sub.gameId));
+      const game = sessionWithGame ? sessionWithGame.games.find(g => g.id === sub.gameId) : null;
       if (!game) {
         console.log(`[Injury Tracking] Game ${sub.gameId} not found, removing subscription`);
         continue; // Don't add to updated list (will be removed)
@@ -398,14 +399,14 @@ export function getUserSubscriptions(userId) {
  * Clean up old subscriptions (for games that ended)
  */
 export async function cleanupOldSubscriptions() {
-  const session = getActiveSession();
-  if (!session) {
+  const sessions = getActiveSessions();
+  if (!sessions || sessions.length === 0) {
     trackingData.subscriptions = [];
     await saveTrackingData();
     return;
   }
 
-  const validGameIds = new Set(session.games.map(g => g.id));
+  const validGameIds = new Set(sessions.flatMap(s => s.games.map(g => g.id)));
   const before = trackingData.subscriptions.length;
   
   trackingData.subscriptions = trackingData.subscriptions.filter(sub => 

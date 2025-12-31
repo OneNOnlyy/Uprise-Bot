@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import fetch from 'node-fetch';
-import { getActiveSession, updateGameResult, getUserPicks, updateLeaderboardCache } from '../utils/patsData.js';
+import { getActiveSessions, updateGameResult, updateLeaderboardCache } from '../utils/patsData.js';
 import { fetchCBSSportsScores, getTeamAbbreviation } from '../utils/oddsApi.js';
 
 const BALLDONTLIE_API = 'https://api.balldontlie.io/v1';
@@ -37,33 +37,48 @@ async function fetchGameData(date) {
  */
 async function checkAndUpdateGameResults() {
   try {
-    const session = getActiveSession();
-    if (!session) {
-      console.log('⏸️ No active PATS session to check');
+    const sessions = getActiveSessions();
+    if (!sessions || sessions.length === 0) {
+      console.log('⏸️ No active PATS sessions to check');
       return;
     }
 
     console.log('🔍 Checking game results...');
-    
-    // Try CBS Sports first (more reliable for live scores)
-    console.log('📡 Fetching from CBS Sports...');
-    const cbsGames = await fetchCBSSportsScores(session.date);
-    
-    // Also fetch from BallDontLie as backup
-    const sessionDate = new Date(session.date);
-    const nextDay = new Date(sessionDate);
-    nextDay.setDate(nextDay.getDate() + 1);
-    
-    const liveGamesToday = await fetchGameData(session.date);
-    const liveGamesTomorrow = await fetchGameData(nextDay.toISOString().split('T')[0]);
-    const ballDontLieGames = [...liveGamesToday, ...liveGamesTomorrow];
-    
-    console.log(`📥 Fetched ${cbsGames.length} games from CBS Sports`);
-    console.log(`📥 Fetched ${ballDontLieGames.length} games from BallDontLie (${liveGamesToday.length} today + ${liveGamesTomorrow.length} tomorrow)`);
-    
+
+    const scoreCacheByDate = new Map();
+    for (const session of sessions) {
+      const dateKey = session.date;
+      if (scoreCacheByDate.has(dateKey)) continue;
+
+      console.log(`📡 Fetching scores for session date ${dateKey}...`);
+
+      // Try CBS Sports first (more reliable for live scores)
+      const cbsGames = await fetchCBSSportsScores(dateKey);
+
+      // Also fetch from BallDontLie as backup
+      const sessionDate = new Date(dateKey);
+      const nextDay = new Date(sessionDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      const liveGamesToday = await fetchGameData(dateKey);
+      const liveGamesTomorrow = await fetchGameData(nextDay.toISOString().split('T')[0]);
+      const ballDontLieGames = [...liveGamesToday, ...liveGamesTomorrow];
+
+      console.log(`📥 Fetched ${cbsGames.length} games from CBS Sports`);
+      console.log(`📥 Fetched ${ballDontLieGames.length} games from BallDontLie (${liveGamesToday.length} today + ${liveGamesTomorrow.length} tomorrow)`);
+
+      scoreCacheByDate.set(dateKey, { cbsGames, ballDontLieGames });
+    }
+
     let updatedCount = 0;
-    
-    for (const sessionGame of session.games) {
+    const touchedSessionIds = new Set();
+
+    for (const session of sessions) {
+      const cached = scoreCacheByDate.get(session.date) || { cbsGames: [], ballDontLieGames: [] };
+      const cbsGames = cached.cbsGames;
+      const ballDontLieGames = cached.ballDontLieGames;
+
+      for (const sessionGame of session.games) {
       // Try to match with CBS Sports data first (using abbreviations)
       const awayAbbr = getTeamAbbreviation(sessionGame.awayTeam);
       const homeAbbr = getTeamAbbreviation(sessionGame.homeTeam);
@@ -89,6 +104,7 @@ async function checkAndUpdateGameResults() {
           
           updateGameResult(session.id, sessionGame.id, liveResult);
           updatedCount++; // Count live updates
+          touchedSessionIds.add(session.id);
         } else if (cbsGame.isFinal) {
           // Only mark as final if not already final
           if (!sessionGame.result || sessionGame.result.status !== 'Final') {
@@ -103,6 +119,7 @@ async function checkAndUpdateGameResults() {
             
             updateGameResult(session.id, sessionGame.id, result);
             updatedCount++;
+            touchedSessionIds.add(session.id);
           } else {
             console.log(`⏭️ [CBS] ${sessionGame.awayTeam} @ ${sessionGame.homeTeam} already marked Final`);
           }
@@ -152,6 +169,7 @@ async function checkAndUpdateGameResults() {
           
           updateGameResult(session.id, sessionGame.id, result);
           updatedCount++;
+          touchedSessionIds.add(session.id);
         }
       } else if (liveGame.status && liveGame.status !== 'Scheduled') {
         // Check if this is actually a live game or just scheduled
@@ -165,6 +183,7 @@ async function checkAndUpdateGameResults() {
             console.log(`🧹 [BallDontLie] Clearing incorrect live status for scheduled game: ${sessionGame.awayTeam} @ ${sessionGame.homeTeam}`);
             updateGameResult(session.id, sessionGame.id, null);
             updatedCount++;
+            touchedSessionIds.add(session.id);
           }
         } else {
           // Game is in progress - store live scores
@@ -185,6 +204,7 @@ async function checkAndUpdateGameResults() {
               
               updateGameResult(session.id, sessionGame.id, liveResult);
               updatedCount++; // Count BallDontLie live updates too
+              touchedSessionIds.add(session.id);
             }
           } else {
             console.log(`🏀 [BallDontLie] Game in progress: ${sessionGame.awayTeam} @ ${sessionGame.homeTeam} - ${liveGame.status} (scores not available yet)`);
@@ -192,19 +212,20 @@ async function checkAndUpdateGameResults() {
         }
       }
     }
+    }
     
     if (updatedCount > 0) {
       console.log(`📊 Updated ${updatedCount} game result(s)`);
       // Update the leaderboard cache when results change
       updateLeaderboardCache();
       console.log(`🔄 Leaderboard cache updated`);
-      
-      // Re-fetch session to get updated game results
-      const updatedSession = getActiveSession();
-      
-      if (updatedSession) {
-        const gamesWithResults = updatedSession.games.filter(g => g.result).length;
-        console.log(`⏳ Session still active: ${gamesWithResults}/${updatedSession.games.length} games complete`);
+
+      // Re-fetch sessions to get updated game results
+      const updatedSessions = getActiveSessions();
+      for (const session of updatedSessions) {
+        if (!touchedSessionIds.has(session.id)) continue;
+        const gamesWithResults = session.games.filter(g => g.result).length;
+        console.log(`⏳ Session ${session.id} still active: ${gamesWithResults}/${session.games.length} games complete`);
       }
     } else {
       console.log('⏳ No completed games yet');
@@ -242,8 +263,8 @@ export function scheduleGameResultChecking() {
   
   // Also run a check immediately on startup if there's an active session
   setTimeout(() => {
-    const session = getActiveSession();
-    if (session) {
+    const sessions = getActiveSessions();
+    if (sessions && sessions.length > 0) {
       console.log('🚀 Running initial game result check...');
       checkAndUpdateGameResults();
     }

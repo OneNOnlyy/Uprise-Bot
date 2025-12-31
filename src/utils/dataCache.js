@@ -85,17 +85,32 @@ export function stopSessionInjuryMonitoring() {
  * Update injuries for all active session games
  */
 async function updateSessionInjuries() {
-  const { getActiveSession } = await import('./patsData.js');
-  const session = getActiveSession();
-  
-  if (!session || !session.games || session.games.length === 0) {
-    console.log('[Cache] No active session, skipping injury update');
+  const { getActiveSessions } = await import('./patsData.js');
+  const sessions = getActiveSessions();
+
+  if (!sessions || sessions.length === 0) {
+    console.log('[Cache] No active sessions, skipping injury update');
     return;
   }
 
-  console.log(`[Cache] 🏥 Updating injuries for ${session.games.length} session games...`);
+  const games = [];
+  const seenGameIds = new Set();
+  for (const session of sessions) {
+    for (const game of (session.games || [])) {
+      if (!game || !game.id || seenGameIds.has(game.id)) continue;
+      seenGameIds.add(game.id);
+      games.push(game);
+    }
+  }
 
-  for (const game of session.games) {
+  if (games.length === 0) {
+    console.log('[Cache] No active session games, skipping injury update');
+    return;
+  }
+
+  console.log(`[Cache] 🏥 Updating injuries for ${games.length} session games...`);
+
+  for (const game of games) {
     try {
       // Skip games that have already started
       const gameTime = new Date(game.commenceTime);
