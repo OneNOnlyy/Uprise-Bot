@@ -43,21 +43,6 @@ function formatDashboardDate(dateStr) {
   return `${monthText} ${day}, ${year}`;
 }
 
-function formatMonthKeyLong(monthKey) {
-  // Input is a Pacific month key in YYYY-MM.
-  // Format: "December 2025"
-  if (!monthKey || typeof monthKey !== 'string') return 'N/A';
-  const match = monthKey.match(/^(\d{4})-(\d{2})$/);
-  if (!match) return monthKey;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-
-  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const monthText = MONTHS[month - 1] || match[2];
-  return `${monthText} ${year}`;
-}
-
 async function getNextNBAGameDayInfo() {
   const now = new Date();
 
@@ -871,7 +856,7 @@ export async function showDashboard(interaction) {
     if (hasMonthStats) {
       const totalGames = monthStats.totalWins + monthStats.totalLosses;
       embed.addFields({
-        name: `📊 Current Month (${formatMonthKeyLong(monthStats.monthKey)})`,
+        name: '📊 Current Month',
         value: [
           `**Record:** ${monthStats.totalWins}-${monthStats.totalLosses}-${monthStats.totalPushes}`,
           `**Win Rate:** ${monthStats.winPercentage.toFixed(1)}%`,
@@ -1608,7 +1593,7 @@ async function showUserStats(interaction, targetUserId = null) {
 
   // Current month stats
   embed.addFields({
-    name: `📅 Current Month (${formatMonthKeyLong(monthStats.monthKey)})`,
+    name: '📅 Current Month',
     value: [
       `**Record:** ${monthStats.totalWins}-${monthStats.totalLosses}-${monthStats.totalPushes}`,
       `**Win Rate:** ${monthStats.winPercentage.toFixed(1)}%`,
