@@ -169,21 +169,6 @@ export async function buildLeaderboardEmbed(interaction, filterType = 'monthly',
   const monthlyButtonId = fromStatsMenu ? 'pats_leaderboard_monthly_stats' : 'pats_leaderboard_monthly_cmd';
   const allTimeButtonId = fromStatsMenu ? 'pats_leaderboard_alltime_stats' : 'pats_leaderboard_alltime_cmd';
   
-  // Toggle buttons row - 2 options
-  const toggleRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(monthlyButtonId)
-      .setLabel('📅 Monthly')
-      .setStyle(filterType === 'monthly' ? ButtonStyle.Primary : ButtonStyle.Secondary)
-      .setDisabled(filterType === 'monthly'),
-    new ButtonBuilder()
-      .setCustomId(allTimeButtonId)
-      .setLabel('🏅 All-Time')
-      .setStyle(filterType === 'alltime' ? ButtonStyle.Primary : ButtonStyle.Secondary)
-      .setDisabled(filterType === 'alltime')
-  );
-  components.push(toggleRow);
-
   // Monthly history selector (only on Monthly page)
   if (filterType === 'monthly') {
     const selectId = fromStatsMenu ? 'pats_leaderboard_select_month_stats' : 'pats_leaderboard_select_month_cmd';
@@ -208,6 +193,21 @@ export async function buildLeaderboardEmbed(interaction, filterType = 'monthly',
       components.push(monthSelectRow);
     }
   }
+
+  // Toggle buttons row - 2 options
+  const toggleRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(monthlyButtonId)
+      .setLabel('📅 Monthly')
+      .setStyle(filterType === 'monthly' ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setDisabled(filterType === 'monthly'),
+    new ButtonBuilder()
+      .setCustomId(allTimeButtonId)
+      .setLabel('🏅 All-Time')
+      .setStyle(filterType === 'alltime' ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setDisabled(filterType === 'alltime')
+  );
+  components.push(toggleRow);
   
   // Navigation row (only if from stats menu)
   if (fromStatsMenu) {
