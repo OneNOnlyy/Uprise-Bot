@@ -68,6 +68,43 @@ function formatMonthKeyLabel(monthKey) {
   return `${monthText} ${year}`;
 }
 
+function formatGameStartLine(game) {
+  if (!game) return null;
+  const away = game.awayTeam || 'Away';
+  const home = game.homeTeam || 'Home';
+  if (!game.commenceTime) return `• ${away} @ ${home}`;
+
+  const gameTime = new Date(game.commenceTime);
+  const timeStr = gameTime.toLocaleTimeString('en-US', {
+    timeZone: 'America/Los_Angeles',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+  return `• ${away} @ ${home} — ${timeStr} PT`;
+}
+
+function buildGamesFieldValue(games) {
+  const lines = (games || [])
+    .slice()
+    .sort((a, b) => new Date(a.commenceTime) - new Date(b.commenceTime))
+    .map(formatGameStartLine)
+    .filter(Boolean);
+
+  if (lines.length === 0) return 'No games available.';
+
+  let value = lines.join('\n');
+  if (value.length <= 1024) return value;
+
+  // Trim to fit Discord embed field limit
+  const trimmed = [];
+  for (const line of lines) {
+    if ((trimmed.join('\n').length + line.length + 1) > 1000) break;
+    trimmed.push(line);
+  }
+  const remaining = lines.length - trimmed.length;
+  return `${trimmed.join('\n')}\n… and ${remaining} more`;
+}
+
 async function showUpcomingPatsDaysThisMonth(interaction) {
   const monthKey = getPacificMonthKey(new Date());
   const monthLabel = formatMonthKeyLabel(monthKey);
@@ -529,6 +566,12 @@ export async function handleDashboardButton(interaction) {
         .setDescription(`Start your own personal picks session for **${dayLabel}**?\n\nThis will be private (no public announcement).`)
         .setColor(0x57F287);
 
+      embed.addFields({
+        name: `Games (${upcomingGames.length})`,
+        value: buildGamesFieldValue(upcomingGames),
+        inline: false
+      });
+
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`pats_personal_start_confirm_${dateStr}`)
@@ -599,6 +642,12 @@ export async function handleDashboardButton(interaction) {
                 `This will be private (no public announcement).`
               )
               .setColor(0x57F287);
+
+            embed.addFields({
+              name: `Games (${tomorrowUpcoming.length})`,
+              value: buildGamesFieldValue(tomorrowUpcoming),
+              inline: false
+            });
 
             const row = new ActionRowBuilder().addComponents(
               new ButtonBuilder()
@@ -1022,6 +1071,11 @@ export async function showDashboard(interaction) {
           .setStyle(ButtonStyle.Success)
           .setEmoji('🟢'),
         new ButtonBuilder()
+          .setCustomId('pats_dashboard_upcoming_days_month')
+          .setLabel('Upcoming Days')
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('📅'),
+        new ButtonBuilder()
           .setCustomId('pats_no_session_stats_menu')
           .setLabel('Statistics')
           .setStyle(ButtonStyle.Primary)
@@ -1049,7 +1103,12 @@ export async function showDashboard(interaction) {
           .setCustomId('pats_dashboard_personal_start')
           .setLabel('Start')
           .setStyle(ButtonStyle.Success)
-          .setEmoji('🟢')
+          .setEmoji('🟢'),
+        new ButtonBuilder()
+          .setCustomId('pats_dashboard_upcoming_days_month')
+          .setLabel('Upcoming Days')
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('📅')
       );
 
       await interaction.editReply({
@@ -1346,11 +1405,6 @@ export async function showDashboard(interaction) {
       .setLabel('Everyone\'s Picks')
       .setEmoji('👥')
       .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId('pats_dashboard_upcoming_days_month')
-      .setLabel('Upcoming Days')
-      .setEmoji('📅')
-      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('pats_dashboard_refresh')
       .setLabel('Refresh')
