@@ -9,7 +9,7 @@ import {
   TextInputBuilder,
   TextInputStyle
 } from 'discord.js';
-import { createPATSSession, getActiveSession, getActiveSessionForUser, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory, updateGameResult } from '../utils/patsData.js';
+import { createPATSSession, getActiveGlobalSession, getActiveSessionForUser, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory, updateGameResult } from '../utils/patsData.js';
 import { getTeamAbbreviation, fetchCBSSportsScores } from '../utils/oddsApi.js';
 import { getUserSessionSnapshots, loadSessionSnapshot, loadInjuryData, loadRosterData } from '../utils/sessionSnapshot.js';
 import { getUpcomingScheduledSessions } from '../utils/sessionScheduler.js';
@@ -336,7 +336,7 @@ export async function handleDashboardButton(interaction) {
       await interaction.deferUpdate();
 
       // Don't create personal sessions if a global session is running
-      const globalSession = getActiveSession();
+      const globalSession = getActiveGlobalSession();
       if (globalSession) {
         await showDashboard(interaction);
         return;
