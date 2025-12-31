@@ -712,8 +712,12 @@ export function closePATSSession(sessionId, gameResults) {
   // Calculate wins/losses/pushes for each user (for session results record only)
   const userResults = {};
   
-  // Get all users who made picks (actual participants)
-  const actualParticipants = Object.keys(session.picks);
+  // Get all users who made picks (actual participants).
+  // For personal sessions, always include the owner so it shows up in history even if they made 0 picks.
+  const actualParticipants = Array.from(new Set([
+    ...Object.keys(session.picks || {}),
+    ...(session.sessionType === 'personal' && session.ownerId ? [session.ownerId] : [])
+  ]));
   
   // Process all users who made picks
   actualParticipants.forEach(userId => {

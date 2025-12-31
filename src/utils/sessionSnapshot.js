@@ -178,12 +178,20 @@ export async function createSessionSnapshot(session) {
       }
     }
     
+    const participantSet = new Set(Object.keys(session.picks || {}));
+    if (session.sessionType === 'personal' && session.ownerId) {
+      participantSet.add(session.ownerId);
+    }
+    const participants = Array.from(participantSet);
+
     // Build the snapshot structure
     const snapshot = {
       sessionId: session.id,
       date: session.date,
       closedAt: session.closedAt,
       status: session.status,
+      sessionType: session.sessionType || 'global',
+      ownerId: session.ownerId || null,
       
       // Game data with final results
       games: session.games.map(game => ({
@@ -202,8 +210,8 @@ export async function createSessionSnapshot(session) {
       // User picks and results
       picks: session.picks,
       results: session.results,
-      // Use actual participants (users who made picks) instead of session.participants (eligible users)
-      participants: Object.keys(session.picks),
+      // Use actual participants (users who made picks). For personal sessions, always include the owner.
+      participants,
       
       // References to injury/roster data (deduplicated)
       injuryRefs,
@@ -230,7 +238,7 @@ export async function createSessionSnapshot(session) {
       date: session.date,
       closedAt: session.closedAt,
       gameCount: session.games.length,
-      participantCount: Object.keys(session.picks).length, // Users who actually made picks
+      participantCount: participants.length,
       totalPicks: Object.values(session.picks).reduce((sum, picks) => sum + picks.length, 0)
     });
     

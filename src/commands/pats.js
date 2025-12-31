@@ -557,37 +557,40 @@ export async function handleDashboardButton(interaction) {
     else if (interaction.customId === 'pats_stats_menu_leaderboard') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
-      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, false);
+      // Default to Monthly first
+      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'monthly');
     }
     else if (interaction.customId === 'pats_leaderboard_global_stats') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
-      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'global');
+      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'alltime');
     }
     else if (interaction.customId === 'pats_leaderboard_blazers_stats') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
-      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'role');
+      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'monthly');
     }
     else if (interaction.customId === 'pats_leaderboard_season_stats') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
-      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'season');
+      // Legacy season page removed; route to All-Time
+      return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'alltime');
     }
     else if (interaction.customId === 'pats_leaderboard_global_cmd') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
-      return await patsleaderboardCommand.showLeaderboardStandalone(interaction, 'global');
+      return await patsleaderboardCommand.showLeaderboardStandalone(interaction, 'alltime');
     }
     else if (interaction.customId === 'pats_leaderboard_blazers_cmd') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
-      return await patsleaderboardCommand.showLeaderboardStandalone(interaction, 'role');
+      return await patsleaderboardCommand.showLeaderboardStandalone(interaction, 'monthly');
     }
     else if (interaction.customId === 'pats_leaderboard_season_cmd') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
-      return await patsleaderboardCommand.showLeaderboardStandalone(interaction, 'season');
+      // Legacy season page removed; route to All-Time
+      return await patsleaderboardCommand.showLeaderboardStandalone(interaction, 'alltime');
     }
     else if (interaction.customId === 'pats_leaderboard_back_to_stats') {
       await interaction.deferUpdate();
