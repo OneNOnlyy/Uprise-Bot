@@ -27,6 +27,22 @@ function getPacificDateStrWithOffset(daysFromNow) {
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
 }
 
+function formatDashboardDate(dateStr) {
+  // Input is a Pacific date key in YYYY-MM-DD.
+  // Avoid `new Date(dateStr)` because it parses as UTC and can display as the prior day in Pacific.
+  if (!dateStr || typeof dateStr !== 'string') return 'N/A';
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return dateStr;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  const MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'Jun.', 'Jul.', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.'];
+  const monthText = MONTHS[month - 1] || match[2];
+  return `${monthText} ${day}, ${year}`;
+}
+
 async function getNextNBAGameDayInfo() {
   const now = new Date();
 
@@ -962,7 +978,7 @@ export async function showDashboard(interaction) {
       {
         name: '📅 Session Info',
         value: [
-          `**Date:** ${session.date}`,
+          `**Date:** ${formatDashboardDate(session.date)}`,
           `**Total Games:** ${totalGames}`,
           `**Status:** ${session.status === 'active' ? '🟢 Active' : '🔴 Closed'}`
         ].join('\n'),
@@ -2574,12 +2590,7 @@ async function showPastSessionsBrowser(interaction) {
   // Show most recent 10 sessions
   const recentSessions = userSessions.slice(0, 10);
   const sessionList = recentSessions.map((session, index) => {
-    const dateStr = new Date(session.date).toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    });
+    const dateStr = formatDashboardDate(session.date);
     
     const result = session.userResult || { wins: 0, losses: 0, pushes: 0 };
     const record = `${result.wins}-${result.losses}-${result.pushes}`;
@@ -2595,11 +2606,7 @@ async function showPastSessionsBrowser(interaction) {
   
   // Create dropdown to select a session
   const sessionOptions = recentSessions.map((session, index) => {
-    const dateStr = new Date(session.date).toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    });
+    const dateStr = formatDashboardDate(session.date);
     const result = session.userResult || { wins: 0, losses: 0, pushes: 0 };
     const record = `${result.wins}-${result.losses}-${result.pushes}`;
     
@@ -2649,13 +2656,8 @@ async function showHistoricalDashboard(interaction, sessionId) {
   const userId = interaction.user.id;
   const userPicks = snapshot.picks[userId] || [];
   const userResult = snapshot.results?.[userId] || { wins: 0, losses: 0, pushes: 0, missedPicks: 0 };
-  
-  const dateStr = new Date(snapshot.date).toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-  });
+
+  const dateStr = formatDashboardDate(snapshot.date);
   
   const record = `${userResult.wins}-${userResult.losses}-${userResult.pushes}`;
   
@@ -2678,7 +2680,7 @@ async function showHistoricalDashboard(interaction, sessionId) {
       {
         name: '📅 Session Info',
         value: [
-          `**Date:** ${snapshot.date}`,
+          `**Date:** ${formatDashboardDate(snapshot.date)}`,
           `**Total Games:** ${snapshot.games.length}`,
           `**Participants:** ${snapshot.participants.length}`
         ].join('\n'),
@@ -2725,12 +2727,7 @@ async function showHistoricalGames(interaction, sessionId) {
     return;
   }
   
-  const dateStr = new Date(snapshot.date).toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-  });
+  const dateStr = formatDashboardDate(snapshot.date);
   
   const embed = new EmbedBuilder()
     .setTitle(`🎮 Games - ${dateStr}`)
@@ -2822,13 +2819,8 @@ async function showHistoricalPicks(interaction, sessionId) {
   const userId = interaction.user.id;
   const userPicks = snapshot.picks[userId] || [];
   const userResult = snapshot.results?.[userId] || { wins: 0, losses: 0, pushes: 0, missedPicks: 0 };
-  
-  const dateStr = new Date(snapshot.date).toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-  });
+
+  const dateStr = formatDashboardDate(snapshot.date);
   
   const record = `${userResult.wins}-${userResult.losses}-${userResult.pushes}`;
   
