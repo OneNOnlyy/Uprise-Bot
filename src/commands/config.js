@@ -446,6 +446,10 @@ async function showPatsConfig(interaction) {
   const currentConfig = readCurrentConfig();
   const monthlyMaxPicksRaw = currentConfig.PATS_MONTHLY_MAX_PICKS;
   const monthlyMaxPicks = monthlyMaxPicksRaw ? String(monthlyMaxPicksRaw) : '90';
+  const monthlyMinPicksRaw = currentConfig.PATS_MONTHLY_MIN_PICKS;
+  const monthlyMinPicks = monthlyMinPicksRaw ? String(monthlyMinPicksRaw) : '60';
+  const monthlyMinTopRaw = currentConfig.PATS_MONTHLY_MIN_PICKS_TOP_N;
+  const monthlyMinTop = monthlyMinTopRaw ? String(monthlyMinTopRaw) : '5';
 
   const embed = new EmbedBuilder()
     .setTitle('🏀 PATS Configuration')
@@ -455,6 +459,16 @@ async function showPatsConfig(interaction) {
       {
         name: '📅 Monthly Max Picks',
         value: `${monthlyMaxPicks} games per month`,
+        inline: false
+      },
+      {
+        name: '✅ Monthly Min Picks (Solidification)',
+        value: `${monthlyMinPicks} games (applies after month ends)`,
+        inline: false
+      },
+      {
+        name: '🏆 Monthly Min Picks Grace (Top N)',
+        value: `Top ${monthlyMinTop} can remain even if below min`,
         inline: false
       }
     );
@@ -467,7 +481,17 @@ async function showPatsConfig(interaction) {
         .setLabel('Monthly Max Picks')
         .setDescription('Maximum games a user can pick per month')
         .setValue('PATS_MONTHLY_MAX_PICKS')
-        .setEmoji('📅')
+        .setEmoji('📅'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Monthly Min Picks (Solidification)')
+        .setDescription('Minimum games required to stay on monthly leaderboard after month ends')
+        .setValue('PATS_MONTHLY_MIN_PICKS')
+        .setEmoji('✅'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Monthly Min Picks Grace (Top N)')
+        .setDescription('Allow top N to stay even if below minimum')
+        .setValue('PATS_MONTHLY_MIN_PICKS_TOP_N')
+        .setEmoji('🏆')
     ]);
 
   const buttons = new ActionRowBuilder().addComponents(

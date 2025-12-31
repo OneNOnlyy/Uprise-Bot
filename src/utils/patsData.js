@@ -121,6 +121,20 @@ function getPatsMonthlyMaxPicks() {
   return 90;
 }
 
+function getPatsMonthlyMinPicksForLeaderboard() {
+  const raw = process.env.PATS_MONTHLY_MIN_PICKS;
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  return 60;
+}
+
+function getPatsMonthlyMinPicksGraceTopN() {
+  const raw = process.env.PATS_MONTHLY_MIN_PICKS_TOP_N;
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  return 5;
+}
+
 function getUserMonthlyPickedGameKeys(data, userId, monthKey) {
   const keys = new Set();
   if (!data || !userId || !monthKey) return keys;
@@ -1043,7 +1057,29 @@ export function getMonthlyLeaderboard(monthKey = getCurrentPacificMonthKey()) {
     return b.totalWins - a.totalWins;
   });
 
-  return filtered;
+  // Monthly leaderboard solidification: after the month ends (i.e. viewing a past month),
+  // require a minimum number of games picked unless the user still ranks within top N.
+  const currentMonthKey = getCurrentPacificMonthKey();
+  const isPastMonth = currentMonthKey && monthKey !== currentMonthKey;
+  const minPicks = getPatsMonthlyMinPicksForLeaderboard();
+  const graceTopN = getPatsMonthlyMinPicksGraceTopN();
+
+  if (!isPastMonth || minPicks <= 0) {
+    return filtered;
+  }
+
+  const withPickedCount = filtered.map(entry => ({
+    ...entry,
+    gamesPicked: (entry.totalWins || 0) + (entry.totalLosses || 0) + (entry.totalPushes || 0)
+  }));
+
+  const result = withPickedCount.filter((entry, index) => {
+    if (graceTopN > 0 && index < graceTopN) return true;
+    return entry.gamesPicked >= minPicks;
+  });
+
+  // Return without the helper field to preserve the existing shape.
+  return result.map(({ gamesPicked, ...rest }) => rest);
 }
 
 export function getAvailableMonthlyLeaderboardMonths(limit = 24) {
