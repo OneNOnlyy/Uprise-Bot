@@ -768,7 +768,7 @@ export async function showDashboard(interaction) {
       const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId('pats_dashboard_personal_start')
-          .setLabel('Start Personal Session (Today)')
+          .setLabel('Start')
           .setStyle(ButtonStyle.Success)
           .setEmoji('🟢'),
         new ButtonBuilder()
@@ -797,7 +797,7 @@ export async function showDashboard(interaction) {
       const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId('pats_dashboard_personal_start')
-          .setLabel('Start Personal Session (Today)')
+          .setLabel('Start')
           .setStyle(ButtonStyle.Success)
           .setEmoji('🟢')
       );
