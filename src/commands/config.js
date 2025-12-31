@@ -31,7 +31,8 @@ const CONFIG_CATEGORIES = {
   THREADS: 'threads',
   PINGS: 'pings',
   TEAM: 'team',
-  SCHEDULE: 'schedule'
+  SCHEDULE: 'schedule',
+  PATS: 'pats'
 };
 
 export async function execute(interaction) {
@@ -61,7 +62,8 @@ async function showMainMenu(interaction) {
       { name: '🧵 Threads', value: 'Game thread settings', inline: true },
       { name: '🔔 Pings', value: 'Game ping settings', inline: true },
       { name: '🏀 Team', value: 'Team & API settings', inline: true },
-      { name: '⏰ Schedule', value: 'Timing & scheduling', inline: true }
+      { name: '⏰ Schedule', value: 'Timing & scheduling', inline: true },
+      { name: '🏀 PATS', value: 'Picks Against The Spread settings', inline: true }
     )
     .setFooter({ text: 'Select a category below to get started' });
 
@@ -98,7 +100,12 @@ async function showMainMenu(interaction) {
         .setLabel('Schedule')
         .setDescription('Timing & scheduling')
         .setValue(CONFIG_CATEGORIES.SCHEDULE)
-        .setEmoji('⏰')
+        .setEmoji('⏰'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('PATS')
+        .setDescription('Picks Against The Spread settings')
+        .setValue(CONFIG_CATEGORIES.PATS)
+        .setEmoji('🏀')
     ]);
 
   const row = new ActionRowBuilder().addComponents(selectMenu);
@@ -433,6 +440,51 @@ async function showScheduleConfig(interaction) {
 }
 
 /**
+ * Show PATS configuration
+ */
+async function showPatsConfig(interaction) {
+  const currentConfig = readCurrentConfig();
+  const monthlyMaxPicksRaw = currentConfig.PATS_MONTHLY_MAX_PICKS;
+  const monthlyMaxPicks = monthlyMaxPicksRaw ? String(monthlyMaxPicksRaw) : '90';
+
+  const embed = new EmbedBuilder()
+    .setTitle('🏀 PATS Configuration')
+    .setDescription('Configure Picks Against The Spread rules')
+    .setColor(0xE03A3E)
+    .addFields(
+      {
+        name: '📅 Monthly Max Picks',
+        value: `${monthlyMaxPicks} games per month`,
+        inline: false
+      }
+    );
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId('config_pats_select')
+    .setPlaceholder('Select a PATS setting to modify...')
+    .addOptions([
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Monthly Max Picks')
+        .setDescription('Maximum games a user can pick per month')
+        .setValue('PATS_MONTHLY_MAX_PICKS')
+        .setEmoji('📅')
+    ]);
+
+  const buttons = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('config_back')
+      .setLabel('Back to Main Menu')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('◀️')
+  );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [new ActionRowBuilder().addComponents(selectMenu), buttons]
+  });
+}
+
+/**
  * Read current configuration from .env
  */
 function readCurrentConfig() {
@@ -514,6 +566,9 @@ export async function handleConfigInteraction(interaction) {
           break;
         case CONFIG_CATEGORIES.SCHEDULE:
           await showScheduleConfig(interaction);
+          break;
+        case CONFIG_CATEGORIES.PATS:
+          await showPatsConfig(interaction);
           break;
       }
     } else if (interaction.customId.startsWith('config_')) {

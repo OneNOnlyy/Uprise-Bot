@@ -114,6 +114,30 @@ function getMonthKeyFromDateStr(dateStr) {
   return match ? match[1] : null;
 }
 
+function getPatsMonthlyMaxPicks() {
+  const raw = process.env.PATS_MONTHLY_MAX_PICKS;
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return 90;
+}
+
+function getUserMonthlyPickedGameKeys(data, userId, monthKey) {
+  const keys = new Set();
+  if (!data || !userId || !monthKey) return keys;
+
+  const sessions = [...(data.activeSessions || []), ...(data.history || [])];
+  for (const session of sessions) {
+    if (!session || getMonthKeyFromDateStr(session.date) !== monthKey) continue;
+    const picks = session.picks?.[userId] || [];
+    for (const pick of picks) {
+      if (!pick?.gameId) continue;
+      keys.add(`${session.date}:${pick.gameId}`);
+    }
+  }
+
+  return keys;
+}
+
 export function getCurrentPacificMonthKey(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Los_Angeles',
@@ -369,6 +393,18 @@ export function savePick(sessionId, userId, gameId, pick, spread, isDoubleDown =
   
   if (!session) {
     return false;
+  }
+
+  // Monthly pick cap (deduped by date+gameId across all sessions in the month)
+  const monthKey = getMonthKeyFromDateStr(session.date);
+  const monthlyCap = getPatsMonthlyMaxPicks();
+  if (monthKey && monthlyCap > 0) {
+    const keySet = getUserMonthlyPickedGameKeys(data, userId, monthKey);
+    const pickKey = `${session.date}:${gameId}`;
+    const alreadyPickedThisGameThisMonth = keySet.has(pickKey);
+    if (!alreadyPickedThisGameThisMonth && keySet.size >= monthlyCap) {
+      return { error: `You have reached the monthly pick limit (${monthlyCap}).` };
+    }
   }
   
   if (!session.picks[userId]) {

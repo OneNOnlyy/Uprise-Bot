@@ -503,7 +503,14 @@ export async function handlePickSubmission(interaction) {
     // Save the pick (with fail-safe for 0 spreads)
     const { homeSpread, awaySpread } = fixZeroSpreads(game);
     const spread = pick === 'home' ? homeSpread : awaySpread;
-    savePick(session.id, interaction.user.id, gameId, pick, spread);
+    const result = savePick(session.id, interaction.user.id, gameId, pick, spread);
+    if (result && result.error) {
+      await interaction.reply({
+        content: `❌ ${result.error}`,
+        ephemeral: true
+      });
+      return;
+    }
 
     const pickedTeam = pick === 'home' ? game.homeTeam : game.awayTeam;
     
