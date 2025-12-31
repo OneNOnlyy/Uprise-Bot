@@ -560,12 +560,12 @@ export async function handleDashboardButton(interaction) {
       // Default to Monthly first
       return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'monthly');
     }
-    else if (interaction.customId === 'pats_leaderboard_global_stats') {
+    else if (interaction.customId === 'pats_leaderboard_global_stats' || interaction.customId === 'pats_leaderboard_alltime_stats') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
       return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'alltime');
     }
-    else if (interaction.customId === 'pats_leaderboard_blazers_stats') {
+    else if (interaction.customId === 'pats_leaderboard_blazers_stats' || interaction.customId === 'pats_leaderboard_monthly_stats') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
       return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'monthly');
@@ -576,12 +576,12 @@ export async function handleDashboardButton(interaction) {
       // Legacy season page removed; route to All-Time
       return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'alltime');
     }
-    else if (interaction.customId === 'pats_leaderboard_global_cmd') {
+    else if (interaction.customId === 'pats_leaderboard_global_cmd' || interaction.customId === 'pats_leaderboard_alltime_cmd') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
       return await patsleaderboardCommand.showLeaderboardStandalone(interaction, 'alltime');
     }
-    else if (interaction.customId === 'pats_leaderboard_blazers_cmd') {
+    else if (interaction.customId === 'pats_leaderboard_blazers_cmd' || interaction.customId === 'pats_leaderboard_monthly_cmd') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
       return await patsleaderboardCommand.showLeaderboardStandalone(interaction, 'monthly');

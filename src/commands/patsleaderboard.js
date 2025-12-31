@@ -165,8 +165,8 @@ export async function buildLeaderboardEmbed(interaction, filterType = 'monthly',
   const components = [];
   
   // Use different button IDs based on context to preserve navigation state
-  const monthlyButtonId = fromStatsMenu ? 'pats_leaderboard_blazers_stats' : 'pats_leaderboard_blazers_cmd';
-  const allTimeButtonId = fromStatsMenu ? 'pats_leaderboard_global_stats' : 'pats_leaderboard_global_cmd';
+  const monthlyButtonId = fromStatsMenu ? 'pats_leaderboard_monthly_stats' : 'pats_leaderboard_monthly_cmd';
+  const allTimeButtonId = fromStatsMenu ? 'pats_leaderboard_alltime_stats' : 'pats_leaderboard_alltime_cmd';
   
   // Toggle buttons row - 2 options
   const toggleRow = new ActionRowBuilder().addComponents(
