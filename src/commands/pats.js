@@ -12,7 +12,6 @@ import {
 import { createPATSSession, getActiveGlobalSession, getActiveSessionForUser, getUserPicks, getUserStats, getUserMonthlyStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory, updateGameResult } from '../utils/patsData.js';
 import { getTeamAbbreviation, fetchCBSSportsScores, getESPNGamesForDate } from '../utils/oddsApi.js';
 import { getUserSessionSnapshots, loadSessionSnapshot, loadInjuryData, loadRosterData } from '../utils/sessionSnapshot.js';
-import { getUpcomingScheduledSessions } from '../utils/sessionScheduler.js';
 import { getCurrentSeason, getSeasonStandings, isUserInCurrentSeason, getSeasonHistory, getSessionsInSeason } from '../utils/patsSeasons.js';
 import { fetchGamesForSession } from '../utils/dataCache.js';
 
@@ -41,6 +40,98 @@ function formatDashboardDate(dateStr) {
   const MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'Jun.', 'Jul.', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.'];
   const monthText = MONTHS[month - 1] || match[2];
   return `${monthText} ${day}, ${year}`;
+}
+
+function getPacificMonthKey(date = new Date()) {
+  // YYYY-MM in Pacific time
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit'
+  }).formatToParts(date);
+
+  const year = parts.find(p => p.type === 'year')?.value;
+  const month = parts.find(p => p.type === 'month')?.value;
+  if (!year || !month) return null;
+  return `${year}-${month}`;
+}
+
+function formatMonthKeyLabel(monthKey) {
+  // monthKey: YYYY-MM
+  if (!monthKey || typeof monthKey !== 'string') return monthKey || '';
+  const match = monthKey.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return monthKey;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const MONTHS = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'Jun.', 'Jul.', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.'];
+  const monthText = MONTHS[month - 1] || match[2];
+  return `${monthText} ${year}`;
+}
+
+async function showUpcomingPatsDaysThisMonth(interaction) {
+  const monthKey = getPacificMonthKey(new Date());
+  const monthLabel = formatMonthKeyLabel(monthKey);
+
+  // Find all remaining NBA game days in this month (Pacific)
+  const dateLines = [];
+  const maxLookaheadDays = 45; // safely covers month boundary
+  const now = new Date();
+
+  for (let i = 0; i <= maxLookaheadDays; i++) {
+    const dateStr = getPacificDateStrWithOffset(i);
+    if (!dateStr || !monthKey || !dateStr.startsWith(monthKey)) {
+      // Once we roll into next month, stop.
+      if (i > 0) break;
+      continue;
+    }
+
+    const games = await getESPNGamesForDate(dateStr);
+    if (!games || games.length === 0) continue;
+
+    // Only show upcoming days (if today, ensure there is at least one upcoming game)
+    if (i === 0) {
+      const hasUpcoming = games.some(g => g?.commenceTime && new Date(g.commenceTime) > now);
+      if (!hasUpcoming) continue;
+    }
+
+    const suffix = ` — ${games.length} game${games.length === 1 ? '' : 's'}`;
+    dateLines.push(`• **${formatDashboardDate(dateStr)}**${suffix}`);
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('📅 Upcoming PATS Days')
+    .setDescription(
+      `Here are all **upcoming NBA game days** for **${monthLabel}**.`
+    )
+    .setColor(0x5865F2)
+    .setTimestamp();
+
+  if (dateLines.length === 0) {
+    embed.addFields({
+      name: 'No upcoming scheduled days',
+      value: 'There are no upcoming NBA game days for the rest of this month.'
+    });
+  } else {
+    embed.addFields({
+      name: `Days (${dateLines.length})`,
+      value: dateLines.join('\n'),
+      inline: false
+    });
+  }
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pats_upcoming_days_back')
+      .setLabel('Back to Dashboard')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('◀️')
+  );
+
+  await interaction.editReply({
+    content: null,
+    embeds: [embed],
+    components: [row]
+  });
 }
 
 async function getNextNBAGameDayInfo() {
@@ -520,6 +611,14 @@ export async function handleDashboardButton(interaction) {
       await interaction.deferUpdate();
       const makepickCommand = await import('./makepick.js');
       await makepickCommand.handleMakepickFromDashboard(interaction);
+    }
+    else if (interaction.customId === 'pats_dashboard_upcoming_days_month') {
+      await interaction.deferUpdate();
+      await showUpcomingPatsDaysThisMonth(interaction);
+    }
+    else if (interaction.customId === 'pats_upcoming_days_back') {
+      await interaction.deferUpdate();
+      await showDashboard(interaction);
     }
     else if (interaction.customId === 'pats_dashboard_view_all_picks') {
       const makepickCommand = await import('./makepick.js');
@@ -1224,6 +1323,11 @@ export async function showDashboard(interaction) {
       .setLabel('Everyone\'s Picks')
       .setEmoji('👥')
       .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('pats_dashboard_upcoming_days_month')
+      .setLabel('Upcoming Days')
+      .setEmoji('📅')
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('pats_dashboard_refresh')
       .setLabel('Refresh')
