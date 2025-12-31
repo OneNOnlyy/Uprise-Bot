@@ -243,6 +243,18 @@ export const data = new SlashCommandBuilder()
       .setDescription('End the current PATS session (Admin only)'))
   .addSubcommand(subcommand =>
     subcommand
+      .setName('voidsession')
+      .setDescription('Void (cancel) a user\'s active personal session (Admin only)')
+      .addUserOption(option =>
+        option.setName('player')
+          .setDescription('The user whose personal session to void')
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName('reason')
+          .setDescription('Optional reason (for logging)')
+          .setRequired(false)))
+  .addSubcommand(subcommand =>
+    subcommand
       .setName('schedule')
       .setDescription('Schedule PATS sessions (Admin only)'))
   .addSubcommand(subcommand =>
@@ -387,6 +399,10 @@ export async function execute(interaction) {
       case 'end': {
         const patsendCommand = await import('./patsend.js');
         return await patsendCommand.execute(interaction);
+      }
+      case 'voidsession': {
+        const patsvoidsessionCommand = await import('./patsvoidsession.js');
+        return await patsvoidsessionCommand.execute(interaction);
       }
       case 'schedule': {
         const patsscheduleCommand = await import('./patsschedule.js');

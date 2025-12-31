@@ -379,6 +379,92 @@ export function getActiveSessions() {
 }
 
 /**
+ * Void (cancel) an active PERSONAL session for an owner.
+ * - Reverts any stats that were already applied for FINAL games in that session.
+ * - Removes the session from activeSessions.
+ *
+ * This is intended for admin/testing cleanup.
+ */
+export function voidActivePersonalSessionByOwnerId(ownerId, meta = {}) {
+  const data = readPATSData();
+  const session = data.activeSessions.find(s => s.status === 'active' && s.sessionType === 'personal' && s.ownerId === ownerId);
+
+  if (!session) {
+    return { error: 'No active personal session found for that user.' };
+  }
+
+  const monthKey = getMonthKeyFromDateStr(session.date);
+  const picksByUser = session.picks || {};
+  const users = Object.keys(picksByUser);
+
+  let revertedStatWrites = 0;
+  let revertedFinalGames = 0;
+
+  // Revert per-user per-final-game stats that may have been applied during live result updates.
+  for (const userId of users) {
+    const picks = picksByUser[userId] || [];
+    for (const game of (session.games || [])) {
+      if (!game?.result || game.result.status !== 'Final') continue;
+      revertedFinalGames++;
+
+      const pick = picks.find(p => p.gameId === game.id);
+      const homeScore = game.result.homeScore;
+      const awayScore = game.result.awayScore;
+      const awaySpread = game.awaySpread !== undefined ? game.awaySpread : 0;
+      const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
+      const adjustedHomeScore = homeScore + homeSpread;
+      const adjustedAwayScore = awayScore + awaySpread;
+
+      if (!pick) {
+        // Missed pick was counted as a loss at final.
+        applyUserStatDelta(data, userId, monthKey, { losses: -1 });
+        revertedStatWrites++;
+        continue;
+      }
+
+      if (pick.pick === 'home') {
+        if (adjustedHomeScore === awayScore) {
+          applyUserStatDelta(data, userId, monthKey, { pushes: -1, ddPushes: pick.isDoubleDown ? -1 : 0 });
+        } else if (adjustedHomeScore > awayScore) {
+          applyUserStatDelta(data, userId, monthKey, { wins: -(pick.isDoubleDown ? 2 : 1), ddWins: pick.isDoubleDown ? -1 : 0 });
+        } else {
+          applyUserStatDelta(data, userId, monthKey, { losses: -(pick.isDoubleDown ? 2 : 1), ddLosses: pick.isDoubleDown ? -1 : 0 });
+        }
+      } else {
+        if (adjustedAwayScore === homeScore) {
+          applyUserStatDelta(data, userId, monthKey, { pushes: -1, ddPushes: pick.isDoubleDown ? -1 : 0 });
+        } else if (adjustedAwayScore > homeScore) {
+          applyUserStatDelta(data, userId, monthKey, { wins: -(pick.isDoubleDown ? 2 : 1), ddWins: pick.isDoubleDown ? -1 : 0 });
+        } else {
+          applyUserStatDelta(data, userId, monthKey, { losses: -(pick.isDoubleDown ? 2 : 1), ddLosses: pick.isDoubleDown ? -1 : 0 });
+        }
+      }
+
+      revertedStatWrites++;
+    }
+  }
+
+  // Remove from active sessions without recording history/snapshots.
+  data.activeSessions = data.activeSessions.filter(s => s.id !== session.id);
+  writePATSData(data);
+
+  console.log(`[PATS] Voided personal session ${session.id} for owner ${ownerId}. Reverted stat writes: ${revertedStatWrites}`);
+  if (meta?.voidedBy) {
+    console.log(`[PATS] Voided by ${meta.voidedBy}${meta?.reason ? ` (${meta.reason})` : ''}`);
+  }
+
+  return {
+    success: true,
+    sessionId: session.id,
+    date: session.date,
+    ownerId,
+    revertedStatWrites,
+    revertedFinalGameUserPairs: revertedFinalGames,
+    picksUsers: users.length
+  };
+}
+
+/**
  * Update spreads for an existing PATS session
  * Used by admin command to refresh spreads from Odds API
  */
