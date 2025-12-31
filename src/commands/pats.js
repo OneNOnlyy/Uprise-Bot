@@ -776,7 +776,12 @@ export async function showDashboard(interaction) {
             ? 'Today'
             : (dateStr === tomorrowStr ? 'Tomorrow' : new Date(`${dateStr}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Los_Angeles' }));
 
-          description = `📅 **Next NBA Games:**\n${relativeDay} (${dateStr}) • ${gameCount} game${gameCount !== 1 ? 's' : ''} • First tip-off <t:${unixTimestamp}:t> (<t:${unixTimestamp}:R>)`;
+          description = [
+            '📅 **Next NBA Games**',
+            `**Day:** ${relativeDay} (${dateStr})`,
+            `**Games:** ${gameCount} game${gameCount !== 1 ? 's' : ''}`, 
+            `**First Tip-Off:** <t:${unixTimestamp}:t> (<t:${unixTimestamp}:R>)`
+          ].join('\n');
         } else {
           description = '📅 No sessions scheduled, and no NBA games found in the next 7 days.';
         }
