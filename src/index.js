@@ -1193,6 +1193,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       // Handle dashboard buttons (including stats)
       else if (interaction.customId.startsWith('pats_dashboard_') || 
           interaction.customId.startsWith('pats_personal_') ||
+          interaction.customId.startsWith('pats_upcoming_') ||
           interaction.customId.startsWith('pats_stats_') ||
           interaction.customId.startsWith('pats_help_') ||
           interaction.customId.startsWith('pats_no_session_') ||
