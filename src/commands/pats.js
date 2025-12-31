@@ -1705,15 +1705,8 @@ async function showEveryonesPicks(interaction, gameIndex = 0) {
   // Get all picks from patsData
   const { readPATSData } = await import('../utils/patsData.js');
   const data = readPATSData();
-  const sessionData = data.activeSessions.find(s => s.id === session.id);
-  
-  if (!sessionData || !sessionData.picks) {
-    await interaction.editReply({
-      content: '❌ No picks found for this session.',
-      components: []
-    });
-    return;
-  }
+  const activeSessions = (data.activeSessions || []).filter(s => s && s.status === 'active');
+  const sessionData = activeSessions.find(s => s.id === session.id) || null;
 
   // Sort games by commence time to match dashboard and other views
   const sortedGames = [...session.games].sort((a, b) => 
@@ -1730,17 +1723,30 @@ async function showEveryonesPicks(interaction, gameIndex = 0) {
   // Apply zero spread fix
   const { homeSpread, awaySpread } = fixZeroSpreads(game);
 
-  // Collect picks for this specific game
-  const gamePicks = [];
-  for (const [userId, userPicksArray] of Object.entries(sessionData.picks)) {
-    const pickForGame = userPicksArray.find(p => p.gameId === game.id);
-    if (pickForGame) {
-      gamePicks.push({
-        userId: userId,
-        pick: pickForGame
-      });
+  // Collect picks for this specific game across all active sessions that include this game.
+  // This makes "Everyone's Picks" truly show any users' picks for the games you're picking for.
+  const relevantSessions = activeSessions
+    .filter(s => s?.date === session.date && Array.isArray(s.games) && s.games.some(g => g.id === game.id))
+    .sort((a, b) => {
+      // Prefer global picks if a user appears in multiple sessions
+      const aType = a.sessionType === 'global' ? 0 : 1;
+      const bType = b.sessionType === 'global' ? 0 : 1;
+      return aType - bType;
+    });
+
+  const pickByUserId = new Map();
+  for (const s of relevantSessions) {
+    if (!s.picks) continue;
+    for (const [userId, userPicksArray] of Object.entries(s.picks)) {
+      if (pickByUserId.has(userId)) continue;
+      const pickForGame = (userPicksArray || []).find(p => p.gameId === game.id);
+      if (pickForGame) {
+        pickByUserId.set(userId, pickForGame);
+      }
     }
   }
+
+  const gamePicks = [...pickByUserId.entries()].map(([userId, pick]) => ({ userId, pick }));
 
   // Build embed for this game
   const awayAbbrev = getTeamAbbreviation(game.awayTeam);
@@ -1846,7 +1852,7 @@ async function showEveryonesPicks(interaction, gameIndex = 0) {
     });
 
     // Add summary
-    const totalPlayers = Object.keys(sessionData.picks).length;
+    const totalPlayers = pickByUserId.size;
     embed.addFields({
       name: 'Session Summary',
       value: `**${totalPlayers}** ${totalPlayers === 1 ? 'player' : 'players'} in session\n**${gamePicks.length}** ${gamePicks.length === 1 ? 'pick' : 'picks'} for this game`,
