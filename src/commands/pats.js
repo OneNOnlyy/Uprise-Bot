@@ -364,11 +364,25 @@ export async function handleDashboardButton(interaction) {
       const upcomingGames = games.filter(g => new Date(g.commenceTime) >= now);
 
       if (upcomingGames.length === 0) {
+        const embed = new EmbedBuilder()
+          .setTitle('⏰ No Games Left Today')
+          .setDescription(
+            `There are **no upcoming NBA games remaining** for **${dateStr}**.\n\n` +
+            `Returning you to the dashboard...`
+          )
+          .setColor(0xED4245);
+
         await interaction.editReply({
-          content: `❌ No upcoming games remaining today (${dateStr}).`,
-          embeds: [],
+          content: null,
+          embeds: [embed],
           components: []
         });
+
+        setTimeout(() => {
+          showDashboard(interaction).catch(err => {
+            console.error('[PATS] Failed to return to dashboard after no-games message:', err);
+          });
+        }, 5000);
         return;
       }
 
