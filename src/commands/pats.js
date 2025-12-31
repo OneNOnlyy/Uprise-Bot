@@ -10,7 +10,7 @@ import {
   TextInputStyle
 } from 'discord.js';
 import { createPATSSession, getActiveGlobalSession, getActiveSessionForUser, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory, updateGameResult } from '../utils/patsData.js';
-import { getTeamAbbreviation, fetchCBSSportsScores } from '../utils/oddsApi.js';
+import { getTeamAbbreviation, fetchCBSSportsScores, getESPNGamesForDate } from '../utils/oddsApi.js';
 import { getUserSessionSnapshots, loadSessionSnapshot, loadInjuryData, loadRosterData } from '../utils/sessionSnapshot.js';
 import { getUpcomingScheduledSessions } from '../utils/sessionScheduler.js';
 import { getCurrentSeason, getSeasonStandings, isUserInCurrentSeason, getSeasonHistory, getSessionsInSeason } from '../utils/patsSeasons.js';
@@ -19,6 +19,41 @@ import { fetchGamesForSession } from '../utils/dataCache.js';
 function getPacificDateStr() {
   // YYYY-MM-DD in Pacific time
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+}
+
+function getPacificDateStrWithOffset(daysFromNow) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+}
+
+async function getNextNBAGameDayInfo() {
+  const now = new Date();
+
+  // Look ahead up to a week for the next day that still has upcoming games.
+  for (let i = 0; i <= 7; i++) {
+    const dateStr = getPacificDateStrWithOffset(i);
+    const games = await getESPNGamesForDate(dateStr);
+    if (!games || games.length === 0) continue;
+
+    // If today, pick the earliest *upcoming* game. Otherwise, earliest of the day.
+    const sorted = [...games].sort((a, b) => new Date(a.commenceTime) - new Date(b.commenceTime));
+    const firstUpcoming = i === 0
+      ? sorted.find(g => new Date(g.commenceTime) > now) || null
+      : sorted[0];
+
+    if (!firstUpcoming) {
+      continue;
+    }
+
+    return {
+      dateStr,
+      gameCount: games.length,
+      firstGameTime: new Date(firstUpcoming.commenceTime)
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -727,7 +762,28 @@ export async function showDashboard(interaction) {
       
       description = `📅 **Next Scheduled Session:**\n${dateDisplay} • ${gameCount} game${gameCount !== 1 ? 's' : ''} • <t:${unixTimestamp}:R>`;
     } else {
-      description = '📅 No sessions currently scheduled.';
+      try {
+        const nextNba = await getNextNBAGameDayInfo();
+        if (nextNba) {
+          const { dateStr, gameCount, firstGameTime } = nextNba;
+          const unixTimestamp = Math.floor(firstGameTime.getTime() / 1000);
+
+          // Relative day label
+          const now = new Date();
+          const todayStr = getPacificDateStr();
+          const tomorrowStr = getPacificDateStrWithOffset(1);
+          const relativeDay = dateStr === todayStr
+            ? 'Today'
+            : (dateStr === tomorrowStr ? 'Tomorrow' : new Date(`${dateStr}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Los_Angeles' }));
+
+          description = `📅 **Next NBA Games:**\n${relativeDay} (${dateStr}) • ${gameCount} game${gameCount !== 1 ? 's' : ''} • First tip-off <t:${unixTimestamp}:t> (<t:${unixTimestamp}:R>)`;
+        } else {
+          description = '📅 No sessions scheduled, and no NBA games found in the next 7 days.';
+        }
+      } catch (error) {
+        console.error('[PATS] Failed to fetch next NBA game day info:', error);
+        description = '📅 No sessions currently scheduled.';
+      }
     }
     
     const embed = new EmbedBuilder()
