@@ -23,6 +23,147 @@ import { ensureUser } from './utils/patsData.js';
 
 dotenv.config();
 
+let personalSessionAutoCloserRunning = false;
+
+function startPersonalSessionAutoCloser(client) {
+  // Check once per minute so we don't miss the 1-hour window
+  setInterval(async () => {
+    if (personalSessionAutoCloserRunning) return;
+    personalSessionAutoCloserRunning = true;
+
+    try {
+      const {
+        readPATSData,
+        writePATSData,
+        closePATSSession,
+        getUserStats,
+        getUserMonthlyStats
+      } = await import('./utils/patsData.js');
+
+      const now = new Date();
+      const data = readPATSData();
+      if (!data.activeSessions || data.activeSessions.length === 0) return;
+
+      let didWrite = false;
+
+      // First pass: set auto-close timestamps when all games are Final
+      for (const session of data.activeSessions) {
+        if (session.status !== 'active') continue;
+        if (session.sessionType !== 'personal') continue;
+        if (!session.ownerId) continue;
+
+        const allFinal = (session.games || []).length > 0 && session.games.every(g => g?.result?.status === 'Final');
+        if (!allFinal) {
+          if (session.personalAllFinalAt || session.personalAutoCloseAt) {
+            delete session.personalAllFinalAt;
+            delete session.personalAutoCloseAt;
+            didWrite = true;
+            console.log(`[PATS][Personal] Session ${session.id} is no longer fully Final. Auto-close cleared.`);
+          }
+          continue;
+        }
+
+        if (!session.personalAllFinalAt) {
+          session.personalAllFinalAt = now.toISOString();
+          const autoCloseAt = new Date(now.getTime() + (60 * 60 * 1000));
+          session.personalAutoCloseAt = autoCloseAt.toISOString();
+          didWrite = true;
+          console.log(`[PATS][Personal] Session ${session.id} completed. Auto-close scheduled at ${session.personalAutoCloseAt}`);
+        }
+      }
+
+      if (didWrite) {
+        writePATSData(data);
+      }
+
+      // Second pass: close sessions that are due
+      const dataAfter = didWrite ? readPATSData() : data;
+      const due = (dataAfter.activeSessions || []).filter(s => {
+        if (s.status !== 'active') return false;
+        if (s.sessionType !== 'personal') return false;
+        if (!s.ownerId) return false;
+        if (!s.personalAutoCloseAt) return false;
+        const allFinal = (s.games || []).length > 0 && s.games.every(g => g?.result?.status === 'Final');
+        if (!allFinal) return false;
+        return new Date(s.personalAutoCloseAt) <= now;
+      });
+
+      for (const session of due) {
+        console.log(`[PATS][Personal] Auto-closing personal session ${session.id} (date=${session.date})`);
+
+        const result = closePATSSession(session.id, []);
+        if (!result) {
+          console.log(`[PATS][Personal] Failed to close personal session ${session.id}`);
+          continue;
+        }
+
+        const ownerId = session.ownerId;
+        const ownerResult = result[ownerId] || null;
+        const sessionMonthKey = typeof session.date === 'string' ? session.date.slice(0, 7) : null;
+        const monthStats = sessionMonthKey ? getUserMonthlyStats(ownerId, sessionMonthKey) : getUserMonthlyStats(ownerId);
+        const allTimeStats = getUserStats(ownerId);
+
+        let dmAttemptedAt = new Date().toISOString();
+        let dmDelivered = false;
+        try {
+          const user = await client.users.fetch(ownerId);
+
+          const { EmbedBuilder } = await import('discord.js');
+          const embed = new EmbedBuilder()
+            .setTitle('✅ PATS Session Complete')
+            .setDescription(`Your personal picks session for **${session.date}** has ended.`)
+            .setColor(0x57F287)
+            .setTimestamp();
+
+          if (ownerResult) {
+            embed.addFields({
+              name: '📊 Your Result',
+              value: `**Record:** ${ownerResult.wins}-${ownerResult.losses}-${ownerResult.pushes}` +
+                     (ownerResult.missedPicks ? `\n**Missed Picks:** ${ownerResult.missedPicks}` : ''),
+              inline: false
+            });
+          }
+
+          embed.addFields(
+            {
+              name: `📅 Current Month${monthStats.monthKey ? ` (${monthStats.monthKey})` : ''}`,
+              value: `**Record:** ${monthStats.totalWins}-${monthStats.totalLosses}-${monthStats.totalPushes}\n**Sessions:** ${monthStats.sessions}\n**Win %:** ${monthStats.winPercentage.toFixed(1)}%`,
+              inline: true
+            },
+            {
+              name: '🏆 All-Time',
+              value: `**Record:** ${allTimeStats.totalWins}-${allTimeStats.totalLosses}-${allTimeStats.totalPushes}\n**Sessions:** ${allTimeStats.sessions}\n**Win %:** ${allTimeStats.winPercentage.toFixed(1)}%`,
+              inline: true
+            }
+          );
+
+          await user.send({ embeds: [embed] });
+          dmDelivered = true;
+        } catch (error) {
+          console.error(`[PATS][Personal] Failed to DM results to ${ownerId} for session ${session.id}:`, error);
+        }
+
+        // Mark DM attempt in history to prevent retries/spam
+        try {
+          const updated = readPATSData();
+          const hist = (updated.history || []).find(h => h.id === session.id);
+          if (hist) {
+            hist.personalDmAttemptedAt = dmAttemptedAt;
+            hist.personalDmDelivered = dmDelivered;
+            writePATSData(updated);
+          }
+        } catch (error) {
+          console.error('[PATS][Personal] Failed to mark DM attempt in history:', error);
+        }
+      }
+    } catch (error) {
+      console.error('[PATS][Personal] Auto-closer error:', error);
+    } finally {
+      personalSessionAutoCloserRunning = false;
+    }
+  }, 60 * 1000);
+}
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -63,6 +204,9 @@ client.once(Events.ClientReady, async (readyClient) => {
   
   // Start the PATS game result checker
   scheduleGameResultChecking();
+
+  // Auto-close personal sessions 1h after last game
+  startPersonalSessionAutoCloser(client);
   
   // Initialize game warnings system
   initGameWarnings(client);

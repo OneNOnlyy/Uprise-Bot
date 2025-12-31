@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { getLeaderboard, getActiveGlobalSession, getUserPicks, getLiveSessionLeaderboard, getCurrentSessionStats } from '../utils/patsData.js';
+import { getLeaderboard, getMonthlyLeaderboard, getUserStats, getUserMonthlyStats, getActiveGlobalSession, getUserPicks, getLiveSessionLeaderboard, getCurrentSessionStats, getCurrentPacificMonthKey } from '../utils/patsData.js';
 import { getCurrentSeason, getSeasonStandings } from '../utils/patsSeasons.js';
 
 // PATS Role ID for Blazers Uprise filter
@@ -21,7 +21,9 @@ export async function buildLeaderboardEmbed(interaction, filterType = 'global', 
     filterType = filterType ? 'role' : 'global';
   }
   
-  const leaderboard = getLeaderboard();
+  const monthKey = getCurrentPacificMonthKey();
+  const monthlyLeaderboard = getMonthlyLeaderboard(monthKey);
+  const allTimeLeaderboard = getLeaderboard();
   const session = getActiveGlobalSession();
   const liveLeaderboard = session ? getLiveSessionLeaderboard(session) : null;
   const currentSeason = getCurrentSeason();
@@ -50,6 +52,10 @@ export async function buildLeaderboardEmbed(interaction, filterType = 'global', 
       console.error('Error fetching PATS role:', error);
     }
   }
+
+  // These are populated for non-season views (used later for rank display)
+  let monthData = [];
+  let allTimeData = [];
 
   // SEASON LEADERBOARD
   if (filterType === 'season') {
@@ -147,15 +153,47 @@ export async function buildLeaderboardEmbed(interaction, filterType = 'global', 
     }
   }
 
-  // Overall all-time stats
-  let allTimeLeaderboard = leaderboard;
+  // Monthly stats
+  monthData = monthlyLeaderboard;
   if (filterType === 'role') {
-    allTimeLeaderboard = leaderboard.filter(entry => patsRoleMembers.has(entry.userId));
+    monthData = monthlyLeaderboard.filter(entry => patsRoleMembers.has(entry.userId));
   }
-  
-  if (allTimeLeaderboard.length > 0) {
-    const top10 = allTimeLeaderboard.slice(0, 10);
-    
+
+  if (monthData.length > 0) {
+    const top10 = monthData.slice(0, 10);
+
+    const monthText = (await Promise.all(top10.map(async (entry, index) => {
+      try {
+        const member = await interaction.guild.members.fetch(entry.userId);
+        const displayName = member.displayName;
+        return `${index + 1}. ${displayName} - ${entry.totalWins}-${entry.totalLosses}-${entry.totalPushes} (${entry.winPercentage.toFixed(1)}%)`;
+      } catch {
+        return null;
+      }
+    }))).filter(Boolean);
+
+    embed.addFields({
+      name: `📅 This Month Leaders (${monthKey || 'N/A'})`,
+      value: monthText.join('\n') || 'No data yet',
+      inline: false
+    });
+  } else {
+    embed.addFields({
+      name: `📅 This Month Leaders (${monthKey || 'N/A'})`,
+      value: filterType === 'role' ? 'No PATS role members have stats this month yet.' : 'No stats this month yet! Be the first to participate in PATS.',
+      inline: false
+    });
+  }
+
+  // Overall all-time stats
+  allTimeData = allTimeLeaderboard;
+  if (filterType === 'role') {
+    allTimeData = allTimeLeaderboard.filter(entry => patsRoleMembers.has(entry.userId));
+  }
+
+  if (allTimeData.length > 0) {
+    const top10 = allTimeData.slice(0, 10);
+
     const allTimeText = (await Promise.all(top10.map(async (entry, index) => {
       try {
         const member = await interaction.guild.members.fetch(entry.userId);
@@ -199,30 +237,42 @@ export async function buildLeaderboardEmbed(interaction, filterType = 'global', 
 
   // User's personal all-time stats (only show for non-season views)
   if (filterType !== 'season') {
-    // Calculate allTimeData based on filter type (can't use allTimeLeaderboard as it's block-scoped)
-    const allTimeData = filterType === 'role' 
-      ? leaderboard.filter(entry => patsRoleMembers.has(entry.userId))
-      : leaderboard;
-    const userStatsData = leaderboard.find(entry => entry.userId === interaction.user.id);
-    if (userStatsData) {
-      // Calculate rank in current view (global or filtered)
-      const rankLeaderboard = allTimeData;
-      const rank = rankLeaderboard.findIndex(entry => entry.userId === interaction.user.id) + 1;
-      const rankDisplay = rank > 0 ? `#${rank}` : 'Unranked';
-      
-      const ddStats = (userStatsData.doubleDownsUsed || 0) > 0 
-        ? `\n**Double Downs:** ${userStatsData.doubleDownWins || 0}-${userStatsData.doubleDownLosses || 0}-${userStatsData.doubleDownPushes || 0} 💰`
-        : '';
-      
-      embed.addFields({
-        name: '📈 Your All-Time Stats',
-        value: `**Rank:** ${rankDisplay}${filterType === 'role' ? ' (Blazers Uprise)' : ' (Global)'}\n` +
-               `**Record:** ${userStatsData.totalWins}-${userStatsData.totalLosses}-${userStatsData.totalPushes}\n` +
-               `**Win %:** ${userStatsData.winPercentage.toFixed(1)}%\n` +
-               `**Sessions:** ${userStatsData.sessions}${ddStats}`,
-        inline: true
-      });
-    }
+    const userMonthStats = getUserMonthlyStats(interaction.user.id, monthKey);
+    const userAllTimeStats = getUserStats(interaction.user.id);
+
+    const monthRankList = filterType === 'role'
+      ? monthData
+      : monthlyLeaderboard;
+    const monthRank = monthRankList.findIndex(entry => entry.userId === interaction.user.id) + 1;
+    const monthRankDisplay = monthRank > 0 ? `#${monthRank}` : 'Unranked';
+
+    embed.addFields({
+      name: `📈 Your This Month Stats (${monthKey || 'N/A'})`,
+      value: `**Rank:** ${monthRankDisplay}${filterType === 'role' ? ' (Blazers Uprise)' : ' (Global)'}\n` +
+             `**Record:** ${userMonthStats.totalWins}-${userMonthStats.totalLosses}-${userMonthStats.totalPushes}\n` +
+             `**Win %:** ${userMonthStats.winPercentage.toFixed(1)}%\n` +
+             `**Sessions:** ${userMonthStats.sessions}`,
+      inline: true
+    });
+
+    const allTimeRankList = filterType === 'role'
+      ? allTimeData
+      : allTimeLeaderboard;
+    const allTimeRank = allTimeRankList.findIndex(entry => entry.userId === interaction.user.id) + 1;
+    const allTimeRankDisplay = allTimeRank > 0 ? `#${allTimeRank}` : 'Unranked';
+
+    const ddStats = (userAllTimeStats.doubleDownsUsed || 0) > 0
+      ? `\n**Double Downs:** ${userAllTimeStats.doubleDownWins || 0}-${userAllTimeStats.doubleDownLosses || 0}-${userAllTimeStats.doubleDownPushes || 0} 💰`
+      : '';
+
+    embed.addFields({
+      name: '📈 Your All-Time Stats',
+      value: `**Rank:** ${allTimeRankDisplay}${filterType === 'role' ? ' (Blazers Uprise)' : ' (Global)'}\n` +
+             `**Record:** ${userAllTimeStats.totalWins}-${userAllTimeStats.totalLosses}-${userAllTimeStats.totalPushes}\n` +
+             `**Win %:** ${userAllTimeStats.winPercentage.toFixed(1)}%\n` +
+             `**Sessions:** ${userAllTimeStats.sessions}${ddStats}`,
+      inline: true
+    });
   }
 
   embed.setFooter({ text: 'Keep making picks to climb the leaderboard!' });

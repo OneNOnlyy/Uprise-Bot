@@ -96,6 +96,7 @@ function createNewUser(userId, username = null) {
     doubleDownWins: 0,
     doubleDownLosses: 0,
     doubleDownPushes: 0,
+    monthlyStats: {},
     preferences: {
       dmNotifications: {
         announcements: true,
@@ -105,6 +106,74 @@ function createNewUser(userId, username = null) {
       }
     }
   };
+}
+
+function getMonthKeyFromDateStr(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const match = dateStr.match(/^(\d{4}-\d{2})/);
+  return match ? match[1] : null;
+}
+
+export function getCurrentPacificMonthKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit'
+  }).formatToParts(date);
+
+  const year = parts.find(p => p.type === 'year')?.value;
+  const month = parts.find(p => p.type === 'month')?.value;
+  if (!year || !month) return null;
+  return `${year}-${month}`;
+}
+
+function ensureMonthlyBucket(user, monthKey) {
+  if (!monthKey) return null;
+  if (!user.monthlyStats) user.monthlyStats = {};
+  if (!user.monthlyStats[monthKey]) {
+    user.monthlyStats[monthKey] = {
+      totalWins: 0,
+      totalLosses: 0,
+      totalPushes: 0,
+      sessions: 0,
+      doubleDownsUsed: 0,
+      doubleDownWins: 0,
+      doubleDownLosses: 0,
+      doubleDownPushes: 0
+    };
+  }
+  return user.monthlyStats[monthKey];
+}
+
+function applyUserStatDelta(data, userId, monthKey, delta) {
+  ensureUser(data, userId);
+  const user = data.users[userId];
+  const monthly = ensureMonthlyBucket(user, monthKey);
+
+  const {
+    wins = 0,
+    losses = 0,
+    pushes = 0,
+    ddWins = 0,
+    ddLosses = 0,
+    ddPushes = 0
+  } = delta || {};
+
+  user.totalWins += wins;
+  user.totalLosses += losses;
+  user.totalPushes = (user.totalPushes || 0) + pushes;
+  user.doubleDownWins = (user.doubleDownWins || 0) + ddWins;
+  user.doubleDownLosses = (user.doubleDownLosses || 0) + ddLosses;
+  user.doubleDownPushes = (user.doubleDownPushes || 0) + ddPushes;
+
+  if (monthly) {
+    monthly.totalWins += wins;
+    monthly.totalLosses += losses;
+    monthly.totalPushes = (monthly.totalPushes || 0) + pushes;
+    monthly.doubleDownWins = (monthly.doubleDownWins || 0) + ddWins;
+    monthly.doubleDownLosses = (monthly.doubleDownLosses || 0) + ddLosses;
+    monthly.doubleDownPushes = (monthly.doubleDownPushes || 0) + ddPushes;
+  }
 }
 
 /**
@@ -120,6 +189,11 @@ function ensureUser(data, userId, username = null) {
   } else if (username && data.users[userId].username !== username) {
     // Update username if it changed
     data.users[userId].username = username;
+  }
+
+  // Ensure monthly stats exist (for existing users created before monthly tracking)
+  if (!data.users[userId].monthlyStats) {
+    data.users[userId].monthlyStats = {};
   }
   
   // Ensure preferences exist (for existing users created before this feature)
@@ -370,6 +444,8 @@ export function updateGameResult(sessionId, gameId, result) {
   // Track if we need to revert previous stats (if game was already processed)
   const hadPreviousResult = game.result && game.result.status === 'Final';
   const previousResult = hadPreviousResult ? { ...game.result } : null;
+
+  const monthKey = getMonthKeyFromDateStr(session.date);
   
   // Allow updating live scores or setting final results
   game.result = result;
@@ -387,8 +463,8 @@ export function updateGameResult(sessionId, gameId, result) {
     for (const userId in session.picks) {
       const picks = session.picks[userId];
       const pick = picks.find(p => p.gameId === gameId);
-      
-      if (!pick || !data.users[userId]) continue;
+
+      if (!data.users[userId]) continue;
       
       const oldHomeScore = previousResult.homeScore;
       const oldAwayScore = previousResult.awayScore;
@@ -396,29 +472,29 @@ export function updateGameResult(sessionId, gameId, result) {
       const homeSpread = game.homeSpread !== undefined ? game.homeSpread : 0;
       const oldAdjustedHomeScore = oldHomeScore + homeSpread;
       const oldAdjustedAwayScore = oldAwayScore + awaySpread;
+
+      // If user missed a pick, we previously counted it as a loss
+      if (!pick) {
+        applyUserStatDelta(data, userId, monthKey, { losses: -1 });
+        continue;
+      }
       
       // Revert the old result
       if (pick.pick === 'home') {
         if (oldAdjustedHomeScore === oldAwayScore) {
-          data.users[userId].totalPushes -= 1;
-          if (pick.isDoubleDown) data.users[userId].doubleDownPushes -= 1;
+          applyUserStatDelta(data, userId, monthKey, { pushes: -1, ddPushes: pick.isDoubleDown ? -1 : 0 });
         } else if (oldAdjustedHomeScore > oldAwayScore) {
-          data.users[userId].totalWins -= pick.isDoubleDown ? 2 : 1;
-          if (pick.isDoubleDown) data.users[userId].doubleDownWins -= 1;
+          applyUserStatDelta(data, userId, monthKey, { wins: -(pick.isDoubleDown ? 2 : 1), ddWins: pick.isDoubleDown ? -1 : 0 });
         } else {
-          data.users[userId].totalLosses -= pick.isDoubleDown ? 2 : 1;
-          if (pick.isDoubleDown) data.users[userId].doubleDownLosses -= 1;
+          applyUserStatDelta(data, userId, monthKey, { losses: -(pick.isDoubleDown ? 2 : 1), ddLosses: pick.isDoubleDown ? -1 : 0 });
         }
       } else {
         if (oldAdjustedAwayScore === oldHomeScore) {
-          data.users[userId].totalPushes -= 1;
-          if (pick.isDoubleDown) data.users[userId].doubleDownPushes -= 1;
+          applyUserStatDelta(data, userId, monthKey, { pushes: -1, ddPushes: pick.isDoubleDown ? -1 : 0 });
         } else if (oldAdjustedAwayScore > oldHomeScore) {
-          data.users[userId].totalWins -= pick.isDoubleDown ? 2 : 1;
-          if (pick.isDoubleDown) data.users[userId].doubleDownWins -= 1;
+          applyUserStatDelta(data, userId, monthKey, { wins: -(pick.isDoubleDown ? 2 : 1), ddWins: pick.isDoubleDown ? -1 : 0 });
         } else {
-          data.users[userId].totalLosses -= pick.isDoubleDown ? 2 : 1;
-          if (pick.isDoubleDown) data.users[userId].doubleDownLosses -= 1;
+          applyUserStatDelta(data, userId, monthKey, { losses: -(pick.isDoubleDown ? 2 : 1), ddLosses: pick.isDoubleDown ? -1 : 0 });
         }
       }
     }
@@ -431,8 +507,7 @@ export function updateGameResult(sessionId, gameId, result) {
     
     if (!pick) {
       // User didn't make a pick for this game - add a loss
-      ensureUser(data, userId);
-      data.users[userId].totalLosses += 1;
+      applyUserStatDelta(data, userId, monthKey, { losses: 1 });
       continue;
     }
     
@@ -484,9 +559,6 @@ export function updateGameResult(sessionId, gameId, result) {
     }
     console.log(`[PATS] ========================================`);
     
-    // Initialize user if doesn't exist
-    ensureUser(data, userId);
-    
     // Update overall stats - check for push first
     const adjustedHomeScore = homeScore + homeSpread;
     const adjustedAwayScore = awayScore + awaySpread;
@@ -494,44 +566,26 @@ export function updateGameResult(sessionId, gameId, result) {
     if (pick.pick === 'home') {
       if (adjustedHomeScore === awayScore) {
         // Push - tie
-        data.users[userId].totalPushes += 1;
-        if (pick.isDoubleDown) {
-          data.users[userId].doubleDownPushes += 1;
-        }
+        applyUserStatDelta(data, userId, monthKey, { pushes: 1, ddPushes: pick.isDoubleDown ? 1 : 0 });
         console.log(`[PATS] 🟡 PUSH (${adjustedHomeScore} = ${awayScore})`);
       } else if (adjustedHomeScore > awayScore) {
         // Win
-        data.users[userId].totalWins += pick.isDoubleDown ? 2 : 1;
-        if (pick.isDoubleDown) {
-          data.users[userId].doubleDownWins += 1;
-        }
+        applyUserStatDelta(data, userId, monthKey, { wins: pick.isDoubleDown ? 2 : 1, ddWins: pick.isDoubleDown ? 1 : 0 });
       } else {
         // Loss
-        data.users[userId].totalLosses += pick.isDoubleDown ? 2 : 1;
-        if (pick.isDoubleDown) {
-          data.users[userId].doubleDownLosses += 1;
-        }
+        applyUserStatDelta(data, userId, monthKey, { losses: pick.isDoubleDown ? 2 : 1, ddLosses: pick.isDoubleDown ? 1 : 0 });
       }
     } else {
       if (adjustedAwayScore === homeScore) {
         // Push - tie
-        data.users[userId].totalPushes += 1;
-        if (pick.isDoubleDown) {
-          data.users[userId].doubleDownPushes += 1;
-        }
+        applyUserStatDelta(data, userId, monthKey, { pushes: 1, ddPushes: pick.isDoubleDown ? 1 : 0 });
         console.log(`[PATS] 🟡 PUSH (${adjustedAwayScore} = ${homeScore})`);
       } else if (adjustedAwayScore > homeScore) {
         // Win
-        data.users[userId].totalWins += pick.isDoubleDown ? 2 : 1;
-        if (pick.isDoubleDown) {
-          data.users[userId].doubleDownWins += 1;
-        }
+        applyUserStatDelta(data, userId, monthKey, { wins: pick.isDoubleDown ? 2 : 1, ddWins: pick.isDoubleDown ? 1 : 0 });
       } else {
         // Loss
-        data.users[userId].totalLosses += pick.isDoubleDown ? 2 : 1;
-        if (pick.isDoubleDown) {
-          data.users[userId].doubleDownLosses += 1;
-        }
+        applyUserStatDelta(data, userId, monthKey, { losses: pick.isDoubleDown ? 2 : 1, ddLosses: pick.isDoubleDown ? 1 : 0 });
       }
     }
     
@@ -597,6 +651,8 @@ export function closePATSSession(sessionId, gameResults) {
     
     console.log(`[PATS DATA] Found session to close: ${session.date} with ${session.games.length} games`);
   
+  const monthKey = getMonthKeyFromDateStr(session.date);
+
   // Update any remaining game results that weren't already updated
   // AND ensure overall stats are correctly updated for all games
   gameResults.forEach(result => {
@@ -611,11 +667,9 @@ export function closePATSSession(sessionId, gameResults) {
         const picks = session.picks[userId];
         const pick = picks.find(p => p.gameId === result.gameId);
         
-        ensureUser(data, userId);
-        
         if (!pick) {
           // Missed pick - add loss to overall stats
-          data.users[userId].totalLosses += 1;
+          applyUserStatDelta(data, userId, monthKey, { losses: 1 });
         } else {
           // Calculate pick result
           const homeScore = result.homeScore;
@@ -630,42 +684,24 @@ export function closePATSSession(sessionId, gameResults) {
           if (pick.pick === 'home') {
             if (adjustedHomeScore === awayScore) {
               // Push
-              data.users[userId].totalPushes += 1;
-              if (pick.isDoubleDown) {
-                data.users[userId].doubleDownPushes += 1;
-              }
+              applyUserStatDelta(data, userId, monthKey, { pushes: 1, ddPushes: pick.isDoubleDown ? 1 : 0 });
             } else if (adjustedHomeScore > awayScore) {
               // Win
-              data.users[userId].totalWins += pick.isDoubleDown ? 2 : 1;
-              if (pick.isDoubleDown) {
-                data.users[userId].doubleDownWins += 1;
-              }
+              applyUserStatDelta(data, userId, monthKey, { wins: pick.isDoubleDown ? 2 : 1, ddWins: pick.isDoubleDown ? 1 : 0 });
             } else {
               // Loss
-              data.users[userId].totalLosses += pick.isDoubleDown ? 2 : 1;
-              if (pick.isDoubleDown) {
-                data.users[userId].doubleDownLosses += 1;
-              }
+              applyUserStatDelta(data, userId, monthKey, { losses: pick.isDoubleDown ? 2 : 1, ddLosses: pick.isDoubleDown ? 1 : 0 });
             }
           } else {
             if (adjustedAwayScore === homeScore) {
               // Push
-              data.users[userId].totalPushes += 1;
-              if (pick.isDoubleDown) {
-                data.users[userId].doubleDownPushes += 1;
-              }
+              applyUserStatDelta(data, userId, monthKey, { pushes: 1, ddPushes: pick.isDoubleDown ? 1 : 0 });
             } else if (adjustedAwayScore > homeScore) {
               // Win
-              data.users[userId].totalWins += pick.isDoubleDown ? 2 : 1;
-              if (pick.isDoubleDown) {
-                data.users[userId].doubleDownWins += 1;
-              }
+              applyUserStatDelta(data, userId, monthKey, { wins: pick.isDoubleDown ? 2 : 1, ddWins: pick.isDoubleDown ? 1 : 0 });
             } else {
               // Loss
-              data.users[userId].totalLosses += pick.isDoubleDown ? 2 : 1;
-              if (pick.isDoubleDown) {
-                data.users[userId].doubleDownLosses += 1;
-              }
+              applyUserStatDelta(data, userId, monthKey, { losses: pick.isDoubleDown ? 2 : 1, ddLosses: pick.isDoubleDown ? 1 : 0 });
             }
           }
         }
@@ -738,10 +774,14 @@ export function closePATSSession(sessionId, gameResults) {
       // Check if we haven't already incremented doubleDownsUsed for this session
       // We increment this once at session close regardless of when stats were calculated
       data.users[userId].doubleDownsUsed += 1;
+      const bucket = ensureMonthlyBucket(data.users[userId], monthKey);
+      if (bucket) bucket.doubleDownsUsed += 1;
     }
     
     // Increment session count (this only happens at session close)
     data.users[userId].sessions += 1;
+    const bucket = ensureMonthlyBucket(data.users[userId], monthKey);
+    if (bucket) bucket.sessions += 1;
     
     // Record session participation in season
     (async () => {
@@ -837,6 +877,8 @@ export function reopenPATSSession(sessionId) {
   }
   
   const session = data.history[sessionIndex];
+
+  const monthKey = getMonthKeyFromDateStr(session.date);
   
   // Revert user stats for this session
   session.participants.forEach(userId => {
@@ -848,12 +890,26 @@ export function reopenPATSSession(sessionId) {
       data.users[userId].totalWins -= userResult.wins;
       data.users[userId].totalLosses -= userResult.losses;
       data.users[userId].totalPushes -= userResult.pushes;
+
+      const bucket = ensureMonthlyBucket(data.users[userId], monthKey);
+      if (bucket) {
+        bucket.totalWins -= userResult.wins;
+        bucket.totalLosses -= userResult.losses;
+        bucket.totalPushes -= userResult.pushes;
+      }
       
       // Revert double-down stats
       if (userResult.doubleDownStats) {
         data.users[userId].doubleDownWins -= userResult.doubleDownStats.wins || 0;
         data.users[userId].doubleDownLosses -= userResult.doubleDownStats.losses || 0;
         data.users[userId].doubleDownPushes -= userResult.doubleDownStats.pushes || 0;
+
+        const bucket = ensureMonthlyBucket(data.users[userId], monthKey);
+        if (bucket) {
+          bucket.doubleDownWins -= userResult.doubleDownStats.wins || 0;
+          bucket.doubleDownLosses -= userResult.doubleDownStats.losses || 0;
+          bucket.doubleDownPushes -= userResult.doubleDownStats.pushes || 0;
+        }
       }
       
       // Check if user used double-down in this session
@@ -861,12 +917,17 @@ export function reopenPATSSession(sessionId) {
       const hasDoubleDown = picks.some(p => p.isDoubleDown);
       if (hasDoubleDown) {
         data.users[userId].doubleDownsUsed -= 1;
+        const bucket = ensureMonthlyBucket(data.users[userId], monthKey);
+        if (bucket) bucket.doubleDownsUsed -= 1;
       }
     }
     
     // Decrement session count
     data.users[userId].sessions -= 1;
+    const bucket = ensureMonthlyBucket(data.users[userId], monthKey);
+    if (bucket) bucket.sessions -= 1;
   });
+
   
   // Restore session to active
   session.status = 'active';
@@ -902,6 +963,99 @@ export function getLeaderboard() {
   });
   
   return leaderboard;
+}
+
+export function getMonthlyLeaderboard(monthKey = getCurrentPacificMonthKey()) {
+  const data = readPATSData();
+  if (!monthKey) return [];
+
+  const leaderboard = Object.keys(data.users).map(userId => {
+    const user = data.users[userId];
+    const monthly = user.monthlyStats?.[monthKey] || null;
+
+    const totalWins = monthly?.totalWins || 0;
+    const totalLosses = monthly?.totalLosses || 0;
+    const totalPushes = monthly?.totalPushes || 0;
+    const sessions = monthly?.sessions || 0;
+
+    const gamesDecided = totalWins + totalLosses;
+    const winPercentage = gamesDecided > 0 ? (totalWins / gamesDecided * 100) : 0;
+
+    return {
+      userId,
+      username: user.username || null,
+      totalWins,
+      totalLosses,
+      totalPushes,
+      sessions,
+      doubleDownsUsed: monthly?.doubleDownsUsed || 0,
+      doubleDownWins: monthly?.doubleDownWins || 0,
+      doubleDownLosses: monthly?.doubleDownLosses || 0,
+      doubleDownPushes: monthly?.doubleDownPushes || 0,
+      winPercentage
+    };
+  });
+
+  const filtered = leaderboard.filter(e => (e.totalWins + e.totalLosses + e.totalPushes) > 0 || (e.sessions || 0) > 0);
+
+  filtered.sort((a, b) => {
+    if (b.winPercentage !== a.winPercentage) return b.winPercentage - a.winPercentage;
+    return b.totalWins - a.totalWins;
+  });
+
+  return filtered;
+}
+
+export function getUserMonthlyStats(userId, monthKey = getCurrentPacificMonthKey()) {
+  const data = readPATSData();
+
+  if (!data.users[userId] || !monthKey) {
+    return {
+      monthKey: monthKey || null,
+      totalWins: 0,
+      totalLosses: 0,
+      totalPushes: 0,
+      sessions: 0,
+      winPercentage: 0,
+      doubleDownsUsed: 0,
+      doubleDownWins: 0,
+      doubleDownLosses: 0,
+      doubleDownPushes: 0,
+      doubleDownWinRate: 0
+    };
+  }
+
+  const user = data.users[userId];
+  const monthly = user.monthlyStats?.[monthKey] || {
+    totalWins: 0,
+    totalLosses: 0,
+    totalPushes: 0,
+    sessions: 0,
+    doubleDownsUsed: 0,
+    doubleDownWins: 0,
+    doubleDownLosses: 0,
+    doubleDownPushes: 0
+  };
+
+  const totalGames = (monthly.totalWins || 0) + (monthly.totalLosses || 0);
+  const winPercentage = totalGames > 0 ? ((monthly.totalWins || 0) / totalGames * 100) : 0;
+
+  const ddTotal = (monthly.doubleDownWins || 0) + (monthly.doubleDownLosses || 0);
+  const ddWinRate = ddTotal > 0 ? ((monthly.doubleDownWins || 0) / ddTotal * 100) : 0;
+
+  return {
+    monthKey,
+    totalWins: monthly.totalWins || 0,
+    totalLosses: monthly.totalLosses || 0,
+    totalPushes: monthly.totalPushes || 0,
+    sessions: monthly.sessions || 0,
+    winPercentage,
+    doubleDownsUsed: monthly.doubleDownsUsed || 0,
+    doubleDownWins: monthly.doubleDownWins || 0,
+    doubleDownLosses: monthly.doubleDownLosses || 0,
+    doubleDownPushes: monthly.doubleDownPushes || 0,
+    doubleDownWinRate: ddWinRate
+  };
 }
 
 /**

@@ -9,7 +9,7 @@ import {
   TextInputBuilder,
   TextInputStyle
 } from 'discord.js';
-import { createPATSSession, getActiveGlobalSession, getActiveSessionForUser, getUserPicks, getUserStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory, updateGameResult } from '../utils/patsData.js';
+import { createPATSSession, getActiveGlobalSession, getActiveSessionForUser, getUserPicks, getUserStats, getUserMonthlyStats, getCurrentSessionStats, getLiveSessionLeaderboard, getUserSessionHistory, updateGameResult } from '../utils/patsData.js';
 import { getTeamAbbreviation, fetchCBSSportsScores, getESPNGamesForDate } from '../utils/oddsApi.js';
 import { getUserSessionSnapshots, loadSessionSnapshot, loadInjuryData, loadRosterData } from '../utils/sessionSnapshot.js';
 import { getUpcomingScheduledSessions } from '../utils/sessionScheduler.js';
@@ -338,36 +338,8 @@ export async function execute(interaction) {
  */
 export async function handleDashboardButton(interaction) {
   try {
+    // Start personal session (prompt)
     if (interaction.customId === 'pats_dashboard_personal_start') {
-      await interaction.deferUpdate();
-
-      const embed = new EmbedBuilder()
-        .setTitle('🟢 Start Personal Session')
-        .setDescription('Start your own personal picks session for **today**?\n\nThis will be private (no public announcement).')
-        .setColor(0x57F287);
-
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('pats_personal_start_confirm')
-          .setLabel('Yes, start today')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId('pats_personal_start_cancel')
-          .setLabel('Cancel')
-          .setStyle(ButtonStyle.Secondary)
-      );
-
-      await interaction.editReply({ embeds: [embed], components: [row] });
-      return;
-    }
-
-    if (interaction.customId === 'pats_personal_start_cancel') {
-      await interaction.deferUpdate();
-      await showDashboard(interaction);
-      return;
-    }
-
-    if (interaction.customId === 'pats_personal_start_confirm') {
       await interaction.deferUpdate();
 
       // Don't create personal sessions if a global session is running
@@ -384,25 +356,26 @@ export async function handleDashboardButton(interaction) {
         return;
       }
 
-      const dateStr = getPacificDateStr();
-      const games = await fetchGamesForSession(dateStr);
-      if (!games || games.length === 0) {
-        await interaction.editReply({
-          content: `❌ No NBA games found for ${dateStr}.`,
-          embeds: [],
-          components: []
-        });
-        return;
+      const now = new Date();
+
+      // Prefer today's games, but if none are pickable, prompt for tomorrow
+      let dateStr = getPacificDateStr();
+      let dayLabel = 'today';
+      let games = await fetchGamesForSession(dateStr);
+      let upcomingGames = (games || []).filter(g => new Date(g.commenceTime) >= now);
+
+      if (!games || games.length === 0 || upcomingGames.length === 0) {
+        dateStr = getPacificDateStrWithOffset(1);
+        dayLabel = 'tomorrow';
+        games = await fetchGamesForSession(dateStr);
+        upcomingGames = (games || []).filter(g => new Date(g.commenceTime) >= now);
       }
 
-      const now = new Date();
-      const upcomingGames = games.filter(g => new Date(g.commenceTime) >= now);
-
-      if (upcomingGames.length === 0) {
+      if (!games || games.length === 0 || upcomingGames.length === 0) {
         const embed = new EmbedBuilder()
-          .setTitle('⏰ No Games Left Today')
+          .setTitle('⏰ No Games Available')
           .setDescription(
-            `There are **no upcoming NBA games remaining** for **${dateStr}**.\n\n` +
+            `There are **no upcoming NBA games** available to start a personal session for **today** or **tomorrow**.\n\n` +
             `Returning you to the dashboard...`
           )
           .setColor(0xED4245);
@@ -421,6 +394,102 @@ export async function handleDashboardButton(interaction) {
         return;
       }
 
+      const embed = new EmbedBuilder()
+        .setTitle('🟢 Start Picking?')
+        .setDescription(`Start your own personal picks session for **${dayLabel}**?\n\nThis will be private (no public announcement).`)
+        .setColor(0x57F287);
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`pats_personal_start_confirm_${dateStr}`)
+          .setLabel(`Yes, start ${dayLabel}`)
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId('pats_personal_start_cancel')
+          .setLabel('Cancel')
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+      await interaction.editReply({ embeds: [embed], components: [row] });
+      return;
+    }
+
+    if (interaction.customId === 'pats_personal_start_cancel') {
+      await interaction.deferUpdate();
+      await showDashboard(interaction);
+      return;
+    }
+
+    // Start personal session (confirm for a specific date)
+    if (interaction.customId.startsWith('pats_personal_start_confirm_')) {
+      await interaction.deferUpdate();
+
+      // Don't create personal sessions if a global session is running
+      const globalSession = getActiveGlobalSession();
+      if (globalSession) {
+        await showDashboard(interaction);
+        return;
+      }
+
+      // If the user already has a personal session, just show it
+      const existingPersonal = getActiveSessionForUser(interaction.user.id);
+      if (existingPersonal) {
+        await showDashboard(interaction);
+        return;
+      }
+
+      const dateStr = interaction.customId.replace('pats_personal_start_confirm_', '');
+      const games = await fetchGamesForSession(dateStr);
+      if (!games || games.length === 0) {
+        await interaction.editReply({
+          content: `❌ No NBA games found for ${dateStr}.`,
+          embeds: [],
+          components: []
+        });
+        return;
+      }
+
+      const now = new Date();
+      const upcomingGames = games.filter(g => new Date(g.commenceTime) >= now);
+      if (upcomingGames.length === 0) {
+        // If the user tried to start for "today" but there are no pickable games left,
+        // fall back to offering "tomorrow" instead.
+        const pacificToday = getPacificDateStr();
+        if (dateStr === pacificToday) {
+          const tomorrowStr = getPacificDateStrWithOffset(1);
+          const tomorrowGames = await fetchGamesForSession(tomorrowStr);
+          const tomorrowUpcoming = (tomorrowGames || []).filter(g => new Date(g.commenceTime) >= now);
+
+          if (tomorrowUpcoming.length > 0) {
+            const embed = new EmbedBuilder()
+              .setTitle('🟢 Start Picking?')
+              .setDescription(
+                `There are **no pickable NBA games left for today**.\n\n` +
+                `Start your own personal picks session for **tomorrow**?\n\n` +
+                `This will be private (no public announcement).`
+              )
+              .setColor(0x57F287);
+
+            const row = new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`pats_personal_start_confirm_${tomorrowStr}`)
+                .setLabel('Yes, start tomorrow')
+                .setStyle(ButtonStyle.Success),
+              new ButtonBuilder()
+                .setCustomId('pats_personal_start_cancel')
+                .setLabel('Cancel')
+                .setStyle(ButtonStyle.Secondary)
+            );
+
+            await interaction.editReply({ embeds: [embed], components: [row] });
+            return;
+          }
+        }
+
+        await showDashboard(interaction);
+        return;
+      }
+
       createPATSSession(dateStr, upcomingGames, [interaction.user.id], {
         isPersonal: true,
         ownerId: interaction.user.id,
@@ -432,190 +501,159 @@ export async function handleDashboardButton(interaction) {
     }
 
     if (interaction.customId === 'pats_dashboard_makepick') {
-      // Defer and import makepick command
       await interaction.deferUpdate();
       const makepickCommand = await import('./makepick.js');
       await makepickCommand.handleMakepickFromDashboard(interaction);
-    } else if (interaction.customId === 'pats_dashboard_view_all_picks') {
-      // Import and execute view picks handler
+    }
+    else if (interaction.customId === 'pats_dashboard_view_all_picks') {
       const makepickCommand = await import('./makepick.js');
       await makepickCommand.handleViewMyPicks(interaction);
-    } else if (interaction.customId === 'pats_dashboard_view_everyone_picks') {
-      // Show everyone's picks for all games
+    }
+    else if (interaction.customId === 'pats_dashboard_view_everyone_picks') {
       await interaction.deferUpdate();
       await showEveryonesPicks(interaction);
-    } else if (interaction.customId === 'pats_dashboard_stats') {
-      // Show statistics menu
+    }
+    else if (interaction.customId === 'pats_dashboard_stats' || interaction.customId === 'pats_no_session_stats_menu') {
       await interaction.deferUpdate();
       await showStatsMenu(interaction);
-    } else if (interaction.customId === 'pats_no_session_stats_menu') {
-      // Show statistics menu when no session
-      await interaction.deferUpdate();
-      await showStatsMenu(interaction);
-    } else if (interaction.customId === 'pats_no_session_help') {
-      // Show help menu when no session
+    }
+    else if (interaction.customId === 'pats_no_session_help' || interaction.customId === 'pats_dashboard_help') {
       await interaction.deferUpdate();
       await showHelpMenu(interaction);
-    } else if (interaction.customId === 'pats_stats_menu_my_stats') {
-      // Show user's own stats
+    }
+    else if (interaction.customId === 'pats_dashboard_settings' || interaction.customId === 'pats_no_session_settings') {
+      await interaction.deferUpdate();
+      const { showSettingsMenu } = await import('../utils/userPreferences.js');
+      await showSettingsMenu(interaction);
+    }
+    else if (interaction.customId === 'pats_stats_menu_my_stats') {
       await interaction.deferUpdate();
       await showUserStats(interaction);
-    } else if (interaction.customId === 'pats_stats_menu_other_stats') {
-      // Show player selection for viewing other stats
+    }
+    else if (interaction.customId === 'pats_stats_menu_other_stats') {
       await interaction.deferUpdate();
       await showPlayerSelection(interaction, false);
-    } else if (interaction.customId === 'pats_stats_menu_past_sessions') {
-      // Show past sessions browser
+    }
+    else if (interaction.customId === 'pats_stats_menu_past_sessions') {
       await interaction.deferUpdate();
       await showPastSessionsBrowser(interaction);
-    } else if (interaction.customId === 'pats_stats_menu_leaderboard') {
-      // Show leaderboard with toggle buttons (from stats menu)
+    }
+    else if (interaction.customId === 'pats_stats_menu_leaderboard') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
       return await patsleaderboardCommand.showLeaderboardFromStats(interaction, false);
-    } else if (interaction.customId === 'pats_leaderboard_global_stats') {
-      // Switch to global leaderboard (from stats menu)
+    }
+    else if (interaction.customId === 'pats_leaderboard_global_stats') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
       return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'global');
-    } else if (interaction.customId === 'pats_leaderboard_blazers_stats') {
-      // Switch to Blazers Uprise leaderboard (from stats menu)
+    }
+    else if (interaction.customId === 'pats_leaderboard_blazers_stats') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
       return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'role');
-    } else if (interaction.customId === 'pats_leaderboard_season_stats') {
-      // Switch to This Season leaderboard (from stats menu)
+    }
+    else if (interaction.customId === 'pats_leaderboard_season_stats') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
       return await patsleaderboardCommand.showLeaderboardFromStats(interaction, 'season');
-    } else if (interaction.customId === 'pats_leaderboard_global_cmd') {
-      // Switch to global leaderboard (from /pats leaderboard command)
+    }
+    else if (interaction.customId === 'pats_leaderboard_global_cmd') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
       return await patsleaderboardCommand.showLeaderboardStandalone(interaction, 'global');
-    } else if (interaction.customId === 'pats_leaderboard_blazers_cmd') {
-      // Switch to Blazers Uprise leaderboard (from /pats leaderboard command)
+    }
+    else if (interaction.customId === 'pats_leaderboard_blazers_cmd') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
       return await patsleaderboardCommand.showLeaderboardStandalone(interaction, 'role');
-    } else if (interaction.customId === 'pats_leaderboard_season_cmd') {
-      // Switch to This Season leaderboard (from /pats leaderboard command)
+    }
+    else if (interaction.customId === 'pats_leaderboard_season_cmd') {
       const patsleaderboardCommand = await import('./patsleaderboard.js');
       await interaction.deferUpdate();
       return await patsleaderboardCommand.showLeaderboardStandalone(interaction, 'season');
-    } else if (interaction.customId === 'pats_leaderboard_back_to_stats') {
-      // Return to stats menu from leaderboard
+    }
+    else if (interaction.customId === 'pats_leaderboard_back_to_stats') {
       await interaction.deferUpdate();
       return await showStatsMenu(interaction);
-    } else if (interaction.customId.startsWith('pats_view_player_')) {
-      // View specific player's stats from search results
+    }
+    else if (interaction.customId.startsWith('pats_view_player_')) {
       await interaction.deferUpdate();
       const userId = interaction.customId.replace('pats_view_player_', '');
       await showUserStats(interaction, userId);
-    } else if (interaction.customId === 'pats_player_selection_back') {
-      // Return to stats menu from player selection
+    }
+    else if (interaction.customId === 'pats_player_selection_back') {
       await interaction.deferUpdate();
       await showStatsMenu(interaction);
-    } else if (interaction.customId === 'pats_stats_menu_back') {
-      // Return to dashboard from stats menu
+    }
+    else if (interaction.customId === 'pats_stats_menu_back') {
       await interaction.deferUpdate();
       await showDashboard(interaction);
-    } else if (interaction.customId === 'pats_past_sessions_back') {
-      // Return to past sessions browser
+    }
+    else if (interaction.customId === 'pats_past_sessions_back') {
       await interaction.deferUpdate();
       await showPastSessionsBrowser(interaction);
-    } else if (interaction.customId.startsWith('pats_view_historical_games_')) {
-      // View games from historical session
+    }
+    else if (interaction.customId.startsWith('pats_view_historical_games_')) {
       await interaction.deferUpdate();
       const sessionId = interaction.customId.replace('pats_view_historical_games_', '');
       await showHistoricalGames(interaction, sessionId);
-    } else if (interaction.customId.startsWith('pats_view_historical_picks_')) {
-      // View user's picks from historical session
+    }
+    else if (interaction.customId.startsWith('pats_view_historical_picks_')) {
       await interaction.deferUpdate();
       const sessionId = interaction.customId.replace('pats_view_historical_picks_', '');
       await showHistoricalPicks(interaction, sessionId);
-    } else if (interaction.customId.startsWith('pats_historical_game_detail_')) {
-      // View detailed game info from historical session
+    }
+    else if (interaction.customId.startsWith('pats_historical_game_detail_')) {
       await interaction.deferUpdate();
       const [sessionId, gameId] = interaction.customId.replace('pats_historical_game_detail_', '').split('_');
       await showHistoricalGameDetail(interaction, sessionId, gameId);
-    } else if (interaction.customId.startsWith('pats_back_to_historical_')) {
-      // Return to historical dashboard
+    }
+    else if (interaction.customId.startsWith('pats_back_to_historical_')) {
       await interaction.deferUpdate();
       const sessionId = interaction.customId.replace('pats_back_to_historical_', '');
       await showHistoricalDashboard(interaction, sessionId);
-    } else if (interaction.customId === 'pats_dashboard_refresh') {
-      // Fetch fresh CBS scores and update session before showing dashboard
-      
-      // Try to defer, but if interaction is too old (>15 min), it will fail
-      try {
-        await interaction.deferUpdate();
-      } catch (error) {
-        // Interaction expired - can't update the old message
-        // Best we can do is log it and inform the user
-        console.log('⚠️ Interaction expired, cannot refresh. User needs to run /pats again.');
-        if (!interaction.replied && !interaction.deferred) {
-          try {
-            await interaction.reply({
-              content: '❌ This dashboard expired. Please run `/pats` again to get a fresh dashboard with updated scores.',
-              ephemeral: true
-            });
-          } catch (replyError) {
-            console.error('Could not send expiration message:', replyError);
-          }
-        }
-        return;
-      }
-      
+    }
+    else if (interaction.customId === 'pats_dashboard_refresh') {
+      await interaction.deferUpdate();
+
       const session = getActiveSessionForUser(interaction.user.id);
       if (session) {
         try {
           console.log('🔄 Refreshing dashboard - fetching fresh scores...');
           const espnGames = await fetchCBSSportsScores(session.date);
-          
+
           let updatedCount = 0;
           for (const sessionGame of session.games) {
-            // Match with ESPN data using abbreviations
             const awayAbbr = getTeamAbbreviation(sessionGame.awayTeam);
             const homeAbbr = getTeamAbbreviation(sessionGame.homeTeam);
-            
-            console.log(`🔍 Looking for match: ${awayAbbr} @ ${homeAbbr}`);
-            
-            const espnGame = espnGames.find(eg => 
-              eg.awayTeam === awayAbbr && eg.homeTeam === homeAbbr
-            );
-            
-            if (espnGame) {
-              console.log(`  ✅ Found ESPN game: ${espnGame.awayTeam} @ ${espnGame.homeTeam} - ${espnGame.awayScore} @ ${espnGame.homeScore}`);
-            } else {
-              console.log(`  ❌ No ESPN match found for ${awayAbbr} @ ${homeAbbr}`);
-            }
-            
-            if (espnGame && espnGame.awayScore !== null && espnGame.homeScore !== null) {
-              // If ESPN says game is live, always update
-              if (espnGame.isLive) {
-                const liveResult = {
-                  homeScore: espnGame.homeScore,
-                  awayScore: espnGame.awayScore,
-                  status: espnGame.status,
-                  isLive: true
-                };
-                const updated = updateGameResult(session.id, sessionGame.id, liveResult);
-                if (updated !== false) updatedCount++;
-              } else if (espnGame.isFinal) {
-                // Mark as final
+
+            const espnGame = espnGames.find(eg => eg.awayTeam === awayAbbr && eg.homeTeam === homeAbbr);
+            if (!espnGame) continue;
+
+            if (espnGame.isLive) {
+              const liveResult = {
+                homeScore: espnGame.homeScore,
+                awayScore: espnGame.awayScore,
+                status: espnGame.status,
+                isLive: true
+              };
+              updateGameResult(session.id, sessionGame.id, liveResult);
+              updatedCount++;
+            } else if (espnGame.isFinal) {
+              if (!sessionGame.result || sessionGame.result.status !== 'Final') {
                 const result = {
                   homeScore: espnGame.homeScore,
                   awayScore: espnGame.awayScore,
                   winner: espnGame.homeScore > espnGame.awayScore ? 'home' : 'away',
                   status: 'Final'
                 };
-                const updated = updateGameResult(session.id, sessionGame.id, result);
-                if (updated !== false) updatedCount++;
+                updateGameResult(session.id, sessionGame.id, result);
+                updatedCount++;
               }
             }
           }
-          
+
           if (updatedCount > 0) {
             console.log(`✅ Updated ${updatedCount} games with fresh scores`);
           } else {
@@ -625,75 +663,71 @@ export async function handleDashboardButton(interaction) {
           console.error('❌ Error fetching fresh scores for refresh:', error);
         }
       }
-      
+
       await showDashboard(interaction);
-    } else if (interaction.customId === 'pats_dashboard_help') {
-      // Show help menu
-      await interaction.deferUpdate();
-      await showHelpMenu(interaction);
-    } else if (interaction.customId === 'pats_dashboard_help_settings') {
-      // Show combined Help & Settings submenu
+    }
+    else if (interaction.customId === 'pats_dashboard_help_settings') {
       await interaction.deferUpdate();
       await showHelpSettingsMenu(interaction);
-    } else if (interaction.customId === 'pats_help_settings_help') {
-      // Navigate to help from submenu
+    }
+    else if (interaction.customId === 'pats_help_settings_help') {
       await interaction.deferUpdate();
       await showHelpMenu(interaction);
-    } else if (interaction.customId === 'pats_help_settings_settings') {
-      // Navigate to settings from submenu
+    }
+    else if (interaction.customId === 'pats_help_settings_settings') {
       await interaction.deferUpdate();
       const { showSettingsMenu } = await import('../utils/userPreferences.js');
       await showSettingsMenu(interaction);
-    } else if (interaction.customId === 'pats_help_settings_back') {
-      // Return to dashboard from Help & Settings submenu
+    }
+    else if (interaction.customId === 'pats_help_settings_back') {
       await interaction.deferUpdate();
       await showDashboard(interaction);
-    } else if (interaction.customId === 'pats_dashboard_season') {
-      // Show Season detail view for participants
+    }
+    else if (interaction.customId === 'pats_dashboard_season') {
       await interaction.deferUpdate();
       await showSeasonDetailView(interaction);
-    } else if (interaction.customId === 'pats_season_detail_back') {
-      // Return to dashboard from Season detail view
+    }
+    else if (interaction.customId === 'pats_season_detail_back') {
       await interaction.deferUpdate();
       await showDashboard(interaction);
-    } else if (interaction.customId === 'pats_season_detail_standings') {
-      // Show full leaderboard with season filter and back navigation
+    }
+    else if (interaction.customId === 'pats_season_detail_standings') {
       await interaction.deferUpdate();
       await showSeasonLeaderboardView(interaction);
-    } else if (interaction.customId === 'pats_season_leaderboard_back') {
-      // Return to Season detail view from leaderboard
+    }
+    else if (interaction.customId === 'pats_season_leaderboard_back') {
       await interaction.deferUpdate();
       await showSeasonDetailView(interaction);
-    } else if (interaction.customId === 'pats_season_detail_schedule') {
-      // Show season schedule
+    }
+    else if (interaction.customId === 'pats_season_detail_schedule') {
       await interaction.deferUpdate();
       await showSeasonScheduleView(interaction);
-    } else if (interaction.customId === 'pats_season_detail_awards') {
-      // Show season awards
+    }
+    else if (interaction.customId === 'pats_season_detail_awards') {
       await interaction.deferUpdate();
       await showSeasonAwardsView(interaction);
-    } else if (interaction.customId === 'pats_season_detail_past') {
-      // Show past seasons browser
+    }
+    else if (interaction.customId === 'pats_season_detail_past') {
       await interaction.deferUpdate();
       await showPastSeasonsBrowser(interaction);
-    } else if (interaction.customId === 'pats_season_schedule_back' || interaction.customId === 'pats_season_awards_back' || interaction.customId === 'pats_past_seasons_back') {
-      // Return to Season detail view from submenus
+    }
+    else if (interaction.customId === 'pats_season_schedule_back' || interaction.customId === 'pats_season_awards_back' || interaction.customId === 'pats_past_seasons_back') {
       await interaction.deferUpdate();
       await showSeasonDetailView(interaction);
-    } else if (interaction.customId === 'pats_help_legend') {
-      // Show emoji legend
+    }
+    else if (interaction.customId === 'pats_help_legend') {
       await interaction.deferUpdate();
       await showEmojiLegend(interaction);
-    } else if (interaction.customId === 'pats_help_tutorial') {
-      // Show tutorial
+    }
+    else if (interaction.customId === 'pats_help_tutorial') {
       await interaction.deferUpdate();
       await showTutorial(interaction);
-    } else if (interaction.customId === 'pats_help_back') {
-      // Return to Help & Settings submenu from help
+    }
+    else if (interaction.customId === 'pats_help_back') {
       await interaction.deferUpdate();
       await showHelpSettingsMenu(interaction);
-    } else if (interaction.customId === 'pats_stats_back') {
-      // Return to stats menu from individual stats
+    }
+    else if (interaction.customId === 'pats_stats_back') {
       await interaction.deferUpdate();
       await showStatsMenu(interaction);
     }
@@ -716,8 +750,8 @@ export async function showDashboard(interaction) {
   const session = getActiveSessionForUser(interaction.user.id);
   
   if (!session) {
-    // Get user's overall stats to display
-    const stats = getUserStats(interaction.user.id);
+    // Get user's current month stats to display
+    const monthStats = getUserMonthlyStats(interaction.user.id);
     
     // Check for upcoming scheduled sessions
     const upcomingSessions = getUpcomingScheduledSessions();
@@ -797,17 +831,17 @@ export async function showDashboard(interaction) {
       .setColor(0x808080)
       .setTimestamp();
 
-    // Show overall stats if user has any (total games > 0 OR sessions > 0)
-    const hasStats = stats.sessions > 0 || (stats.totalWins + stats.totalLosses + stats.totalPushes) > 0;
+    // Show current month stats if user has any
+    const hasMonthStats = monthStats.sessions > 0 || (monthStats.totalWins + monthStats.totalLosses + monthStats.totalPushes) > 0;
     
-    if (hasStats) {
-      const totalGames = stats.totalWins + stats.totalLosses;
+    if (hasMonthStats) {
+      const totalGames = monthStats.totalWins + monthStats.totalLosses;
       embed.addFields({
-        name: '📊 Your Overall Stats',
+        name: `📊 Current Month (${monthStats.monthKey || 'N/A'})`,
         value: [
-          `**Record:** ${stats.totalWins}-${stats.totalLosses}-${stats.totalPushes}`,
-          `**Win Rate:** ${stats.winPercentage.toFixed(1)}%`,
-          `**Sessions Played:** ${stats.sessions}`
+          `**Record:** ${monthStats.totalWins}-${monthStats.totalLosses}-${monthStats.totalPushes}`,
+          `**Win Rate:** ${monthStats.winPercentage.toFixed(1)}%`,
+          `**Sessions Played:** ${monthStats.sessions}`
         ].join('\n'),
         inline: false
       });
@@ -848,7 +882,7 @@ export async function showDashboard(interaction) {
           .setEmoji('🟢'),
         new ButtonBuilder()
           .setCustomId('pats_no_session_stats_menu')
-          .setLabel('All Statistics')
+          .setLabel('Statistics')
           .setStyle(ButtonStyle.Primary)
           .setEmoji('📊'),
         new ButtonBuilder()
@@ -1159,7 +1193,7 @@ export async function showDashboard(interaction) {
       .setDisabled(pickedCount === 0),
     new ButtonBuilder()
       .setCustomId('pats_dashboard_stats')
-      .setLabel('All Statistics')
+      .setLabel('Statistics')
       .setStyle(ButtonStyle.Success)
       .setEmoji('📊')
   );
@@ -1197,7 +1231,7 @@ export async function showDashboard(interaction) {
 async function showStatsMenu(interaction) {
   const embed = new EmbedBuilder()
     .setTitle('📊 PATS Statistics')
-    .setDescription('**View player statistics and performance**\n\nChoose whose stats you\'d like to view:')
+    .setDescription('**View player statistics and performance**\n\nIncludes **Current Month** and **All-Time**.\n\nChoose whose stats you\'d like to view:')
     .setColor(0x5865F2)
     .setTimestamp();
 
@@ -1510,6 +1544,7 @@ async function searchPlayers(interaction, searchQuery) {
 async function showUserStats(interaction, targetUserId = null) {
   const userId = targetUserId || interaction.user.id;
   const stats = getUserStats(userId);
+  const monthStats = getUserMonthlyStats(userId);
   const sessionStats = getCurrentSessionStats(userId);
   
   // Get username for display
@@ -1537,6 +1572,17 @@ async function showUserStats(interaction, targetUserId = null) {
     .setColor(0x5865F2)
     .setTimestamp();
 
+  // Current month stats
+  embed.addFields({
+    name: `📅 Current Month (${monthStats.monthKey || 'N/A'})`,
+    value: [
+      `**Record:** ${monthStats.totalWins}-${monthStats.totalLosses}-${monthStats.totalPushes}`,
+      `**Win Rate:** ${monthStats.winPercentage.toFixed(1)}%`,
+      `**Sessions Played:** ${monthStats.sessions}`
+    ].join('\n'),
+    inline: true
+  });
+
   // Overall stats
   const totalGames = stats.totalWins + stats.totalLosses;
   
@@ -1551,7 +1597,7 @@ async function showUserStats(interaction, targetUserId = null) {
   const avgPicksPerSession = sessionHistory.length > 0 ? (totalPicksMade / sessionHistory.length).toFixed(1) : '0';
   
   embed.addFields({
-    name: '🏆 Overall Record',
+    name: '🏆 All-Time Record',
     value: [
       `**Record:** ${stats.totalWins}-${stats.totalLosses}-${stats.totalPushes}`,
       `**Win Rate:** ${stats.winPercentage.toFixed(1)}%`,
