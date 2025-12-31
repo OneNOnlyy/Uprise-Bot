@@ -1582,6 +1582,45 @@ export function updatePlayerRecord(userId, updates) {
 }
 
 /**
+ * Update a user's monthly stats bucket.
+ * NOTE: This does not auto-reconcile all-time totals; use updatePlayerRecord separately if desired.
+ */
+export function updatePlayerMonthlyRecord(userId, monthKey, updates) {
+  const data = readPATSData();
+
+  if (!data.users[userId]) {
+    throw new Error('Player not found in the system');
+  }
+
+  const normalizedMonthKey = typeof monthKey === 'string' ? monthKey.trim() : '';
+  if (!normalizedMonthKey.match(/^\d{4}-\d{2}$/)) {
+    throw new Error('Invalid month key. Expected YYYY-MM');
+  }
+
+  // Ensure bucket exists
+  ensureUser(data, userId);
+  const bucket = ensureMonthlyBucket(data.users[userId], normalizedMonthKey);
+
+  const allowedFields = [
+    'totalWins', 'totalLosses', 'totalPushes', 'sessions',
+    'doubleDownsUsed', 'doubleDownWins', 'doubleDownLosses', 'doubleDownPushes'
+  ];
+
+  for (const [key, value] of Object.entries(updates || {})) {
+    if (allowedFields.includes(key)) {
+      bucket[key] = value;
+    } else {
+      console.warn(`[PATS] Attempted to update invalid monthly field: ${key}`);
+    }
+  }
+
+  data.users[userId].lastUpdated = new Date().toISOString();
+  writePATSData(data);
+  console.log(`[PATS] Updated player monthly record: ${userId} (${normalizedMonthKey})`);
+  return { monthKey: normalizedMonthKey, ...bucket };
+}
+
+/**
  * Get player stats
  */
 export function getPlayerStats(userId) {

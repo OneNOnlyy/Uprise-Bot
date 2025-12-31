@@ -263,6 +263,19 @@ export const data = new SlashCommandBuilder()
         option.setName('player')
           .setDescription('The player to edit')
           .setRequired(true))
+      .addStringOption(option =>
+        option.setName('scope')
+          .setDescription('Which stats to edit')
+          .setRequired(false)
+          .addChoices(
+            { name: 'All-Time (Total)', value: 'total' },
+            { name: 'Monthly (YYYY-MM)', value: 'monthly' },
+            { name: 'Both (same values)', value: 'both' }
+          ))
+      .addStringOption(option =>
+        option.setName('month')
+          .setDescription('Month key for monthly edits (YYYY-MM)')
+          .setRequired(false))
       .addIntegerOption(option =>
         option.setName('wins')
           .setDescription('Set total wins')
@@ -291,6 +304,16 @@ export const data = new SlashCommandBuilder()
       .addIntegerOption(option =>
         option.setName('doubledown_losses')
           .setDescription('Set double down losses')
+          .setRequired(false)
+          .setMinValue(0))
+      .addIntegerOption(option =>
+        option.setName('doubledown_pushes')
+          .setDescription('Set double down pushes')
+          .setRequired(false)
+          .setMinValue(0))
+      .addIntegerOption(option =>
+        option.setName('doubledowns_used')
+          .setDescription('Set double downs used')
           .setRequired(false)
           .setMinValue(0)))
   .addSubcommand(subcommand =>
