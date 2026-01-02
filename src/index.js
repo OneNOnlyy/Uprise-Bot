@@ -1121,15 +1121,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (interaction.customId.startsWith('pats_toggle_') || interaction.customId === 'pats_settings_back') {
         if (interaction.customId === 'pats_settings_back') {
           await interaction.deferUpdate();
-          // Import showHelpSettingsMenu to go back to submenu
-          const patsModule = await import('./commands/pats.js');
-          // Call via exported function if exists, otherwise use internal method
-          if (patsModule.showHelpSettingsMenu) {
-            await patsModule.showHelpSettingsMenu(interaction);
-          } else {
-            // Fallback: show dashboard if function not exported
-            await patsCommand.showDashboard(interaction);
-          }
+          // Return to dashboard
+          await patsCommand.showDashboard(interaction);
         } else {
           await handleToggle(interaction);
         }
