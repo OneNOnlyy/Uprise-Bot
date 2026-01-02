@@ -1090,22 +1090,25 @@ export async function showDashboard(interaction) {
       }
       
       // Add buttons to view detailed stats and help
-      const buttons = new ActionRowBuilder().addComponents(
+      const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId('pats_dashboard_personal_start')
           .setLabel('Start')
           .setStyle(ButtonStyle.Success)
           .setEmoji('🟢'),
         new ButtonBuilder()
+          .setCustomId('pats_no_session_stats_menu')
+          .setLabel('Statistics')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('📊')
+      );
+
+      const row2 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
           .setCustomId('pats_dashboard_upcoming_days_month')
           .setLabel('Upcoming Days')
           .setStyle(ButtonStyle.Secondary)
           .setEmoji('📅'),
-        new ButtonBuilder()
-          .setCustomId('pats_no_session_stats_menu')
-          .setLabel('Statistics')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('📊'),
         new ButtonBuilder()
           .setCustomId('pats_no_session_help')
           .setLabel('Help')
@@ -1120,26 +1123,29 @@ export async function showDashboard(interaction) {
 
       await interaction.editReply({
         embeds: [embed],
-        components: [buttons]
+        components: [row1, row2]
       });
     } else {
       // No stats at all - just show the message with all buttons
-      const buttons = new ActionRowBuilder().addComponents(
+      const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId('pats_dashboard_personal_start')
           .setLabel('Start')
           .setStyle(ButtonStyle.Success)
           .setEmoji('🟢'),
         new ButtonBuilder()
+          .setCustomId('pats_no_session_stats_menu')
+          .setLabel('Statistics')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('📊')
+      );
+
+      const row2 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
           .setCustomId('pats_dashboard_upcoming_days_month')
           .setLabel('Upcoming Days')
           .setStyle(ButtonStyle.Secondary)
           .setEmoji('📅'),
-        new ButtonBuilder()
-          .setCustomId('pats_no_session_stats_menu')
-          .setLabel('Statistics')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('📊'),
         new ButtonBuilder()
           .setCustomId('pats_no_session_help')
           .setLabel('Help')
@@ -1154,7 +1160,7 @@ export async function showDashboard(interaction) {
 
       await interaction.editReply({
         embeds: [embed],
-        components: [buttons]
+        components: [row1, row2]
       });
     }
     return;
