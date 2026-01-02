@@ -983,7 +983,7 @@ export async function handleDashboardButton(interaction) {
     }
     else if (interaction.customId === 'pats_help_back') {
       await interaction.deferUpdate();
-      await showHelpSettingsMenu(interaction);
+      await showDashboard(interaction);
     }
     else if (interaction.customId === 'pats_stats_back') {
       await interaction.deferUpdate();
