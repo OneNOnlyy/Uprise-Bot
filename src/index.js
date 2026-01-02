@@ -65,10 +65,16 @@ function startPersonalSessionAutoCloser(client) {
 
         if (!session.personalAllFinalAt) {
           session.personalAllFinalAt = now.toISOString();
-          const autoCloseAt = new Date(now.getTime() + (60 * 60 * 1000));
+          
+          // Calculate 1 hour after the last game ends
+          // Find the latest game commence time and add ~3 hours for game duration + 1 hour buffer
+          const lastGameCommenceTime = Math.max(...session.games.map(g => new Date(g.commenceTime).getTime()));
+          const lastGameEndTime = new Date(lastGameCommenceTime + (3 * 60 * 60 * 1000)); // Add 3 hours for game duration
+          const autoCloseAt = new Date(lastGameEndTime.getTime() + (60 * 60 * 1000)); // Add 1 hour after game ends
+          
           session.personalAutoCloseAt = autoCloseAt.toISOString();
           didWrite = true;
-          console.log(`[PATS][Personal] Session ${session.id} completed. Auto-close scheduled at ${session.personalAutoCloseAt}`);
+          console.log(`[PATS][Personal] Session ${session.id} completed. Auto-close scheduled at ${session.personalAutoCloseAt} (1hr after last game ends)`);
         }
       }
 

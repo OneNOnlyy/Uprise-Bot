@@ -37,8 +37,14 @@ export async function fetchNBATransactions(retryCount = 0) {
     
     const data = await response.json();
     
-    if (!data.transactions || !Array.isArray(data.transactions)) {
-      console.error('❌ Invalid response format from ESPN API');
+    // ESPN API returns count: 0 when there are no transactions
+    if (data.count === 0 || !data.transactions) {
+      console.log('ℹ️ No transactions available from ESPN API');
+      return [];
+    }
+    
+    if (!Array.isArray(data.transactions)) {
+      console.error('❌ Invalid response format from ESPN API (transactions not an array)');
       return [];
     }
     
