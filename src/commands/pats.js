@@ -959,76 +959,34 @@ export async function showDashboard(interaction) {
     // Get user's current month stats to display
     const monthStats = getUserMonthlyStats(interaction.user.id);
     
-    // Check for upcoming scheduled sessions
-    const upcomingSessions = getUpcomingScheduledSessions();
-    const nextSession = upcomingSessions.length > 0 
-      ? upcomingSessions.sort((a, b) => new Date(a.firstGameTime) - new Date(b.firstGameTime))[0]
-      : null;
-    
     let description = '';
     
-    if (nextSession) {
-      // Use announcement time (when session starts) instead of first game time
-      const sessionStartTime = nextSession.notifications?.announcement?.time 
-        ? new Date(nextSession.notifications.announcement.time)
-        : new Date(nextSession.firstGameTime);
-      const unixTimestamp = Math.floor(sessionStartTime.getTime() / 1000);
-      
-      // Count the number of games (could be an array or a number)
-      const gameCount = Array.isArray(nextSession.games) ? nextSession.games.length : nextSession.games;
-      
-      // Format date in relative format (e.g., "Tomorrow, December 2nd" or "Sunday, December 7th")
-      const sessionDate = new Date(nextSession.scheduledDate);
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const sessionDay = new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate());
-      
-      let relativeDate;
-      if (sessionDay.getTime() === today.getTime()) {
-        relativeDate = 'Today';
-      } else if (sessionDay.getTime() === tomorrow.getTime()) {
-        relativeDate = 'Tomorrow';
+    try {
+      const nextNba = await getNextNBAGameDayInfo();
+      if (nextNba) {
+        const { dateStr, gameCount, firstGameTime } = nextNba;
+        const unixTimestamp = Math.floor(firstGameTime.getTime() / 1000);
+
+        // Relative day label
+        const now = new Date();
+        const todayStr = getPacificDateStr();
+        const tomorrowStr = getPacificDateStrWithOffset(1);
+        const relativeDay = dateStr === todayStr
+          ? 'Today'
+          : (dateStr === tomorrowStr ? 'Tomorrow' : new Date(`${dateStr}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Los_Angeles' }));
+
+        description = [
+          '📅 **Next NBA Games**',
+          `**Day:** ${relativeDay} (${dateStr})`,
+          `**Games:** ${gameCount} game${gameCount !== 1 ? 's' : ''}`, 
+          `**First Tip-Off:** <t:${unixTimestamp}:t> (<t:${unixTimestamp}:R>)`
+        ].join('\n');
       } else {
-        // Show day of week for dates within the next week
-        relativeDate = sessionDate.toLocaleDateString('en-US', { weekday: 'long' });
+        description = '📅 No NBA games found in the next 7 days.';
       }
-      
-      const formattedDate = sessionDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-      const dateDisplay = sessionDay.getTime() === today.getTime() 
-        ? relativeDate 
-        : `${relativeDate}, ${formattedDate}`;
-      
-      description = `📅 **Next Scheduled Session:**\n${dateDisplay} • ${gameCount} game${gameCount !== 1 ? 's' : ''} • <t:${unixTimestamp}:R>`;
-    } else {
-      try {
-        const nextNba = await getNextNBAGameDayInfo();
-        if (nextNba) {
-          const { dateStr, gameCount, firstGameTime } = nextNba;
-          const unixTimestamp = Math.floor(firstGameTime.getTime() / 1000);
-
-          // Relative day label
-          const now = new Date();
-          const todayStr = getPacificDateStr();
-          const tomorrowStr = getPacificDateStrWithOffset(1);
-          const relativeDay = dateStr === todayStr
-            ? 'Today'
-            : (dateStr === tomorrowStr ? 'Tomorrow' : new Date(`${dateStr}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/Los_Angeles' }));
-
-          description = [
-            '📅 **Next NBA Games**',
-            `**Day:** ${relativeDay} (${dateStr})`,
-            `**Games:** ${gameCount} game${gameCount !== 1 ? 's' : ''}`, 
-            `**First Tip-Off:** <t:${unixTimestamp}:t> (<t:${unixTimestamp}:R>)`
-          ].join('\n');
-        } else {
-          description = '📅 No sessions scheduled, and no NBA games found in the next 7 days.';
-        }
-      } catch (error) {
-        console.error('[PATS] Failed to fetch next NBA game day info:', error);
-        description = '📅 No sessions currently scheduled.';
-      }
+    } catch (error) {
+      console.error('[PATS] Failed to fetch next NBA game day info:', error);
+      description = '📅 Unable to load upcoming games.';
     }
     
     const embed = new EmbedBuilder()
