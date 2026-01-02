@@ -15,6 +15,11 @@ import { getUserSessionSnapshots, loadSessionSnapshot, loadInjuryData, loadRoste
 import { getCurrentSeason, getSeasonStandings, isUserInCurrentSeason, getSeasonHistory, getSessionsInSeason } from '../utils/patsSeasons.js';
 import { fetchGamesForSession } from '../utils/dataCache.js';
 
+// Cache for upcoming days to speed up menu loading
+let upcomingDaysCache = null;
+let upcomingDaysCacheTime = null;
+const UPCOMING_DAYS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 function getPacificDateStr() {
   // YYYY-MM-DD in Pacific time
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
@@ -108,11 +113,54 @@ function buildGamesFieldValue(games) {
 async function showUpcomingPatsDaysThisMonth(interaction) {
   const monthKey = getPacificMonthKey(new Date());
   const monthLabel = formatMonthKeyLabel(monthKey);
+  const now = new Date();
+
+  // Check cache first
+  if (upcomingDaysCache && upcomingDaysCacheTime && (now - upcomingDaysCacheTime) < UPCOMING_DAYS_CACHE_DURATION && upcomingDaysCache.monthKey === monthKey) {
+    console.log('[PATS] Using cached upcoming days data');
+    const dateLines = upcomingDaysCache.dateLines;
+    
+    const embed = new EmbedBuilder()
+      .setTitle('📅 Upcoming PATS Days')
+      .setDescription(
+        `Here are all **upcoming NBA game days** for **${monthLabel}**.`
+      )
+      .setColor(0x5865F2)
+      .setTimestamp();
+
+    if (dateLines.length === 0) {
+      embed.addFields({
+        name: 'No upcoming scheduled days',
+        value: 'There are no upcoming NBA game days for the rest of this month.'
+      });
+    } else {
+      embed.addFields({
+        name: `Days (${dateLines.length})`,
+        value: dateLines.join('\n'),
+        inline: false
+      });
+    }
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('pats_upcoming_days_back')
+        .setLabel('Back to Dashboard')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('◀️')
+    );
+
+    await interaction.editReply({
+      content: null,
+      embeds: [embed],
+      components: [row]
+    });
+    return;
+  }
 
   // Find all remaining NBA game days in this month (Pacific)
+  console.log('[PATS] Fetching fresh upcoming days data');
   const dateLines = [];
   const maxLookaheadDays = 45; // safely covers month boundary
-  const now = new Date();
 
   for (let i = 0; i <= maxLookaheadDays; i++) {
     const dateStr = getPacificDateStrWithOffset(i);
@@ -134,6 +182,10 @@ async function showUpcomingPatsDaysThisMonth(interaction) {
     const suffix = ` — ${games.length} game${games.length === 1 ? '' : 's'}`;
     dateLines.push(`• **${formatDashboardDate(dateStr)}**${suffix}`);
   }
+
+  // Cache the results
+  upcomingDaysCache = { monthKey, dateLines };
+  upcomingDaysCacheTime = new Date();
 
   const embed = new EmbedBuilder()
     .setTitle('📅 Upcoming PATS Days')
@@ -1071,7 +1123,7 @@ export async function showDashboard(interaction) {
         components: [buttons]
       });
     } else {
-      // No stats at all - just show the message
+      // No stats at all - just show the message with all buttons
       const buttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId('pats_dashboard_personal_start')
@@ -1082,7 +1134,22 @@ export async function showDashboard(interaction) {
           .setCustomId('pats_dashboard_upcoming_days_month')
           .setLabel('Upcoming Days')
           .setStyle(ButtonStyle.Secondary)
-          .setEmoji('📅')
+          .setEmoji('📅'),
+        new ButtonBuilder()
+          .setCustomId('pats_no_session_stats_menu')
+          .setLabel('Statistics')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('📊'),
+        new ButtonBuilder()
+          .setCustomId('pats_no_session_help')
+          .setLabel('Help')
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('❓'),
+        new ButtonBuilder()
+          .setCustomId('pats_no_session_settings')
+          .setLabel('Settings')
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji('⚙️')
       );
 
       await interaction.editReply({
