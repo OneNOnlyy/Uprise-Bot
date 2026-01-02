@@ -1047,22 +1047,19 @@ export async function showDashboard(interaction) {
       .setColor(0x808080)
       .setTimestamp();
 
-    // Show current month stats if user has any
-    const hasMonthStats = monthStats.sessions > 0 || (monthStats.totalWins + monthStats.totalLosses + monthStats.totalPushes) > 0;
+    // Always show current month stats
+    const totalGames = monthStats.totalWins + monthStats.totalLosses;
+    embed.addFields({
+      name: '📊 Current Month',
+      value: [
+        `**Record:** ${monthStats.totalWins}-${monthStats.totalLosses}-${monthStats.totalPushes}`,
+        `**Win Rate:** ${monthStats.winPercentage.toFixed(1)}%`,
+        `**Sessions Played:** ${monthStats.sessions}`
+      ].join('\n'),
+      inline: false
+    });
     
-    if (hasMonthStats) {
-      const totalGames = monthStats.totalWins + monthStats.totalLosses;
-      embed.addFields({
-        name: '📊 Current Month',
-        value: [
-          `**Record:** ${monthStats.totalWins}-${monthStats.totalLosses}-${monthStats.totalPushes}`,
-          `**Win Rate:** ${monthStats.winPercentage.toFixed(1)}%`,
-          `**Sessions Played:** ${monthStats.sessions}`
-        ].join('\n'),
-        inline: false
-      });
-      
-      // Add season info if user is participating in current season
+    // Add season info if user is participating in current season
       const currentSeason = getCurrentSeason();
       if (currentSeason && isUserInCurrentSeason(interaction.user.id)) {
         const standings = getSeasonStandings(currentSeason.id);
@@ -1125,44 +1122,7 @@ export async function showDashboard(interaction) {
         embeds: [embed],
         components: [row1, row2]
       });
-    } else {
-      // No stats at all - just show the message with all buttons
-      const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('pats_dashboard_personal_start')
-          .setLabel('Start')
-          .setStyle(ButtonStyle.Success)
-          .setEmoji('🟢'),
-        new ButtonBuilder()
-          .setCustomId('pats_no_session_stats_menu')
-          .setLabel('Statistics')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('📊')
-      );
-
-      const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('pats_dashboard_upcoming_days_month')
-          .setLabel('Upcoming Days')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('📅'),
-        new ButtonBuilder()
-          .setCustomId('pats_no_session_help')
-          .setLabel('Help')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('❓'),
-        new ButtonBuilder()
-          .setCustomId('pats_no_session_settings')
-          .setLabel('Settings')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('⚙️')
-      );
-
-      await interaction.editReply({
-        embeds: [embed],
-        components: [row1, row2]
-      });
-    }
+    
     return;
   }
 
