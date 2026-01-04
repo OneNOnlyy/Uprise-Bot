@@ -631,7 +631,7 @@ export async function handleDashboardButton(interaction) {
 
       const embed = new EmbedBuilder()
         .setTitle('🟢 Start Picking?')
-        .setDescription(`Start your own personal picks session for **${dayLabel}**?\n\nThis will be private (no public announcement).`)
+        .setDescription(`Start your own personal picks session for **${dayLabel}**?`)
         .setColor(0x57F287);
 
       embed.addFields({
@@ -706,8 +706,7 @@ export async function handleDashboardButton(interaction) {
               .setTitle('🟢 Start Picking?')
               .setDescription(
                 `There are **no pickable NBA games left for today**.\n\n` +
-                `Start your own personal picks session for **tomorrow**?\n\n` +
-                `This will be private (no public announcement).`
+                `Start your own personal picks session for **tomorrow**?`
               )
               .setColor(0x57F287);
 
