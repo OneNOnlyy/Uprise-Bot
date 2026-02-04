@@ -3,6 +3,13 @@ import { getBlazersGameToday, formatGameInfo } from '../utils/nbaApi.js';
 
 let activePingJobs = new Map(); // Track scheduled pings by game date
 
+const GAME_PING_DELAY_MINUTES = Number.parseInt(process.env.GAME_PING_DELAY_MINUTES || '10', 10);
+
+function getGamePingDelayMs() {
+  if (!Number.isFinite(GAME_PING_DELAY_MINUTES) || GAME_PING_DELAY_MINUTES <= 0) return 0;
+  return GAME_PING_DELAY_MINUTES * 60 * 1000;
+}
+
 /**
  * Check for today's game and schedule a ping at game time
  */
@@ -40,8 +47,9 @@ async function checkAndScheduleGamePing(client) {
       return;
     }
 
-    // Calculate ping time (at game start, not 5 minutes before)
-    const pingTime = new Date(gameTime.getTime());
+    // Calculate ping time (delay slightly after listed start time; games often tip a bit late)
+    const pingDelayMs = getGamePingDelayMs();
+    const pingTime = new Date(gameTime.getTime() + pingDelayMs);
     const now = new Date();
     
     // Only schedule if ping time is in the future
@@ -59,7 +67,9 @@ async function checkAndScheduleGamePing(client) {
       activePingJobs.set(gameKey, timeout);
       
       const timeUntilPing = Math.floor(msUntilPing / 60000);
-      console.log(`✅ [GAME PING] Scheduled game ping for ${pingTime.toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles' })} PT (in ${timeUntilPing} minutes)`);
+      const delayMinutes = Math.round(pingDelayMs / 60000);
+      const delayNote = delayMinutes > 0 ? ` (+${delayMinutes}m delay)` : '';
+      console.log(`✅ [GAME PING] Scheduled game ping for ${pingTime.toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles' })} PT${delayNote} (in ${timeUntilPing} minutes)`);
       console.log('📋 [GAME PING] Active jobs:', Array.from(activePingJobs.keys()));
     } else {
       console.log(`⏰ [GAME PING] Game already started or passed (${Math.abs(Math.floor((pingTime - now) / 60000))} minutes ago)`);
@@ -194,6 +204,7 @@ export function scheduleGamePings(client) {
   console.log('🚀 [GAME PING] Initializing game ping scheduler...');
   console.log(`⏰ [GAME PING] Cron schedule: */5 * * * * (every 5 minutes)`);
   console.log(`🌍 [GAME PING] Timezone: ${process.env.TIMEZONE || 'America/Los_Angeles'}`);
+  console.log(`🕙 [GAME PING] Ping delay: ${Math.round(getGamePingDelayMs() / 60000)} minutes after listed start`);
   
   // Check immediately on startup
   console.log('🔍 [GAME PING] Running initial check on startup...');
